@@ -57,7 +57,7 @@ The data can be viewed in different ways:
 ### Training a base network
 Running a training
 ```
-$ python main.py --help
+$ python src/main.py --help
 usage: main.py [-h] [--epochs EPOCHS] [--dataset {TOY2,SEGTHOR}] [--mode {partial,full}] --dest DEST [--gpu] [--debug]
 
 options:
@@ -68,12 +68,12 @@ options:
   --dest DEST           Destination directory to save the results (predictions and weights).
   --gpu
   --debug               Keep only a fraction (10 samples) of the datasets, to test the logic around epochs and logging easily.
-$ python main.py --dataset TOY2 --mode full --epoch 25 --dest results/toy2/ce --gpu
+$ python src/main.py --dataset TOY2 --mode full --epoch 25 --dest results/toy2/ce --gpu
 ```
 
 The codebase uses a lot of assertions for control and self-documentation, they can easily be disabled with the `-O` option (for faster training) once everything is known to be correct (for instance run the previous command for 1/2 epochs, then kill it and relaunch it):
 ```
-$ python -O main.py --dataset TOY2 --mode full --epoch 25 --dest results/toy2/ce --gpu
+$ python -O src/main.py --dataset TOY2 --mode full --epoch 25 --dest results/toy2/ce --gpu
 ```
 
 ### Viewing the results
@@ -100,7 +100,7 @@ $ python viewer/viewer.py --img_source data/SEGTHOR/val/img \
 To look at the results in 3D, it is necessary to reconstruct the 3D volume from the individual 2D predictions saved as images.
 To stitch the `.png` back to a nifti file:
 ```
-$ python stitch.py --data_folder results/segthor/ce/best_epoch/val \
+$ python src/stitch.py --data_folder results/segthor/ce/best_epoch/val \
     --dest_folder volumes/segthor/ce \
     --num_classes 255 --grp_regex "(Patient_\d\d)_\d\d\d\d" \
     --source_scan_pattern "data/segthor_train/train/{id_}/GT.nii.gz"
@@ -116,7 +116,7 @@ Zooming on the prediction with smoothing disabled:
 ### Plotting the metrics
 There are some facilities to plot the metrics saved by [`main.py`](main.py):
 ```
-$ python plot.py --help
+$ python src/plot.py --help
 usage: plot.py [-h] --metric_file METRIC_MODE.npy [--dest METRIC_MODE.png] [--headless]
 
 Plot data over time
@@ -128,7 +128,7 @@ options:
   --dest METRIC_MODE.png
                         Optional: save the plot to a .png file
   --headless            Does not display the plot and save it directly (implies --dest to be provided.
-$ python plot.py --metric_file results/segthor/ce/dice_val.npy --dest results/segthor/ce/dice_val.png
+$ python src/plot.py --metric_file results/segthor/ce/dice_val.npy --dest results/segthor/ce/dice_val.png
 ```
 ![Validation DSC](assets/dice_val.png)
 

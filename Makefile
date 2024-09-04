@@ -8,11 +8,11 @@ reset:=$(shell tput sgr0)
 
 
 data/TOY:
-	python gen_toy.py --dest $@ -n 10 10 -wh 256 256 -r 50
+	python src/gen_toy.py --dest $@ -n 10 10 -wh 256 256 -r 50
 
 data/TOY2:
 	rm -rf $@_tmp $@
-	python gen_two_circles.py --dest $@_tmp -n 1000 100 -r 25 -wh 256 256
+	python src/gen_two_circles.py --dest $@_tmp -n 1000 100 -r 25 -wh 256 256
 	mv $@_tmp $@
 
 
@@ -23,8 +23,8 @@ data/segthor_train: data/segthor_train.zip
 	unzip -q $<
 
 data/SEGTHOR: data/segthor_train
-	$(info $(green)python $(CFLAGS) slice_segthor.py$(reset))
+	$(info $(green)python $(CFLAGS) src/slice_segthor.py$(reset))
 	rm -rf $@_tmp $@
-	python $(CFLAGS) slice_segthor.py --source_dir $^ --dest_dir $@_tmp \
+	python $(CFLAGS) src/slice_segthor.py --source_dir $^ --dest_dir $@_tmp \
 		--shape 256 256 --retain 10
 	mv $@_tmp $@
