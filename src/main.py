@@ -29,7 +29,6 @@ from pathlib import Path
 from pprint import pprint
 from operator import itemgetter
 from shutil import copytree, rmtree
-import random
 
 import wandb
 
@@ -46,6 +45,7 @@ from ENet import ENet
 from utils import (
     Dcm,
     class2one_hot,
+    get_optimizer,
     init_wandb,
     log_sample_images_wandb,
     probs2one_hot,
@@ -85,14 +85,16 @@ def setup(args) -> tuple[nn.Module, Any, Any, DataLoader, DataLoader, int]:
     net.to(device)
 
     # TODO use torch.compile for kernel fusion to be faster on the gpu
+    # if gpu:
+    #     net = torch.compile(net)
 
-    lr = 0.0005  # TODO: make it a parameter we can set it much higher
     # TODO consider using a learning rate scheduler
     # TODO consider adding weight decay and gradient clipping
     # TODO consider using SGD with momentum as it works well for cnns
     # TODO otherwise use AdamW as it is a bug fix of Adam that is more stable
     # TODO consider training with mixed precision to speed up training
-    optimizer = torch.optim.Adam(net.parameters(), lr=lr, betas=(0.9, 0.999))
+    # Initialize optimizer based on args
+    optimizer = get_optimizer(args, net)
 
     # Dataset part
     B: int = datasets_params[args.dataset][
@@ -170,9 +172,7 @@ def runTraining(args):
     log_loss_val: Tensor = torch.zeros((args.epochs, len(val_loader)))
     log_dice_val: Tensor = torch.zeros((args.epochs, len(val_loader.dataset), K))
 
-    best_dice: float = 0.0
-    train_steps_done: int = 0
-    val_steps_done: int = 0
+    best_dice = train_steps_done = val_steps_done = 0
 
     for e in range(args.epochs):
         for m in ["train", "val"]:
@@ -303,6 +303,13 @@ def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--epochs", default=200, type=int)
+    parser.add_argument("--lr", default=0.0005, type=float, help="Learning rate")
+    parser.add_argument(
+        "--optimizer",
+        default="adam",
+        choices=["adam", "sgd", "adamw"],
+        help="Optimizer to use",
+    )
     parser.add_argument("--dataset", default="TOY2", choices=datasets_params.keys())
     parser.add_argument("--mode", default="full", choices=["partial", "full"])
     parser.add_argument(
@@ -325,8 +332,6 @@ def main():
         "--use_wandb", action="store_true", help="Use wandb for logging"
     )
 
-    # TODO add wandb logging, ideally with pictures of segmentations on sample images not in the training set
-
     args = parser.parse_args()
 
     pprint(args)
@@ -335,10 +340,8 @@ def main():
         # TODO test if it works on gpu
         set_seed(2024)
 
-    if args.use_wandb:
-        successful_init = init_wandb(args)
-        if not successful_init:
-            args.use_wandb = False  # Disable it
+    # Disable wandb if it failed to initialize
+    args.use_wandb = args.use_wandb and init_wandb(args)
 
     runTraining(args)
 
