@@ -186,11 +186,6 @@ class ENet(nn.Module):
         F: int = kwargs["factor"] if "factor" in kwargs else 4  # Projecting factor
         K: int = kwargs["kernels"] if "kernels" in kwargs else 16  # n_kernels
 
-        # from models.enet import (BottleNeck,
-        #                          BottleNeckDownSampling,
-        #                          BottleNeckUpSampling,
-        #                          conv_block)
-
         # Initial operations
         self.conv0 = nn.Conv2d(in_dim, K - 1, kernel_size=3, stride=2, padding=1)
         self.maxpool0 = nn.MaxPool2d(2, return_indices=False, ceil_mode=False)
@@ -268,7 +263,7 @@ class ENet(nn.Module):
         bn5_out = self.bottleneck5((bn4_out, indices_1, outputInitial))
 
         # Final upsampling and covolutions
-        interpolated = F.interpolate(bn5_out, mode="nearest", scale_factor=2)
+        interpolated = F.interpolate(bn5_out, mode="nearest", scale_factor=2)  # TODO: check if this is the best interpolation for segmentation, investigate align_corners option (should be false)
         return self.final(interpolated)
 
     def init_weights(self, *args, **kwargs):

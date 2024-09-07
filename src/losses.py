@@ -51,3 +51,5 @@ class CrossEntropy:
 class PartialCrossEntropy(CrossEntropy):
     def __init__(self, **kwargs):
         super().__init__(idk=[1], **kwargs)
+
+# TODO add (generalized) dice loss

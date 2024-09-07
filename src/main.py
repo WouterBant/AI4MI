@@ -65,25 +65,38 @@ def setup(args) -> tuple[nn.Module, Any, Any, DataLoader, DataLoader, int]:
     # Networks and scheduler
     gpu: bool = args.gpu and torch.cuda.is_available()
     device = torch.device("cuda") if gpu else torch.device("cpu")
+
+    if args.gpu and not torch.cuda.is_available():
+        print(">> NOTE GPU is picked but is not available, defaulting to CPU if in debug mode")
+        if not args.debug:
+            raise RuntimeError("GPU is picked but is not available")
+
     print(f">> Picked {device} to run experiments")
 
     K: int = datasets_params[args.dataset]["K"]
     net = datasets_params[args.dataset]["net"](1, K)
-    net.init_weights()
+    net.init_weights()  # TODO probably remove it and use the default one from pytorch
     net.to(device)
 
-    lr = 0.0005
+    # TODO use torch.compile for kernel fusion to be faster on the gpu
+
+    lr = 0.0005  # TODO: make it a parameter we can set it much higher
+    # TODO consider using a learning rate scheduler
+    # TODO consider adding weight decay and gradient clipping
+    # TODO consider using SGD with momentum as it works well for cnns
+    # TODO otherwise use AdamW as it is a bug fix of Adam that is more stable
+    # TODO consider training with mixed precision to speed up training
     optimizer = torch.optim.Adam(net.parameters(), lr=lr, betas=(0.9, 0.999))
 
     # Dataset part
-    B: int = datasets_params[args.dataset]["B"]
+    B: int = datasets_params[args.dataset]["B"]  # TODO make it a parameter we can set it much higher
     root_dir = Path("data") / args.dataset
 
     img_transform = transforms.Compose(
         [
-            lambda img: img.convert("L"),
+            lambda img: img.convert("L"),  # convert to grayscale
             lambda img: np.array(img)[np.newaxis, ...],
-            lambda nd: nd / 255,  # max <= 1
+            lambda nd: nd / 255,  # max <= 1 (range [0, 1])
             lambda nd: torch.tensor(nd, dtype=torch.float32),
         ]
     )
@@ -136,6 +149,7 @@ def runTraining(args):
             idk=list(range(K))
         )  # Supervise both background and foreground
     elif args.mode in ["partial"] and args.dataset in ["SEGTHOR", "SEGTHOR_STUDENTS"]:
+        print(">> NOTE Partial loss will not supervise the heart (class 2) so dont use it")
         loss_fn = CrossEntropy(idk=[0, 1, 3, 4])  # Do not supervise the heart (class 2)
     else:
         raise ValueError(args.mode, args.dataset)
@@ -146,7 +160,7 @@ def runTraining(args):
     log_loss_val: Tensor = torch.zeros((args.epochs, len(val_loader)))
     log_dice_val: Tensor = torch.zeros((args.epochs, len(val_loader.dataset), K))
 
-    best_dice: float = 0
+    best_dice: float = 0.0
 
     for e in range(args.epochs):
         for m in ["train", "val"]:
@@ -192,6 +206,8 @@ def runTraining(args):
                     log_dice[e, j : j + B, :] = dice_coef(
                         pred_seg, gt
                     )  # One DSC value per sample and per class
+
+                    # TODO: add additional metrics
 
                     loss = loss_fn(pred_probs, gt)
                     log_loss[e, i] = (
@@ -271,9 +287,15 @@ def main():
         "to test the logic around epochs and logging easily.",
     )
 
+    # TODO add wandb logging, ideally with pictures of segmentations on sample images not in the training set
+
     args = parser.parse_args()
 
     pprint(args)
+
+    if not args.debug:
+        # TODO make deterministic
+        pass
 
     runTraining(args)
 

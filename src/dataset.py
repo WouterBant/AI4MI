@@ -58,9 +58,10 @@ class SliceDataset(Dataset):
         self.root_dir: str = root_dir
         self.img_transform: Callable = img_transform
         self.gt_transform: Callable = gt_transform
-        self.augmentation: bool = augment
-        self.equalize: bool = equalize
+        self.augmentation: bool = augment  # TODO: implement
+        self.equalize: bool = equalize  # TODO: know if we need it
 
+        # TODO make our own test set
         self.files = make_dataset(root_dir, subset)
         if debug:
             self.files = self.files[:10]

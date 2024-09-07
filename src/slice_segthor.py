@@ -40,6 +40,10 @@ from utils import map_, tqdm_
 
 
 def norm_arr(img: np.ndarray) -> np.ndarray:
+    """
+    Normalize the array to [0, 255]
+    Note that in the dataset class we will cast it to [0, 1] by dividing by 255
+    """
     casted = img.astype(np.float32)
     shifted = casted - casted.min()
     norm = shifted / shifted.max()
