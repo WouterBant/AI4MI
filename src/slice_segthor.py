@@ -151,6 +151,8 @@ def get_splits(
     src_path: Path, retains: int, fold: int
 ) -> tuple[list[str], list[str], list[str]]:
     ids: list[str] = sorted(map_(lambda p: p.name, (src_path / "train").glob("*")))
+    # Fix for macs to prevent .DS_Store to be in the list
+    ids = [e for e in ids if e != ".DS_Store"]
     print(f"Founds {len(ids)} in the id list")
     print(ids[:10])
     assert len(ids) > retains
