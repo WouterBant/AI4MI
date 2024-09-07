@@ -263,7 +263,9 @@ class ENet(nn.Module):
         bn5_out = self.bottleneck5((bn4_out, indices_1, outputInitial))
 
         # Final upsampling and covolutions
-        interpolated = F.interpolate(bn5_out, mode="nearest", scale_factor=2)  # TODO: check if this is the best interpolation for segmentation, investigate align_corners option (should be false)
+        interpolated = F.interpolate(
+            bn5_out, mode="nearest", scale_factor=2
+        )  # TODO: check if this is the best interpolation for segmentation, investigate align_corners option (should be false)
         return self.final(interpolated)
 
     def init_weights(self, *args, **kwargs):

@@ -165,3 +165,4 @@ results/
 volumes/
 ai4mi/
 bin/
+wandb/

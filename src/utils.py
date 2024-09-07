@@ -22,6 +22,9 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+import argparse
+import os
+import wandb
 from pathlib import Path
 from functools import partial
 from multiprocessing import Pool
@@ -33,6 +36,8 @@ import numpy as np
 from PIL import Image
 from tqdm import tqdm
 from torch import Tensor, einsum
+import random
+
 
 tqdm_ = partial(
     tqdm,
@@ -187,3 +192,59 @@ def union(a: Tensor, b: Tensor) -> Tensor:
     assert sset(res, [0, 1])
 
     return res
+
+
+def set_seed(seed: int) -> None:
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+    np.random.seed(seed)
+    random.seed(seed)
+
+
+def init_wandb(args: argparse.Namespace) -> bool:
+    try:
+        os.environ["WANDB_API_KEY"] = os.getenv("WANDB_API_KEY")
+    except TypeError:
+        print("Please set your WANBD_API_KEY as an environment variable")
+        print("You can find your API key at: https://wandb.ai/authorize")
+        print("You can set it as an environment variable using:")
+        print("export WANDB_API_KEY='your_api_key'")
+        print("Defaulting to no wandb logging")
+        return False
+
+    try:
+        wandb.init(project="segmentation", entity="AIfourMI", config=args)
+    except Exception as e:
+        print(f"Error initializing wandb: {e}")
+        return False
+
+    return True
+
+
+def log_sample_images_wandb(
+    img: Tensor, gt: Tensor, predicted_class: Tensor, mult: int, steps_done: int, m: str
+):
+    # Select a random image from the batch
+    idx = random.randint(0, B - 1)
+
+    # Convert tensors to numpy arrays and scale to 0-255
+    img_np = (img[idx, 0].cpu().numpy() * 255).astype(np.uint8)
+    gt_np = (gt[idx, 1:].argmax(dim=0).cpu().numpy() * mult).astype(np.uint8)
+    pred_np = (predicted_class[idx].cpu().numpy() * mult).astype(np.uint8)
+
+    # Create a side-by-side comparison
+    comparison = np.hstack((img_np, gt_np, pred_np))
+
+    # Log the image to wandb
+    wandb.log(
+        {
+            f"{m}_sample_images_{steps_done}": wandb.Image(
+                comparison,
+                caption=f"Left: Input | Middle: Ground Truth | Right: Prediction",
+            )
+        }
+    )

@@ -29,6 +29,9 @@ from pathlib import Path
 from pprint import pprint
 from operator import itemgetter
 from shutil import copytree, rmtree
+import random
+
+import wandb
 
 import torch
 import numpy as np
@@ -43,15 +46,16 @@ from ENet import ENet
 from utils import (
     Dcm,
     class2one_hot,
+    init_wandb,
+    log_sample_images_wandb,
     probs2one_hot,
     probs2class,
     tqdm_,
     dice_coef,
     save_images,
+    set_seed,
 )
-
 from losses import CrossEntropy
-
 
 
 datasets_params: dict[str, dict[str, Any]] = {}
@@ -67,7 +71,9 @@ def setup(args) -> tuple[nn.Module, Any, Any, DataLoader, DataLoader, int]:
     device = torch.device("cuda") if gpu else torch.device("cpu")
 
     if args.gpu and not torch.cuda.is_available():
-        print(">> NOTE GPU is picked but is not available, defaulting to CPU if in debug mode")
+        print(
+            ">> NOTE GPU is picked but is not available, defaulting to CPU if in debug mode"
+        )
         if not args.debug:
             raise RuntimeError("GPU is picked but is not available")
 
@@ -89,7 +95,9 @@ def setup(args) -> tuple[nn.Module, Any, Any, DataLoader, DataLoader, int]:
     optimizer = torch.optim.Adam(net.parameters(), lr=lr, betas=(0.9, 0.999))
 
     # Dataset part
-    B: int = datasets_params[args.dataset]["B"]  # TODO make it a parameter we can set it much higher
+    B: int = datasets_params[args.dataset][
+        "B"
+    ]  # TODO make it a parameter we can set it much higher
     root_dir = Path("data") / args.dataset
 
     img_transform = transforms.Compose(
@@ -149,7 +157,9 @@ def runTraining(args):
             idk=list(range(K))
         )  # Supervise both background and foreground
     elif args.mode in ["partial"] and args.dataset in ["SEGTHOR", "SEGTHOR_STUDENTS"]:
-        print(">> NOTE Partial loss will not supervise the heart (class 2) so dont use it")
+        print(
+            ">> NOTE Partial loss will not supervise the heart (class 2) so dont use it"
+        )
         loss_fn = CrossEntropy(idk=[0, 1, 3, 4])  # Do not supervise the heart (class 2)
     else:
         raise ValueError(args.mode, args.dataset)
@@ -161,6 +171,8 @@ def runTraining(args):
     log_dice_val: Tensor = torch.zeros((args.epochs, len(val_loader.dataset), K))
 
     best_dice: float = 0.0
+    train_steps_done: int = 0
+    val_steps_done: int = 0
 
     for e in range(args.epochs):
         for m in ["train", "val"]:
@@ -173,6 +185,7 @@ def runTraining(args):
                     loader = train_loader
                     log_loss = log_loss_tra
                     log_dice = log_dice_tra
+                    train_steps_done += 1
                 case "val":
                     net.eval()
                     opt = None
@@ -181,7 +194,7 @@ def runTraining(args):
                     loader = val_loader
                     log_loss = log_loss_val
                     log_dice = log_dice_val
-
+                    val_steps_done += 1
             with cm():  # Either dummy context manager, or the torch.no_grad for validation
                 j = 0
                 tq_iter = tqdm_(enumerate(loader), total=len(loader), desc=desc)
@@ -213,6 +226,26 @@ def runTraining(args):
                     log_loss[e, i] = (
                         loss.item()
                     )  # One loss value per batch (averaged in the loss)
+
+                    if args.use_wandb:
+                        steps_done = (
+                            train_steps_done if m == "train" else val_steps_done
+                        )
+
+                        # Log metrics every 50 steps
+                        if steps_done % 50 == 0:
+                            metrics = {
+                                f"{m}_dice_{k}": log_dice[e, j : j + B, k].mean().item()
+                                for k in range(K)
+                            }
+                            metrics[f"{m}_loss"] = loss.item()
+                            wandb.log(metrics)
+
+                        # Log sample images every 250 steps
+                        if steps_done % 250 == 0:
+                            log_sample_images_wandb(
+                                img, gt, pred_probs, K, steps_done, m
+                            )
 
                     if opt:  # Only for training
                         loss.backward()
@@ -278,13 +311,18 @@ def main():
         required=True,
         help="Destination directory to save the results (predictions and weights).",
     )
-
     parser.add_argument("--gpu", action="store_true")
     parser.add_argument(
         "--debug",
         action="store_true",
         help="Keep only a fraction (10 samples) of the datasets, "
         "to test the logic around epochs and logging easily.",
+    )
+    parser.add_argument(
+        "--deterministic", action="store_true", help="Make the training deterministic"
+    )
+    parser.add_argument(
+        "--use_wandb", action="store_true", help="Use wandb for logging"
     )
 
     # TODO add wandb logging, ideally with pictures of segmentations on sample images not in the training set
@@ -293,9 +331,14 @@ def main():
 
     pprint(args)
 
-    if not args.debug:
-        # TODO make deterministic
-        pass
+    if args.deterministic:
+        # TODO test if it works on gpu
+        set_seed(2024)
+
+    if args.use_wandb:
+        successful_init = init_wandb(args)
+        if not successful_init:
+            args.use_wandb = False  # Disable it
 
     runTraining(args)
 
