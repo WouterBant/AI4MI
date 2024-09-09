@@ -37,6 +37,7 @@ from PIL import Image
 from tqdm import tqdm
 from torch import Tensor, einsum
 import random
+import matplotlib.pyplot as plt
 
 
 tqdm_ = partial(
@@ -225,30 +226,75 @@ def init_wandb(args: argparse.Namespace) -> bool:
     return True
 
 
+# Save the raw predictions
+def save_images(segs: Tensor, names: Iterable[str], root: Path) -> None:
+    for seg, name in zip(segs, names):
+        save_path = (root / name).with_suffix(".png")
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+
+        if len(seg.shape) == 2:
+            Image.fromarray(seg.detach().cpu().numpy().astype(np.uint8)).save(save_path)
+        elif len(seg.shape) == 3:
+            np.save(str(save_path), seg.detach().cpu().numpy())
+        else:
+            raise ValueError(seg.shape)
+
+
 def log_sample_images_wandb(
-    img: Tensor, gt: Tensor, predicted_class: Tensor, mult: int, steps_done: int, m: str
+    img: Tensor, gt: Tensor, pred_probs: Tensor, K: int, steps_done: int, m: str
 ):
+    B = img.shape[0]
+
     # Select a random image from the batch
     idx = random.randint(0, B - 1)
+    img = img[idx, ...].squeeze()  # 256, 256
+    gt = gt[idx, ...]  # 5, 256, 256 (zeros and ones)
+    pred_probs = pred_probs[idx, ...]  # 5, 256, 256
 
-    # Convert tensors to numpy arrays and scale to 0-255
-    img_np = (img[idx, 0].cpu().numpy() * 255).astype(np.uint8)
-    gt_np = (gt[idx, 1:].argmax(dim=0).cpu().numpy() * mult).astype(np.uint8)
-    pred_np = (predicted_class[idx].cpu().numpy() * mult).astype(np.uint8)
+    # Create a colored ground truth and prediction
+    color_map = plt.get_cmap('viridis', K)
+    gt_colored = color_map(gt.argmax(dim=0).cpu().numpy())
+    pred_colored = color_map(pred_probs.argmax(dim=0).detach().cpu().numpy())
 
-    # Create a side-by-side comparison
-    comparison = np.hstack((img_np, gt_np, pred_np))
+    # Convert image tensor to numpy array and normalize to 0-255
+    img_np = (img.cpu().numpy() * 255).astype(np.uint8)
 
-    # Log the image to wandb
+    # Create a figure with subplots
+    fig, axs = plt.subplots(1, 3, figsize=(15, 5))
+
+    # Plot original image
+    axs[0].imshow(img_np, cmap='gray')
+    axs[0].set_title('Original Image')
+    axs[0].axis('off')
+
+    # Plot ground truth
+    axs[1].imshow(gt_colored)
+    axs[1].set_title('Ground Truth')
+    axs[1].axis('off')
+
+    # Plot prediction
+    axs[2].imshow(pred_colored)
+    axs[2].set_title('Prediction')
+    axs[2].axis('off')
+
+    # Create legend
+    organ_names = ['Background', 'Heart', 'Trachea', 'Aorta', 'Esophagus']
+    legend_elements = [plt.Rectangle((0,0),1,1, color=color_map(i)) for i in range(K)]
+    fig.legend(legend_elements, organ_names, loc='lower center', ncol=K)
+
+    # Log the figure to wandb
     wandb.log(
         {
-            f"{m}_sample_images_{steps_done}": wandb.Image(
-                comparison,
-                caption=f"Left: Input | Middle: Ground Truth | Right: Prediction",
+            f"{m}_sample_images": wandb.Image(
+                fig,
+                caption=f"Sample images at step {steps_done}",
             )
-        }
+        },
+        step=steps_done
     )
 
+    # Close the figure to free up memory
+    plt.close(fig)
 
 def get_optimizer(
     args: argparse.Namespace, net: torch.nn.Module

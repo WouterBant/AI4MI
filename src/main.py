@@ -185,7 +185,6 @@ def runTraining(args):
                     loader = train_loader
                     log_loss = log_loss_tra
                     log_dice = log_dice_tra
-                    train_steps_done += 1
                 case "val":
                     net.eval()
                     opt = None
@@ -194,7 +193,6 @@ def runTraining(args):
                     loader = val_loader
                     log_loss = log_loss_val
                     log_dice = log_dice_val
-                    val_steps_done += 1
             with cm():  # Either dummy context manager, or the torch.no_grad for validation
                 j = 0
                 tq_iter = tqdm_(enumerate(loader), total=len(loader), desc=desc)
@@ -228,9 +226,12 @@ def runTraining(args):
                     )  # One loss value per batch (averaged in the loss)
 
                     if args.use_wandb:
-                        steps_done = (
-                            train_steps_done if m == "train" else val_steps_done
-                        )
+                        if m == "train":
+                            train_steps_done += 1
+                            steps_done = train_steps_done
+                        elif m == "val":
+                            val_steps_done += 1
+                            steps_done = val_steps_done
 
                         # Log metrics every 50 steps
                         if steps_done % 50 == 0:
