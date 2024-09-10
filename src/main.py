@@ -288,7 +288,7 @@ def runTraining(args):
             metrics = {
                 f"val_dice_{k}": log_dice_val[e, :, k].mean().item() for k in range(K)
             }
-            metrics[f"{m}_loss"] = log_loss_val[e, :].mean().item()
+            metrics[f"val_loss"] = log_loss_val[e, :].mean().item()
             wandb.log(metrics)
 
         current_dice: float = log_dice_val[e, :, 1:].mean().item()
