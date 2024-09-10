@@ -61,7 +61,7 @@ class SliceDataset(Dataset):
         self.augmentation: bool = augment  # TODO: implement
         self.equalize: bool = equalize  # TODO: know if we need it
 
-        # TODO make our own test set
+        # TODO make our own test set, now 5453 train and 1967 val
         self.files = make_dataset(root_dir, subset)
         if debug:
             self.files = self.files[:10]

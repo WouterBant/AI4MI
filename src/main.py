@@ -29,7 +29,7 @@ from pathlib import Path
 from pprint import pprint
 from operator import itemgetter
 from shutil import copytree, rmtree
-
+from datetime import datetime
 import wandb
 
 import torch
@@ -61,8 +61,8 @@ from losses import CrossEntropy
 datasets_params: dict[str, dict[str, Any]] = {}
 # K for the number of classes
 # Avoids the clases with C (often used for the number of Channel)
-datasets_params["TOY2"] = {"K": 2, "net": shallowCNN, "B": 2}
-datasets_params["SEGTHOR"] = {"K": 5, "net": ENet, "B": 8}
+datasets_params["TOY2"] = {"K": 2, "net": shallowCNN, "B": 2, "names": ["background", "foreground"]}
+datasets_params["SEGTHOR"] = {"K": 5, "net": ENet, "B": 8, "names": ["Background", "Esophagus", "Heart", "Trachea", "Aorta"]}
 
 
 def setup(args) -> tuple[nn.Module, Any, Any, DataLoader, DataLoader, int]:
@@ -84,9 +84,10 @@ def setup(args) -> tuple[nn.Module, Any, Any, DataLoader, DataLoader, int]:
     net.init_weights()  # TODO probably remove it and use the default one from pytorch
     net.to(device)
 
-    # TODO use torch.compile for kernel fusion to be faster on the gpu
-    # if gpu:
-    #     net = torch.compile(net)
+    # Use torch.compile for kernel fusion to be faster on the gpu
+    if gpu and args.epochs > 3:  # jit compilation takes too much time for few epochs
+        print(">> Compiling the network for faster execution")
+        net = torch.compile(net)
 
     # TODO consider using a learning rate scheduler
     # TODO consider adding weight decay and gradient clipping
@@ -97,9 +98,7 @@ def setup(args) -> tuple[nn.Module, Any, Any, DataLoader, DataLoader, int]:
     optimizer = get_optimizer(args, net)
 
     # Dataset part
-    B: int = datasets_params[args.dataset][
-        "B"
-    ]  # TODO make it a parameter we can set it much higher
+    B: int = args.batch_size
     root_dir = Path("data") / args.dataset
 
     img_transform = transforms.Compose(
@@ -134,7 +133,7 @@ def setup(args) -> tuple[nn.Module, Any, Any, DataLoader, DataLoader, int]:
         gt_transform=gt_transform,
         debug=args.debug,
     )
-    train_loader = DataLoader(train_set, batch_size=B, num_workers=5, shuffle=True)
+    train_loader = DataLoader(train_set, batch_size=B, num_workers=args.num_workers, shuffle=True)
 
     val_set = SliceDataset(
         "val",
@@ -143,7 +142,7 @@ def setup(args) -> tuple[nn.Module, Any, Any, DataLoader, DataLoader, int]:
         gt_transform=gt_transform,
         debug=args.debug,
     )
-    val_loader = DataLoader(val_set, batch_size=B, num_workers=5, shuffle=False)
+    val_loader = DataLoader(val_set, batch_size=B, num_workers=args.num_workers, shuffle=False)
 
     args.dest.mkdir(parents=True, exist_ok=True)
 
@@ -160,7 +159,7 @@ def runTraining(args):
         )  # Supervise both background and foreground
     elif args.mode in ["partial"] and args.dataset in ["SEGTHOR", "SEGTHOR_STUDENTS"]:
         print(
-            ">> NOTE Partial loss will not supervise the heart (class 2) so dont use it"
+            ">> NOTE Partial loss will not supervise the heart (class 2) so don't use it"
         )
         loss_fn = CrossEntropy(idk=[0, 1, 3, 4])  # Do not supervise the heart (class 2)
     else:
@@ -234,7 +233,7 @@ def runTraining(args):
                             steps_done = val_steps_done
 
                         # Log metrics every 50 steps
-                        if steps_done % 50 == 0:
+                        if m == "train" and steps_done % 50 == 0:
                             metrics = {
                                 f"{m}_dice_{k}": log_dice[e, j : j + B, k].mean().item()
                                 for k in range(K)
@@ -242,14 +241,16 @@ def runTraining(args):
                             metrics[f"{m}_loss"] = loss.item()
                             wandb.log(metrics)
 
-                        # Log sample images every 250 steps
-                        if steps_done % 250 == 0:
+                        # Log sample images every 1000 steps
+                        if steps_done % 1000 == 0:
                             log_sample_images_wandb(
-                                img, gt, pred_probs, K, steps_done, m
+                                img, gt, pred_probs, K, steps_done, m, datasets_params[args.dataset]["names"]
                             )
 
                     if opt:  # Only for training
                         loss.backward()
+                        if args.clip_grad:
+                            torch.nn.utils.clip_grad_norm_(net.parameters(), 1.0)
                         opt.step()
 
                     if m == "val":
@@ -282,6 +283,14 @@ def runTraining(args):
         np.save(args.dest / "loss_val.npy", log_loss_val)
         np.save(args.dest / "dice_val.npy", log_dice_val)
 
+        # Log the averaged validation metrics only at the end of each epoch
+        if args.use_wandb:
+            metrics = {
+                f"val_dice_{k}": log_dice_val[e, :, k].mean().item() for k in range(K)
+            }
+            metrics[f"{m}_loss"] = log_loss_val[e, :].mean().item()
+            wandb.log(metrics)
+
         current_dice: float = log_dice_val[e, :, 1:].mean().item()
         if current_dice > best_dice:
             print(
@@ -306,20 +315,27 @@ def main():
     parser.add_argument("--epochs", default=200, type=int)
     parser.add_argument("--lr", default=0.0005, type=float, help="Learning rate")
     parser.add_argument(
+        "--batch_size",
+        type=int,
+        help="Batch size",
+        default=None,
+    )
+    parser.add_argument(
         "--optimizer",
         default="adam",
         choices=["adam", "sgd", "adamw"],
         help="Optimizer to use",
     )
-    parser.add_argument("--dataset", default="TOY2", choices=datasets_params.keys())
+    parser.add_argument("--dataset", default="SEGTHOR", choices=datasets_params.keys())
     parser.add_argument("--mode", default="full", choices=["partial", "full"])
     parser.add_argument(
         "--dest",
         type=Path,
-        required=True,
+        default=None,
         help="Destination directory to save the results (predictions and weights).",
     )
     parser.add_argument("--gpu", action="store_true")
+    parser.add_argument('--num_workers', type=int, default=4)
     parser.add_argument(
         "--debug",
         action="store_true",
@@ -332,17 +348,25 @@ def main():
     parser.add_argument(
         "--use_wandb", action="store_true", help="Use wandb for logging"
     )
+    parser.add_argument(
+        "--clip_grad", action="store_true", help="Enable gradient clipping"
+    )
 
     args = parser.parse_args()
 
     pprint(args)
 
     if args.deterministic:
-        # TODO test if it works on gpu
         set_seed(2024)
 
     # Disable wandb if it failed to initialize
     args.use_wandb = args.use_wandb and init_wandb(args)
+
+    if args.batch_size is None:
+        args.batch_size = datasets_params[args.dataset]["B"]
+
+    if args.dest is None:
+        args.dest = Path(f"results/{args.dataset}/{datetime.now().strftime("%Y-%m-%d")}")
 
     runTraining(args)
 

@@ -241,18 +241,16 @@ def save_images(segs: Tensor, names: Iterable[str], root: Path) -> None:
 
 
 def log_sample_images_wandb(
-    img: Tensor, gt: Tensor, pred_probs: Tensor, K: int, steps_done: int, m: str
+    img: Tensor, gt: Tensor, pred_probs: Tensor, K: int, steps_done: int, m: str, names: List[str]
 ):
-    B = img.shape[0]
-
-    # Select a random image from the batch
-    idx = random.randint(0, B - 1)
+    # Select first image from the batch
+    idx = 0
     img = img[idx, ...].squeeze()  # 256, 256
     gt = gt[idx, ...]  # 5, 256, 256 (zeros and ones)
     pred_probs = pred_probs[idx, ...]  # 5, 256, 256
 
     # Create a colored ground truth and prediction
-    color_map = plt.get_cmap('viridis', K)
+    color_map = plt.get_cmap("viridis", K)
     gt_colored = color_map(gt.argmax(dim=0).cpu().numpy())
     pred_colored = color_map(pred_probs.argmax(dim=0).detach().cpu().numpy())
 
@@ -263,24 +261,25 @@ def log_sample_images_wandb(
     fig, axs = plt.subplots(1, 3, figsize=(15, 5))
 
     # Plot original image
-    axs[0].imshow(img_np, cmap='gray')
-    axs[0].set_title('Original Image')
-    axs[0].axis('off')
+    axs[0].imshow(img_np, cmap="gray")
+    axs[0].set_title("Original Image")
+    axs[0].axis("off")
 
     # Plot ground truth
     axs[1].imshow(gt_colored)
-    axs[1].set_title('Ground Truth')
-    axs[1].axis('off')
+    axs[1].set_title("Ground Truth")
+    axs[1].axis("off")
 
     # Plot prediction
     axs[2].imshow(pred_colored)
-    axs[2].set_title('Prediction')
-    axs[2].axis('off')
+    axs[2].set_title("Prediction")
+    axs[2].axis("off")
 
     # Create legend
-    organ_names = ['Background', 'Heart', 'Trachea', 'Aorta', 'Esophagus']
-    legend_elements = [plt.Rectangle((0,0),1,1, color=color_map(i)) for i in range(K)]
-    fig.legend(legend_elements, organ_names, loc='lower center', ncol=K)
+    legend_elements = [
+        plt.Rectangle((0, 0), 1, 1, color=color_map(i)) for i in range(K)
+    ]
+    fig.legend(legend_elements, names, loc="lower center", ncol=K)
 
     # Log the figure to wandb
     wandb.log(
@@ -289,12 +288,12 @@ def log_sample_images_wandb(
                 fig,
                 caption=f"Sample images at step {steps_done}",
             )
-        },
-        step=steps_done
+        }
     )
 
     # Close the figure to free up memory
     plt.close(fig)
+
 
 def get_optimizer(
     args: argparse.Namespace, net: torch.nn.Module

@@ -53,4 +53,4 @@ class PartialCrossEntropy(CrossEntropy):
         super().__init__(idk=[1], **kwargs)
 
 
-# TODO add (generalized) dice loss
+# TODO add (generalized) dice loss https://github.com/wolny/pytorch-3dunet/blob/master/pytorch3dunet/unet3d/losses.py#L8
