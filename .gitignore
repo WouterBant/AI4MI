@@ -166,3 +166,124 @@ volumes/
 ai4mi/
 bin/
 wandb/
+slurm/
+
+
+# nnUNet
+
+# Byte-compiled / optimized / DLL files
+nnUNet/__pycache__/
+nnUNet/*.py[cod]
+nnUNet/*$py.class
+
+# C extensions
+nnUNet/*.so
+
+# Distribution / packaging
+nnUNet/.Python
+nnUNet/env/
+nnUNet/build/
+nnUNet/develop-eggs/
+nnUNet/dist/
+nnUNet/downloads/
+nnUNet/eggs/
+nnUNet/.eggs/
+nnUNet/lib/
+nnUNet/lib64/
+nnUNet/parts/
+nnUNet/sdist/
+nnUNet/var/
+nnUNet/*.egg-info/
+nnUNet/.installed.cfg
+nnUNet/*.egg
+
+# PyInstaller
+#  Usually these files are written by a python script from a template
+#  before PyInstaller builds the exe, so as to inject date/other infos into it.
+nnUNet/*.manifest
+nnUNet/*.spec
+
+# Installer logs
+nnUNet/pip-log.txt
+nnUNet/pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+nnUNet/htmlcov/
+nnUNet/.tox/
+nnUNet/.coverage
+nnUNet/.coverage.*
+nnUNet/.cache
+nnUNet/nosetests.xml
+nnUNet/coverage.xml
+nnUNet/*,cover
+nnUNet/.hypothesis/
+
+# Translations
+nnUNet/*.mo
+nnUNet/*.pot
+
+# Django stuff:
+nnUNet/*.log
+nnUNet/local_settings.py
+
+# Flask stuff:
+nnUNet/instance/
+nnUNet/.webassets-cache
+
+# Scrapy stuff:
+nnUNet/.scrapy
+
+# Sphinx documentation
+nnUNet/docs/_build/
+
+# PyBuilder
+nnUNet/target/
+
+# IPython Notebook
+nnUNet/.ipynb_checkpoints
+
+# pyenv
+nnUNet/nnUNet/.python-version
+
+# celery beat schedule file
+nnUNet/celerybeat-schedule
+
+# dotenv
+nnUNet/.env
+
+# virtualenv
+nnUNet/venv/
+nnUNet/ENV/
+
+# Spyder project settings
+nnUNet/.spyderproject
+
+# Rope project settings
+nnUNet/.ropeproject
+
+nnUNet/*.memmap
+nnUNet/*.png
+nnUNet/*.zip
+nnUNet/*.npz
+nnUNet/*.npy
+nnUNet/*.jpg
+nnUNet/*.jpeg
+nnUNet/.idea
+nnUNet/*.txt
+nnUNet/.idea/*
+nnUNet/*.png
+nnUNet/*.nii.gz
+nnUNet/*.nii
+nnUNet/*.tif
+nnUNet/*.bmp
+nnUNet/*.pkl
+nnUNet/*.xml
+nnUNet/*.pkl
+nnUNet/*.pdf
+nnUNet/*.png
+nnUNet/*.jpg
+nnUNet/*.jpeg
+
+nnUNet/*.model
+
+!nnUNet/documentation/assets/scribble_example.png
