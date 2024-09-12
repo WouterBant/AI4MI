@@ -167,6 +167,7 @@ ai4mi/
 bin/
 wandb/
 slurm/
+dataset/*
 
 
 # nnUNet
