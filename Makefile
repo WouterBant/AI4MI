@@ -26,5 +26,12 @@ data/SEGTHOR: data/segthor_train
 	$(info $(green)python $(CFLAGS) src/slice_segthor.py$(reset))
 	rm -rf $@_tmp $@
 	python $(CFLAGS) src/slice_segthor.py --source_dir $^ --dest_dir $@_tmp \
-		--shape 256 256 --retain 10
+		--shape 256 256 --retains 10
+	mv $@_tmp $@
+
+data/SEGTHOR_TEST: data/segthor_train
+	$(info $(green)python $(CFLAGS) src/slice_segthor.py$(reset))
+	rm -rf $@_tmp $@
+	python $(CFLAGS) src/slice_segthor.py --source_dir $^ --dest_dir $@_tmp \
+		--shape 256 256 --retains 12 --create_test --retains_test 4
 	mv $@_tmp $@
