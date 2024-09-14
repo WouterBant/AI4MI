@@ -63,6 +63,7 @@ datasets_params: dict[str, dict[str, Any]] = {}
 # Avoids the clases with C (often used for the number of Channel)
 datasets_params["TOY2"] = {"K": 2, "net": shallowCNN, "B": 2, "names": ["background", "foreground"]}
 datasets_params["SEGTHOR"] = {"K": 5, "net": ENet, "B": 8, "names": ["Background", "Esophagus", "Heart", "Trachea", "Aorta"]}
+datasets_params["SEGTHOR_TEST"] = {"K": 5, "net": ENet, "B": 8, "names": ["Background", "Esophagus", "Heart", "Trachea", "Aorta"]}
 
 
 def setup(args) -> tuple[nn.Module, Any, Any, DataLoader, DataLoader, int]:
