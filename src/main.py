@@ -326,7 +326,8 @@ def main():
     )
     parser.add_argument("--dataset", default="SEGTHOR", choices=datasets_params.keys())
     parser.add_argument("--mode", default="full", choices=["partial", "full"])
-    parser.add_argument("--loss", default="ce", choices=["ce", "dice"])
+    parser.add_argument("--loss", default="ce", choices=["ce", "dice", "gdl", "dce"])
+    parser.add_argument("--ce_lambda", default=1.0, type=float)
     parser.add_argument(
         "--dest",
         type=Path,
