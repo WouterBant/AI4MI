@@ -11,36 +11,45 @@ from functools import partial
 from .modeling import ImageEncoderViT, MaskDecoder, PromptEncoder, Sam, TwoWayTransformer
 
 
-def build_sam_vit_h(checkpoint=None):
+def build_sam_vit_h(checkpoint=None, num_classes=3, pixel_mean=[123.675, 116.28, 103.53], pixel_std=[58.395, 57.12, 57.375]):
     return _build_sam(
         encoder_embed_dim=1280,
         encoder_depth=32,
         encoder_num_heads=16,
         encoder_global_attn_indexes=[7, 15, 23, 31],
         checkpoint=checkpoint,
+        num_classes=num_classes,
+        pixel_mean=pixel_mean,
+        pixel_std=pixel_std,
     )
 
 
 build_sam = build_sam_vit_h
 
 
-def build_sam_vit_l(checkpoint=None):
+def build_sam_vit_l(checkpoint=None, num_classes=3, pixel_mean=[123.675, 116.28, 103.53], pixel_std=[58.395, 57.12, 57.375]):
     return _build_sam(
         encoder_embed_dim=1024,
         encoder_depth=24,
         encoder_num_heads=16,
         encoder_global_attn_indexes=[5, 11, 17, 23],
         checkpoint=checkpoint,
+        num_classes=num_classes,
+        pixel_mean=pixel_mean,
+        pixel_std=pixel_std,
     )
 
 
-def build_sam_vit_b(checkpoint=None):
+def build_sam_vit_b(checkpoint=None, num_classes=3, pixel_mean=[123.675, 116.28, 103.53], pixel_std=[58.395, 57.12, 57.375]):
     return _build_sam(
         encoder_embed_dim=768,
         encoder_depth=12,
         encoder_num_heads=12,
         encoder_global_attn_indexes=[2, 5, 8, 11],
         checkpoint=checkpoint,
+        num_classes=num_classes,
+        pixel_mean=pixel_mean,
+        pixel_std=pixel_std,
     )
 
 
@@ -58,6 +67,9 @@ def _build_sam(
     encoder_num_heads,
     encoder_global_attn_indexes,
     checkpoint=None,
+    num_classes=3,
+    pixel_mean=[123.675, 116.28, 103.53],
+    pixel_std=[58.395, 57.12, 57.375],
 ):
     prompt_embed_dim = 256
     image_size = 1024
@@ -85,7 +97,7 @@ def _build_sam(
             mask_in_chans=16,
         ),
         mask_decoder=MaskDecoder(
-            num_multimask_outputs=3,
+            num_multimask_outputs=num_classes,  # consistent with samed model
             transformer=TwoWayTransformer(
                 depth=2,
                 embedding_dim=prompt_embed_dim,
@@ -96,8 +108,11 @@ def _build_sam(
             iou_head_depth=3,
             iou_head_hidden_dim=256,
         ),
-        pixel_mean=[123.675, 116.28, 103.53],
-        pixel_std=[58.395, 57.12, 57.375],
+        pixel_mean=pixel_mean,
+        pixel_std=pixel_std,
+        # When given arrays with equal values with length greater than the number of channels in the input image,
+        # this will broadcast images with one channel to len(input_image_channels) channels during preprocessing.
+        # This is used by us to broadcast grayscale images to 3 channels used by SAM.
     )
     sam.eval()
     if checkpoint is not None:

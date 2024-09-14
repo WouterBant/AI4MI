@@ -50,8 +50,35 @@ class Sam(nn.Module):
     def device(self) -> Any:
         return self.pixel_mean.device
 
-    @torch.no_grad()
     def forward(
+            self,
+            images : torch.Tensor,
+            multimask_output: bool = True
+    ) -> torch.Tensor:
+        images = self.preprocess(images)
+        image_embeddings = self.image_encoder(images)
+        sparse_embeddings, dense_embeddings = self.prompt_encoder(points=None, boxes=None, masks=None)
+        low_res_masks, iou_predictions = self.mask_decoder(
+            image_embeddings=image_embeddings,
+            image_pe=self.prompt_encoder.get_dense_pe(),
+            sparse_prompt_embeddings=sparse_embeddings,
+            dense_prompt_embeddings=dense_embeddings,
+            multimask_output=multimask_output,
+        )
+        masks = self.postprocess_masks(  # TODO check if this is correct, now hardcoded
+            low_res_masks,
+            input_size=images.shape[-2:],
+            original_size=images.shape[-2:],
+        )
+        masks = masks > self.mask_threshold  # TODO this is removed in samed
+        return {
+            "masks": masks,
+            "iou_predictions": iou_predictions,
+            "low_res_logits": low_res_masks,
+        }
+
+    @torch.no_grad()
+    def forward_test_sam(
         self,
         batched_input: List[Dict[str, Any]],
         multimask_output: bool,
