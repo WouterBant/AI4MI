@@ -52,10 +52,35 @@ class Sam(nn.Module):
 
     def forward(
             self,
-            images : torch.Tensor,
+            images_ : torch.Tensor,
             multimask_output: bool = True
     ) -> torch.Tensor:
-        images = self.preprocess(images)
+        
+        # print("input image", images.shape)
+        # input_images = self.preprocess(images)
+        # print("processed images", input_images.shape)
+        # image_embeddings = self.image_encoder(input_images)
+        # print("image embeddings", image_embeddings.shape)
+        # sparse_embeddings, dense_embeddings = self.prompt_encoder(
+        #     points=None, boxes=None, masks=None
+        # )
+        # print("sparse embeddings", sparse_embeddings.shape)
+        # low_res_masks, iou_predictions = self.mask_decoder(
+        #     image_embeddings=image_embeddings,
+        #     image_pe=self.prompt_encoder.get_dense_pe(),
+        #     sparse_prompt_embeddings=sparse_embeddings,
+        #     dense_prompt_embeddings=dense_embeddings,
+        #     multimask_output=multimask_output
+        # )
+        # print("low res masks", low_res_masks.shape)
+        # print("iou predictions", iou_predictions.shape)
+        # masks = self.postprocess_masks(
+        #     low_res_masks,
+        #     input_size=images.shape[-2:],
+        #     original_size=images.shape[-2:]
+        # )
+        # print("masks", masks.shape)
+        images = self.preprocess(images_)
         image_embeddings = self.image_encoder(images)
         sparse_embeddings, dense_embeddings = self.prompt_encoder(points=None, boxes=None, masks=None)
         low_res_masks, iou_predictions = self.mask_decoder(
@@ -67,8 +92,8 @@ class Sam(nn.Module):
         )
         masks = self.postprocess_masks(  # TODO check if this is correct, now hardcoded
             low_res_masks,
-            input_size=images.shape[-2:],
-            original_size=images.shape[-2:],
+            input_size=images_.shape[-2:],
+            original_size=images_.shape[-2:],
         )
         masks = masks > self.mask_threshold  # TODO this is removed in samed
         return {
@@ -197,5 +222,6 @@ class Sam(nn.Module):
         h, w = x.shape[-2:]
         padh = self.image_encoder.img_size - h
         padw = self.image_encoder.img_size - w
+        print(self.image_encoder.img_size, "image size")  
         x = F.pad(x, (0, padw, 0, padh))
         return x

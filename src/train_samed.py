@@ -1,5 +1,6 @@
 from samed.sam_lora import LoRA_Sam
 from samed.segment_anything import sam_model_registry
+from losses import DiceLoss
 
 from dataset import SliceDataset
 from utils import class2one_hot
@@ -62,18 +63,34 @@ def dataloaders():
     return (train_loader, val_loader)
 
 
+def calc_loss(outputs, low_res_label_batch, ce_loss, dice_loss, dice_weight:float=0.8):
+    low_res_logits = outputs['low_res_logits']
+    loss_ce = ce_loss(low_res_logits, low_res_label_batch[:].float())
+    loss_dice = dice_loss(low_res_logits, low_res_label_batch, softmax=True)
+    loss = (1 - dice_weight) * loss_ce + dice_weight * loss_dice
+    return loss, loss_ce, loss_dice
+
 def main():
+    ce_loss = torch.nn.CrossEntropyLoss()
+    dice_loss = DiceLoss(5)
     train_loader, val_loader = dataloaders()
-    sam = sam_model_registry["vit_b"](  # TODO check these arguments 
+    sam, _ = sam_model_registry["vit_b"](  # TODO check these arguments 
+        checkpoint="src/samed/checkpoints/sam_vit_b_01ec64.pth",
         num_classes=5,
         pixel_mean=[0, 0, 0],
         pixel_std=[1, 1, 1],
     )
+    # print num parameters
+    print(sum(p.numel() for p in sam.parameters() if p.requires_grad))
+
     model = LoRA_Sam(sam, r=4)
+    print(sum(p.numel() for p in model.parameters() if p.requires_grad))
+
+    # model.load_lora_parameters("") ones you have the file
     
     for i, data in enumerate(train_loader):
 
-        if i == 1:
+        if i == 5:
             break
     
         img = data["images"]
@@ -82,8 +99,15 @@ def main():
         print(gt.shape)
 
         preds = model(img)
+
+        # note preds['masks'] is true and false
+
+        import code; code.interact(local=locals())
         for key in preds:
             print(key, preds[key].shape)
+
+        loss, loss_ce, loss_dice = calc_loss(preds, gt, ce_loss, dice_loss, dice_weight=0.8)
+        
 
 
 if __name__ == "__main__":
