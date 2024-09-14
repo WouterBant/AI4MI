@@ -24,8 +24,31 @@
 
 
 from torch import einsum
+import argparse
+from typing import Callable
 
 from utils import simplex, sset
+
+def get_loss_fn(args: argparse.Namespace, K) -> Callable:
+    """ Return the loss function class
+
+    Args:
+        args (argparse.Namespace): _description_
+        K (_type_): Number of classes
+
+    Returns:
+        Callable: loss
+    """    
+    if args.loss == "ce":
+        print(f"Using CrossEntropy loss with {K} classes")
+        return CrossEntropy(
+            idk=list(range(K))
+        )  # Supervise both background and foreground
+    elif args.loss == "dice":
+        pass
+    else:
+        raise ValueError(f"Unsupported loss function: {args.loss}")
+        
 
 
 class CrossEntropy:

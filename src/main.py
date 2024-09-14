@@ -55,7 +55,7 @@ from utils import (
     save_images,
     set_seed,
 )
-from losses import CrossEntropy
+from losses import get_loss_fn, CrossEntropy
 
 
 datasets_params: dict[str, dict[str, Any]] = {}
@@ -154,9 +154,7 @@ def runTraining(args):
     net, optimizer, device, train_loader, val_loader, K = setup(args)
 
     if args.mode == "full":
-        loss_fn = CrossEntropy(
-            idk=list(range(K))
-        )  # Supervise both background and foreground
+        loss_fn = get_loss_fn(args, K)
     elif args.mode in ["partial"] and args.dataset in ["SEGTHOR", "SEGTHOR_STUDENTS"]:
         print(
             ">> NOTE Partial loss will not supervise the heart (class 2) so don't use it"
@@ -328,6 +326,7 @@ def main():
     )
     parser.add_argument("--dataset", default="SEGTHOR", choices=datasets_params.keys())
     parser.add_argument("--mode", default="full", choices=["partial", "full"])
+    parser.add_argument("--loss", default="ce", choices=["ce", "dice"])
     parser.add_argument(
         "--dest",
         type=Path,
