@@ -58,6 +58,7 @@ from utils import (
     set_seed,
 )
 from losses import get_loss_fn, CrossEntropy, DiceLoss
+from metrics import update_metrics
 
 from samed.sam_lora import LoRA_Sam
 from samed.segment_anything import sam_model_registry
