@@ -1,0 +1,22 @@
+#!/bin/bash
+
+#SBATCH --partition=gpu
+#SBATCH --gpus=1
+#SBATCH --job-name=train_25
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=18
+#SBATCH --time=00:40:00
+#SBATCH --output=train25_SEGTHOR_%A.out
+
+cd /home/scur2527/ai4mi
+
+module purge
+module load 2023
+module load Anaconda3/2023.07-2
+
+source activate ai4mi
+
+echo "Run train script"
+
+srun python -O src/main.py --dataset SEGTHOR --mode full --epoch 25 --dest results/segthor/ce --gpu
+#srun python -O src/main.py --dataset TOY2 --mode full --epoch 10 --dest results/toy2/ce --debug --gpu

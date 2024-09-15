@@ -1,0 +1,55 @@
+/var/spool/slurm/slurmd/job7769041/slurm_script: line 11: cd: /home/scur2527/ai4mi_project/src: No such file or directory
+============================================================================================== 
+Warning! Mixing Conda and module environments may lead to corruption of the
+user environment. 
+We do not recommend users mixing those two environments unless absolutely
+necessary. Note that 
+SURF does not provide any support for Conda environment.
+For more information, please refer to our software policy page:
+https://servicedesk.surf.nl/wiki/display/WIKI/Software+policy+Snellius#SoftwarepolicySnellius-UseofAnacondaandMinicondaenvironmentsonSnellius 
+
+Remember that many packages have already been installed on the system and can
+be loaded using 
+the 'module load <package__name>' command. If you are uncertain if a package is
+already available 
+on the system, please use 'module avail' or 'module spider' to search for it.
+============================================================================================== 
+Run train script
+Namespace(epochs=25, lr=0.0005, optimizer='adam', dataset='SEGTHOR', mode='full', dest=PosixPath('results/segthor/ce'), gpu=True, debug=False, deterministic=False, use_wandb=False)
+>>> Setting up to train on SEGTHOR with full
+>> Picked cuda to run experiments
+> Initialized ENet (in_dim=1->out_dim=5) with {}
+>> Created train dataset with 0 images...
+Traceback (most recent call last):
+  File "/gpfs/home4/scur2527/ai4ml/src/main.py", line 350, in <module>
+    main()
+  File "/gpfs/home4/scur2527/ai4ml/src/main.py", line 346, in main
+    runTraining(args)
+  File "/gpfs/home4/scur2527/ai4ml/src/main.py", line 155, in runTraining
+    net, optimizer, device, train_loader, val_loader, K = setup(args)
+                                                          ^^^^^^^^^^^
+  File "/gpfs/home4/scur2527/ai4ml/src/main.py", line 137, in setup
+    train_loader = DataLoader(train_set, batch_size=B, num_workers=0, shuffle=True)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/scur2527/.conda/envs/ai4mi/lib/python3.12/site-packages/torch/utils/data/dataloader.py", line 351, in __init__
+    sampler = RandomSampler(dataset, generator=generator)  # type: ignore[arg-type]
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/scur2527/.conda/envs/ai4mi/lib/python3.12/site-packages/torch/utils/data/sampler.py", line 144, in __init__
+    raise ValueError(f"num_samples should be a positive integer value, but got num_samples={self.num_samples}")
+ValueError: num_samples should be a positive integer value, but got num_samples=0
+srun: error: gcn29: task 0: Exited with exit code 1
+srun: Terminating StepId=7769041.0
+
+JOB STATISTICS
+==============
+Job ID: 7769041
+Cluster: snellius
+User/Group: scur2527/scur2527
+State: FAILED (exit code 1)
+Nodes: 1
+Cores per node: 18
+CPU Utilized: 00:00:10
+CPU Efficiency: 2.06% of 00:08:06 core-walltime
+Job Wall-clock time: 00:00:27
+Memory Utilized: 1.70 MB
+Memory Efficiency: 0.00% of 120.00 GB
