@@ -241,7 +241,13 @@ def save_images(segs: Tensor, names: Iterable[str], root: Path) -> None:
 
 
 def log_sample_images_wandb(
-    img: Tensor, gt: Tensor, pred_probs: Tensor, K: int, steps_done: int, m: str, names: List[str]
+    img: Tensor,
+    gt: Tensor,
+    pred_probs: Tensor,
+    K: int,
+    steps_done: int,
+    m: str,
+    names: List[str],
 ):
     # Select first image from the batch
     idx = 0
