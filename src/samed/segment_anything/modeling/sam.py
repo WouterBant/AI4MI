@@ -43,7 +43,9 @@ class Sam(nn.Module):
         self.image_encoder = image_encoder
         self.prompt_encoder = prompt_encoder
         self.mask_decoder = mask_decoder
-        self.register_buffer("pixel_mean", torch.Tensor(pixel_mean).view(-1, 1, 1), False)
+        self.register_buffer(
+            "pixel_mean", torch.Tensor(pixel_mean).view(-1, 1, 1), False
+        )
         self.register_buffer("pixel_std", torch.Tensor(pixel_std).view(-1, 1, 1), False)
 
     @property
@@ -51,38 +53,13 @@ class Sam(nn.Module):
         return self.pixel_mean.device
 
     def forward(
-            self,
-            images_ : torch.Tensor,
-            multimask_output: bool = True
+        self, images_: torch.Tensor, multimask_output: bool = True
     ) -> torch.Tensor:
-        
-        # print("input image", images.shape)
-        # input_images = self.preprocess(images)
-        # print("processed images", input_images.shape)
-        # image_embeddings = self.image_encoder(input_images)
-        # print("image embeddings", image_embeddings.shape)
-        # sparse_embeddings, dense_embeddings = self.prompt_encoder(
-        #     points=None, boxes=None, masks=None
-        # )
-        # print("sparse embeddings", sparse_embeddings.shape)
-        # low_res_masks, iou_predictions = self.mask_decoder(
-        #     image_embeddings=image_embeddings,
-        #     image_pe=self.prompt_encoder.get_dense_pe(),
-        #     sparse_prompt_embeddings=sparse_embeddings,
-        #     dense_prompt_embeddings=dense_embeddings,
-        #     multimask_output=multimask_output
-        # )
-        # print("low res masks", low_res_masks.shape)
-        # print("iou predictions", iou_predictions.shape)
-        # masks = self.postprocess_masks(
-        #     low_res_masks,
-        #     input_size=images.shape[-2:],
-        #     original_size=images.shape[-2:]
-        # )
-        # print("masks", masks.shape)
         images = self.preprocess(images_)
         image_embeddings = self.image_encoder(images)
-        sparse_embeddings, dense_embeddings = self.prompt_encoder(points=None, boxes=None, masks=None)
+        sparse_embeddings, dense_embeddings = self.prompt_encoder(
+            points=None, boxes=None, masks=None
+        )
         low_res_masks, iou_predictions = self.mask_decoder(
             image_embeddings=image_embeddings,
             image_pe=self.prompt_encoder.get_dense_pe(),
@@ -90,12 +67,12 @@ class Sam(nn.Module):
             dense_prompt_embeddings=dense_embeddings,
             multimask_output=multimask_output,
         )
-        masks = self.postprocess_masks(  # TODO check if this is correct, now hardcoded
+        masks = self.postprocess_masks(
             low_res_masks,
             input_size=images_.shape[-2:],
             original_size=images_.shape[-2:],
         )
-        masks = masks > self.mask_threshold  # TODO this is removed in samed
+        masks = masks > self.mask_threshold
         return {
             "masks": masks,
             "iou_predictions": iou_predictions,
@@ -146,7 +123,9 @@ class Sam(nn.Module):
                 shape BxCxHxW, where H=W=256. Can be passed as mask input
                 to subsequent iterations of prediction.
         """
-        input_images = torch.stack([self.preprocess(x["image"]) for x in batched_input], dim=0)
+        input_images = torch.stack(
+            [self.preprocess(x["image"]) for x in batched_input], dim=0
+        )
         image_embeddings = self.image_encoder(input_images)
 
         outputs = []
@@ -210,7 +189,9 @@ class Sam(nn.Module):
             align_corners=False,
         )
         masks = masks[..., : input_size[0], : input_size[1]]
-        masks = F.interpolate(masks, original_size, mode="bilinear", align_corners=False)
+        masks = F.interpolate(
+            masks, original_size, mode="bilinear", align_corners=False
+        )
         return masks
 
     def preprocess(self, x: torch.Tensor) -> torch.Tensor:

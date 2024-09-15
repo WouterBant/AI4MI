@@ -32,8 +32,9 @@ from monai.losses import DiceLoss, GeneralizedDiceLoss, GeneralizedWassersteinDi
 
 from utils import simplex, sset
 
+
 def get_loss_fn(args: argparse.Namespace, K) -> Callable:
-    """ Return the loss function class
+    """Return the loss function class
 
     Args:
         args (argparse.Namespace): _description_
@@ -41,7 +42,7 @@ def get_loss_fn(args: argparse.Namespace, K) -> Callable:
 
     Returns:
         Callable: loss
-    """    
+    """
     if args.loss == "ce":
         print(f"Using CrossEntropy loss with {K} classes")
         return CrossEntropy(
@@ -49,32 +50,22 @@ def get_loss_fn(args: argparse.Namespace, K) -> Callable:
         )  # Supervise both background and foreground
     elif args.loss == "dice":
         print(f"Using Dice loss")
-        return DiceLoss(
-            include_background=True
-        )
+        return DiceLoss(include_background=True)
     elif args.loss == "gdl":
         print(f"Using Generalized Dice loss")
-        return GeneralizedDiceLoss(
-            include_background=True
-        )
-        
+        return GeneralizedDiceLoss(include_background=True)
+
     elif args.loss == "dce":
         print(f"Using Dice CrossEntropy loss")
-        return DiceCrossEntropy(
-            idk=list(range(K)),
-            ce_lambda=args.ce_lambda
-        )
-        
+        return DiceCrossEntropy(idk=list(range(K)), ce_lambda=args.ce_lambda)
+
     elif args.loss == "gwdl":
-        #TODO: Define the distance matrix
+        # TODO: Define the distance matrix
         print(f"Using Generalized Wasserstein Dice loss")
-        return GeneralizedWassersteinDiceLoss(
-            dist_matrix=None
-        )
-        
+        return GeneralizedWassersteinDiceLoss(dist_matrix=None)
+
     else:
         raise ValueError(f"Unsupported loss function: {args.loss}")
-        
 
 
 class CrossEntropy:
@@ -103,7 +94,6 @@ class PartialCrossEntropy(CrossEntropy):
 
 
 class DiceLoss(nn.Module):
-    # TODO not confident about this implementation
     def __init__(self, n_classes):
         super(DiceLoss, self).__init__()
         self.n_classes = n_classes
@@ -132,8 +122,11 @@ class DiceLoss(nn.Module):
         # target = self._one_hot_encoder(target)
         if weight is None:
             weight = [1] * self.n_classes
-        assert inputs.size() == target.size(), 'predict {} & target {} shape do not match'.format(inputs.size(),
-                                                                                                  target.size())
+        assert (
+            inputs.size() == target.size()
+        ), "predict {} & target {} shape do not match".format(
+            inputs.size(), target.size()
+        )
         class_wise_dice = []
         loss = 0.0
         for i in range(0, self.n_classes):

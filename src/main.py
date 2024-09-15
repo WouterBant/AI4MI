@@ -62,17 +62,36 @@ from samed.sam_lora import LoRA_Sam
 from samed.segment_anything import sam_model_registry
 
 
-torch.set_float32_matmul_precision('high')
+torch.set_float32_matmul_precision("high")
 
 datasets_params: dict[str, dict[str, Any]] = {}
 # K for the number of classes
 # Avoids the clases with C (often used for the number of Channel)
-datasets_params["TOY2"] = {"K": 2, "net": shallowCNN, "B": 2, "names": ["background", "foreground"]}
-datasets_params["SEGTHOR"] = {"K": 5, "net": ENet, "B": 8, "names": ["Background", "Esophagus", "Heart", "Trachea", "Aorta"]}
-datasets_params["SEGTHOR_TEST"] = {"K": 5, "net": ENet, "B": 8, "names": ["Background", "Esophagus", "Heart", "Trachea", "Aorta"]}
+datasets_params["TOY2"] = {
+    "K": 2,
+    "net": shallowCNN,
+    "B": 2,
+    "names": ["background", "foreground"],
+}
+datasets_params["SEGTHOR"] = {
+    "K": 5,
+    "net": ENet,
+    "B": 8,
+    "names": ["Background", "Esophagus", "Heart", "Trachea", "Aorta"],
+}
+datasets_params["SEGTHOR_TEST"] = {
+    "K": 5,
+    "net": ENet,
+    "B": 8,
+    "names": ["Background", "Esophagus", "Heart", "Trachea", "Aorta"],
+}
 
 
-def setup(args) -> tuple[nn.Module, Any, Any, DataLoader, DataLoader, int, Optional[CosineWarmupScheduler]]:
+def setup(
+    args,
+) -> tuple[
+    nn.Module, Any, Any, DataLoader, DataLoader, int, Optional[CosineWarmupScheduler]
+]:
     # Networks and scheduler
     gpu: bool = args.gpu and torch.cuda.is_available()
     device = torch.device("cuda") if gpu else torch.device("cpu")
@@ -88,7 +107,7 @@ def setup(args) -> tuple[nn.Module, Any, Any, DataLoader, DataLoader, int, Optio
 
     K: int = datasets_params[args.dataset]["K"]
     if args.model == "samed":
-        sam, _ = sam_model_registry["vit_b"](  # TODO check these arguments 
+        sam, _ = sam_model_registry["vit_b"](  # TODO check these arguments
             checkpoint="src/samed/checkpoints/sam_vit_b_01ec64.pth",
             num_classes=K,
             pixel_mean=[0.0457, 0.0457, 0.0457],
@@ -145,7 +164,9 @@ def setup(args) -> tuple[nn.Module, Any, Any, DataLoader, DataLoader, int, Optio
         gt_transform=gt_transform,
         debug=args.debug,
     )
-    train_loader = DataLoader(train_set, batch_size=B, num_workers=args.num_workers, shuffle=True)
+    train_loader = DataLoader(
+        train_set, batch_size=B, num_workers=args.num_workers, shuffle=True
+    )
 
     val_set = SliceDataset(
         "val",
@@ -154,7 +175,9 @@ def setup(args) -> tuple[nn.Module, Any, Any, DataLoader, DataLoader, int, Optio
         gt_transform=gt_transform,
         debug=args.debug,
     )
-    val_loader = DataLoader(val_set, batch_size=B, num_workers=args.num_workers, shuffle=False)
+    val_loader = DataLoader(
+        val_set, batch_size=B, num_workers=args.num_workers, shuffle=False
+    )
 
     scheduler = None
     if args.use_scheduler:
@@ -167,8 +190,10 @@ def setup(args) -> tuple[nn.Module, Any, Any, DataLoader, DataLoader, int, Optio
     return (net, optimizer, device, train_loader, val_loader, K, scheduler)
 
 
-def calc_loss(outputs, low_res_label_batch, ce_loss, dice_loss, dice_weight:float=0.8):
-    low_res_logits = outputs['low_res_logits']
+def calc_loss(
+    outputs, low_res_label_batch, ce_loss, dice_loss, dice_weight: float = 0.8
+):
+    low_res_logits = outputs["low_res_logits"]
     loss_ce = ce_loss(low_res_logits, low_res_label_batch[:].float())
     loss_dice = dice_loss(low_res_logits, low_res_label_batch, softmax=True)
     loss = (1 - dice_weight) * loss_ce + dice_weight * loss_dice
@@ -236,7 +261,9 @@ def runTraining(args):
                         pred_probs = F.softmax(
                             1 * pred_logits, dim=1
                         )  # 1 is the temperature parameter
-                        loss, loss_ce, loss_dice = calc_loss(preds, gt, ce_loss, dice_loss, dice_weight=0.8)
+                        loss, loss_ce, loss_dice = calc_loss(
+                            preds, gt, ce_loss, dice_loss, dice_weight=0.8
+                        )
                     else:
                         pred_logits = net(img)
                         pred_probs = F.softmax(
@@ -261,9 +288,11 @@ def runTraining(args):
                                 torch.nn.utils.clip_grad_norm_(net.parameters(), 1.0)
                             opt.step()
                             opt.zero_grad()
-                            
+
                             # Log the accumulated loss
-                            log_loss[e, i // args.gradient_accumulation_steps] = accumulated_loss
+                            log_loss[e, i // args.gradient_accumulation_steps] = (
+                                accumulated_loss
+                            )
                             accumulated_loss = 0
 
                             if scheduler:
@@ -282,15 +311,25 @@ def runTraining(args):
 
                         if m == "train" and steps_done % 50 == 0:
                             metrics = {
-                                f"{m}_dice_{k}": log_dice[e, j : j + img.shape[0], k].mean().item()
+                                f"{m}_dice_{k}": log_dice[e, j : j + img.shape[0], k]
+                                .mean()
+                                .item()
                                 for k in range(K)
                             }
-                            metrics[f"{m}_loss"] = loss.item() * args.gradient_accumulation_steps
+                            metrics[f"{m}_loss"] = (
+                                loss.item() * args.gradient_accumulation_steps
+                            )
                             wandb.log(metrics)
 
                         if steps_done % 1000 == 0:
                             log_sample_images_wandb(
-                                img, gt, pred_probs, K, steps_done, m, datasets_params[args.dataset]["names"]
+                                img,
+                                gt,
+                                pred_probs,
+                                K,
+                                steps_done,
+                                m,
+                                datasets_params[args.dataset]["names"],
                             )
 
                     if m == "val":
@@ -391,7 +430,7 @@ def main():
         help="Destination directory to save the results (predictions and weights).",
     )
     parser.add_argument("--gpu", action="store_true")
-    parser.add_argument('--num_workers', type=int, default=4)
+    parser.add_argument("--num_workers", type=int, default=4)
     parser.add_argument(
         "--debug",
         action="store_true",
@@ -422,7 +461,9 @@ def main():
         args.batch_size = datasets_params[args.dataset]["B"]
 
     if args.dest is None:
-        args.dest = Path(f"results/{args.dataset}/{datetime.now().strftime("%Y-%m-%d")}")
+        args.dest = Path(
+            f"results/{args.dataset}/{datetime.now().strftime("%Y-%m-%d")}"
+        )
 
     runTraining(args)
 
