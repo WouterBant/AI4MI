@@ -24,7 +24,7 @@
 
 import argparse
 import warnings
-from typing import Any
+from typing import Any, Optional
 from pathlib import Path
 from pprint import pprint
 from operator import itemgetter
@@ -41,6 +41,7 @@ from torch.utils.data import DataLoader
 
 from dataset import SliceDataset
 from ShallowNet import shallowCNN
+from scheduler import CosineWarmupScheduler
 from ENet import ENet
 from utils import (
     Dcm,
@@ -55,8 +56,13 @@ from utils import (
     save_images,
     set_seed,
 )
-from losses import CrossEntropy
+from losses import CrossEntropy, DiceLoss
 
+from samed.sam_lora import LoRA_Sam
+from samed.segment_anything import sam_model_registry
+
+
+torch.set_float32_matmul_precision('high')
 
 datasets_params: dict[str, dict[str, Any]] = {}
 # K for the number of classes
@@ -65,7 +71,7 @@ datasets_params["TOY2"] = {"K": 2, "net": shallowCNN, "B": 2, "names": ["backgro
 datasets_params["SEGTHOR"] = {"K": 5, "net": ENet, "B": 8, "names": ["Background", "Esophagus", "Heart", "Trachea", "Aorta"]}
 
 
-def setup(args) -> tuple[nn.Module, Any, Any, DataLoader, DataLoader, int]:
+def setup(args) -> tuple[nn.Module, Any, Any, DataLoader, DataLoader, int, Optional[CosineWarmupScheduler]]:
     # Networks and scheduler
     gpu: bool = args.gpu and torch.cuda.is_available()
     device = torch.device("cuda") if gpu else torch.device("cpu")
@@ -80,8 +86,17 @@ def setup(args) -> tuple[nn.Module, Any, Any, DataLoader, DataLoader, int]:
     print(f">> Picked {device} to run experiments")
 
     K: int = datasets_params[args.dataset]["K"]
-    net = datasets_params[args.dataset]["net"](1, K)
-    net.init_weights()  # TODO probably remove it and use the default one from pytorch
+    if args.model == "samed":
+        sam, _ = sam_model_registry["vit_b"](  # TODO check these arguments 
+            checkpoint="src/samed/checkpoints/sam_vit_b_01ec64.pth",
+            num_classes=K,
+            pixel_mean=[0.0457, 0.0457, 0.0457],
+            pixel_std=[0.0723, 0.0723, 0.0723],
+        )
+        net = LoRA_Sam(sam, r=4)
+    else:
+        net = datasets_params[args.dataset]["net"](1, K)
+        net.init_weights()  # TODO probably remove it and use the default one from pytorch
     net.to(device)
 
     # Use torch.compile for kernel fusion to be faster on the gpu
@@ -89,11 +104,7 @@ def setup(args) -> tuple[nn.Module, Any, Any, DataLoader, DataLoader, int]:
         print(">> Compiling the network for faster execution")
         net = torch.compile(net)
 
-    # TODO consider using a learning rate scheduler
-    # TODO consider adding weight decay and gradient clipping
-    # TODO consider using SGD with momentum as it works well for cnns
-    # TODO otherwise use AdamW as it is a bug fix of Adam that is more stable
-    # TODO consider training with mixed precision to speed up training
+    # TODO consider adding weight decay
     # Initialize optimizer based on args
     optimizer = get_optimizer(args, net)
 
@@ -144,14 +155,28 @@ def setup(args) -> tuple[nn.Module, Any, Any, DataLoader, DataLoader, int]:
     )
     val_loader = DataLoader(val_set, batch_size=B, num_workers=args.num_workers, shuffle=False)
 
+    scheduler = None
+    if args.use_scheduler:
+        total_steps = args.epochs * len(train_loader)
+        warmup_steps = int(0.1 * total_steps)  # 10% of total steps for warmup
+        scheduler = CosineWarmupScheduler(optimizer, args.lr, warmup_steps, total_steps)
+
     args.dest.mkdir(parents=True, exist_ok=True)
 
-    return (net, optimizer, device, train_loader, val_loader, K)
+    return (net, optimizer, device, train_loader, val_loader, K, scheduler)
+
+
+def calc_loss(outputs, low_res_label_batch, ce_loss, dice_loss, dice_weight:float=0.8):
+    low_res_logits = outputs['low_res_logits']
+    loss_ce = ce_loss(low_res_logits, low_res_label_batch[:].float())
+    loss_dice = dice_loss(low_res_logits, low_res_label_batch, softmax=True)
+    loss = (1 - dice_weight) * loss_ce + dice_weight * loss_dice
+    return loss, loss_ce, loss_dice
 
 
 def runTraining(args):
     print(f">>> Setting up to train on {args.dataset} with {args.mode}")
-    net, optimizer, device, train_loader, val_loader, K = setup(args)
+    net, optimizer, device, train_loader, val_loader, K, scheduler = setup(args)
 
     if args.mode == "full":
         loss_fn = CrossEntropy(
@@ -172,6 +197,8 @@ def runTraining(args):
     log_dice_val: Tensor = torch.zeros((args.epochs, len(val_loader.dataset), K))
 
     best_dice = train_steps_done = val_steps_done = 0
+    dice_loss = DiceLoss(K)
+    ce_loss = torch.nn.CrossEntropyLoss()
 
     for e in range(args.epochs):
         for m in ["train", "val"]:
@@ -195,35 +222,57 @@ def runTraining(args):
             with cm():  # Either dummy context manager, or the torch.no_grad for validation
                 j = 0
                 tq_iter = tqdm_(enumerate(loader), total=len(loader), desc=desc)
+                accumulated_loss = 0
                 for i, data in tq_iter:
                     img = data["images"].to(device)
                     gt = data["gts"].to(device)
-
-                    if opt:  # So only for training
-                        opt.zero_grad()
 
                     # Sanity tests to see we loaded and encoded the data correctly
                     assert 0 <= img.min() and img.max() <= 1
                     B, _, W, H = img.shape
 
-                    pred_logits = net(img)
-                    pred_probs = F.softmax(
-                        1 * pred_logits, dim=1
-                    )  # 1 is the temperature parameter
+                    if args.model == "samed":
+                        preds = net(img)
+                        pred_logits = preds["low_res_logits"]
+                        pred_probs = F.softmax(
+                            1 * pred_logits, dim=1
+                        )  # 1 is the temperature parameter
+                        loss, loss_ce, loss_dice = calc_loss(preds, gt, ce_loss, dice_loss, dice_weight=0.8)
+                    else:
+                        pred_logits = net(img)
+                        pred_probs = F.softmax(
+                            1 * pred_logits, dim=1
+                        )  # 1 is the temperature parameter
+                        loss = loss_fn(pred_probs, gt)
 
                     # Metrics computation, not used for training
                     pred_seg = probs2one_hot(pred_probs)
                     log_dice[e, j : j + B, :] = dice_coef(
                         pred_seg, gt
                     )  # One DSC value per sample and per class
-
                     # TODO: add additional metrics
 
-                    loss = loss_fn(pred_probs, gt)
-                    log_loss[e, i] = (
-                        loss.item()
-                    )  # One loss value per batch (averaged in the loss)
+                    # Backward pass
+                    if m == "train":
+                        loss.backward()
 
+                        # Gradient accumulation
+                        if (i + 1) % args.gradient_accumulation_steps == 0:
+                            if args.clip_grad:
+                                torch.nn.utils.clip_grad_norm_(net.parameters(), 1.0)
+                            opt.step()
+                            opt.zero_grad()
+                            
+                            # Log the accumulated loss
+                            log_loss[e, i // args.gradient_accumulation_steps] = accumulated_loss
+                            accumulated_loss = 0
+
+                            if scheduler:
+                                lr = scheduler.step()
+                                if args.use_wandb:
+                                    wandb.log({"learning_rate": lr})
+
+                    # Logging and metrics
                     if args.use_wandb:
                         if m == "train":
                             train_steps_done += 1
@@ -232,26 +281,18 @@ def runTraining(args):
                             val_steps_done += 1
                             steps_done = val_steps_done
 
-                        # Log metrics every 50 steps
                         if m == "train" and steps_done % 50 == 0:
                             metrics = {
-                                f"{m}_dice_{k}": log_dice[e, j : j + B, k].mean().item()
+                                f"{m}_dice_{k}": log_dice[e, j : j + img.shape[0], k].mean().item()
                                 for k in range(K)
                             }
-                            metrics[f"{m}_loss"] = loss.item()
+                            metrics[f"{m}_loss"] = loss.item() * args.gradient_accumulation_steps
                             wandb.log(metrics)
 
-                        # Log sample images every 1000 steps
                         if steps_done % 1000 == 0:
                             log_sample_images_wandb(
                                 img, gt, pred_probs, K, steps_done, m, datasets_params[args.dataset]["names"]
                             )
-
-                    if opt:  # Only for training
-                        loss.backward()
-                        if args.clip_grad:
-                            torch.nn.utils.clip_grad_norm_(net.parameters(), 1.0)
-                        opt.step()
 
                     if m == "val":
                         with warnings.catch_warnings():
@@ -264,11 +305,10 @@ def runTraining(args):
                                 args.dest / f"iter{e:03d}" / m,
                             )
 
-                    j += B  # Keep in mind that _in theory_, each batch might have a different size
-                    # For the DSC average: do not take the background class (0) into account:
+                    j += img.shape[0]
                     postfix_dict: dict[str, str] = {
                         "Dice": f"{log_dice[e, :j, 1:].mean():05.3f}",
-                        "Loss": f"{log_loss[e, :i + 1].mean():5.2e}",
+                        "Loss": f"{accumulated_loss * args.gradient_accumulation_steps:5.2e}",
                     }
                     if K > 2:
                         postfix_dict |= {
@@ -314,11 +354,26 @@ def main():
 
     parser.add_argument("--epochs", default=200, type=int)
     parser.add_argument("--lr", default=0.0005, type=float, help="Learning rate")
+    parser.add_argument("--weight_decay", default=0.1, type=float, help="Weight decay")
     parser.add_argument(
         "--batch_size",
         type=int,
         help="Batch size",
         default=None,
+    )
+    parser.add_argument(
+        "--gradient_accumulation_steps",
+        type=int,
+        default=1,
+        help="Number of steps to accumulate gradients over",
+    )
+    parser.add_argument(
+        "--use_scheduler", action="store_true", help="Use CosineWarmupScheduler"
+    )
+    parser.add_argument(
+        "--model",
+        default=None,
+        help="Model to use",
     )
     parser.add_argument(
         "--optimizer",
