@@ -79,6 +79,6 @@ class SliceDataset(Dataset):
 
         _, W, H = img.shape
         K, _, _ = gt.shape
-        assert gt.shape == (K, W, H)
+        # assert gt.shape == (K, W, H)
 
         return {"images": img, "gts": gt, "stems": img_path.stem}

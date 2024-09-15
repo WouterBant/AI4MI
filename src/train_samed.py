@@ -10,6 +10,10 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 import numpy as np
 import torch
+import torch.optim as optim
+import torch.nn as nn
+from torch.amp import GradScaler, autocast
+from tqdm import tqdm
 
 
 def dataloaders():
@@ -25,6 +29,7 @@ def dataloaders():
             lambda nd: torch.tensor(nd, dtype=torch.float32),
         ]
     )
+    # m = nn.MaxPool2d(kernel_size=2, stride=2)
 
     gt_transform = transforms.Compose(
         [
@@ -38,9 +43,13 @@ def dataloaders():
                 None, ...
             ],  # Add one dimension to simulate batch
             lambda t: class2one_hot(t, K=K),
+            # m,
             itemgetter(0),
         ]
     )
+
+    # 94016114
+    # 4492658
 
     train_set = SliceDataset(
         "train",
@@ -80,34 +89,59 @@ def main():
         pixel_mean=[0, 0, 0],
         pixel_std=[1, 1, 1],
     )
-    # print num parameters
-    print(sum(p.numel() for p in sam.parameters() if p.requires_grad))
 
-    model = LoRA_Sam(sam, r=4)
-    print(sum(p.numel() for p in model.parameters() if p.requires_grad))
+    model = LoRA_Sam(sam, r=4)    
 
     # model.load_lora_parameters("") ones you have the file
-    
-    for i, data in enumerate(train_loader):
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model.to(device)
 
-        if i == 5:
-            break
-    
-        img = data["images"]
-        gt = data["gts"]
-        print(img.shape)
-        print(gt.shape)
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    # scaler = GradScaler()
 
-        preds = model(img)
+    meansum = 0
+    stdsum = 0
+    print(len(train_loader))
+    for i, data in tqdm(enumerate(train_loader)):
+        optimizer.zero_grad()
+        # if i == 5:
+        #     break
+    
+        img = data["images"].to(device)
+        gt = data["gts"].to(device)
+        # print(img.shape)
+        # print("mean", img.mean())
+        # print("std", img.std())
+        meansum += img.mean()
+        stdsum += img.std()
+
+        # preds = model(img)
 
         # note preds['masks'] is true and false
 
-        import code; code.interact(local=locals())
-        for key in preds:
-            print(key, preds[key].shape)
+        # import code; code.interact(local=locals())
 
-        loss, loss_ce, loss_dice = calc_loss(preds, gt, ce_loss, dice_loss, dice_weight=0.8)
-        
+        # with autocast("cuda" if torch.cuda.is_available() else "cpu"):
+        # preds = model(img)
+        # print(preds['low_res_logits'].shape)
+        # # import code; code.interact(local=locals())
+        # loss, loss_ce, loss_dice = calc_loss(preds, gt, ce_loss, dice_loss, dice_weight=0.8)
+        # loss.backward()
+        # print(loss.item())
+        # optimizer.step()
+        # for key in preds:
+        #     print(key, preds[key].shape)
+
+        # loss, loss_ce, loss_dice = calc_loss(preds, gt, ce_loss, dice_loss, dice_weight=0.8)
+        # loss.backward()
+        # optimizer.step()
+        # scaler.scale(loss).backward()
+        # scaler.step(optimizer)
+        # scaler.update()
+
+        # print(f"[{i + 1}, {i + 1}] loss: {loss.item() / 10:.3f}")
+    print(meansum / len(train_loader))
+    print(stdsum / len(train_loader))
 
 
 if __name__ == "__main__":

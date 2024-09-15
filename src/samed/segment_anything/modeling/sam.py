@@ -222,6 +222,5 @@ class Sam(nn.Module):
         h, w = x.shape[-2:]
         padh = self.image_encoder.img_size - h
         padw = self.image_encoder.img_size - w
-        print(self.image_encoder.img_size, "image size")  
         x = F.pad(x, (0, padw, 0, padh))
         return x
