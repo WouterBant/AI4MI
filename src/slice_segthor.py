@@ -152,7 +152,11 @@ def slice_patient(
 
 
 def get_splits(
-    src_path: Path, retains: int, fold: int, create_test: bool = False, retains_test: int = 10
+    src_path: Path,
+    retains: int,
+    fold: int,
+    create_test: bool = False,
+    retains_test: int = 10,
 ) -> tuple[list[str], list[str], list[str]]:
     ids: list[str] = sorted(map_(lambda p: p.name, (src_path / "train").glob("*")))
     # Fix for macs to prevent .DS_Store to be in the list
@@ -177,19 +181,18 @@ def get_splits(
         )
         print(f"Founds {len(test_ids)} test ids")
         print(test_ids[:10])
-    elif create_test: # Split the validation set into validation and test
+    elif create_test:  # Split the validation set into validation and test
         validation_slice = slice(fold * retains, (fold + 1) * retains)
         validation_ids: list[str] = ids[validation_slice]
         assert len(validation_ids) == retains
-        
+
         training_ids: list[str] = [e for e in ids if e not in validation_ids]
-        
+
         # Now split the validation set into validation and test. Take subset of the validation set
         test_ids: list[str] = validation_ids[:retains_test]
         validation_ids = validation_ids[retains_test:]
-        
+
         # No need to shuffle as already done before
-        
 
     return training_ids, validation_ids, test_ids
 
@@ -258,8 +261,17 @@ def get_args() -> argparse.Namespace:
     parser.add_argument("--dest_dir", type=str, required=True)
 
     parser.add_argument("--shape", type=int, nargs="+", default=[256, 256])
-    parser.add_argument("--create_test" , action="store_true", help="Creates the test set as part of the validation set")
-    parser.add_argument("--retains_test", type=int, default=10, help="Number of retained patient for the test data")
+    parser.add_argument(
+        "--create_test",
+        action="store_true",
+        help="Creates the test set as part of the validation set",
+    )
+    parser.add_argument(
+        "--retains_test",
+        type=int,
+        default=10,
+        help="Number of retained patient for the test data",
+    )
     parser.add_argument(
         "--retains",
         type=int,
