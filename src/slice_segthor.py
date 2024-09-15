@@ -152,7 +152,7 @@ def slice_patient(
 
 
 def get_splits(
-    src_path: Path, retains: int, fold: int
+    src_path: Path, retains: int, fold: int, create_test: bool = False, retains_test: int = 10
 ) -> tuple[list[str], list[str], list[str]]:
     ids: list[str] = sorted(map_(lambda p: p.name, (src_path / "train").glob("*")))
     # Fix for macs to prevent .DS_Store to be in the list
@@ -164,18 +164,32 @@ def get_splits(
     random.shuffle(
         ids
     )  # Shuffle before to avoid any problem if the patients are sorted in any way
-    validation_slice = slice(fold * retains, (fold + 1) * retains)
-    validation_ids: list[str] = ids[validation_slice]
-    assert len(validation_ids) == retains
+    if not create_test:
+        validation_slice = slice(fold * retains, (fold + 1) * retains)
+        validation_ids: list[str] = ids[validation_slice]
+        assert len(validation_ids) == retains
 
-    training_ids: list[str] = [e for e in ids if e not in validation_ids]
-    assert (len(training_ids) + len(validation_ids)) == len(ids)
+        training_ids: list[str] = [e for e in ids if e not in validation_ids]
+        assert (len(training_ids) + len(validation_ids)) == len(ids)
 
-    test_ids: list[str] = sorted(
-        map_(lambda p: Path(p.stem).stem, (src_path / "test").glob("*"))
-    )
-    print(f"Founds {len(test_ids)} test ids")
-    print(test_ids[:10])
+        test_ids: list[str] = sorted(
+            map_(lambda p: Path(p.stem).stem, (src_path / "test").glob("*"))
+        )
+        print(f"Founds {len(test_ids)} test ids")
+        print(test_ids[:10])
+    elif create_test: # Split the validation set into validation and test
+        validation_slice = slice(fold * retains, (fold + 1) * retains)
+        validation_ids: list[str] = ids[validation_slice]
+        assert len(validation_ids) == retains
+        
+        training_ids: list[str] = [e for e in ids if e not in validation_ids]
+        
+        # Now split the validation set into validation and test. Take subset of the validation set
+        test_ids: list[str] = validation_ids[:retains_test]
+        validation_ids = validation_ids[retains_test:]
+        
+        # No need to shuffle as already done before
+        
 
     return training_ids, validation_ids, test_ids
 
@@ -192,7 +206,7 @@ def main(args: argparse.Namespace):
     validation_ids: list[str]
     test_ids: list[str]
     training_ids, validation_ids, test_ids = get_splits(
-        src_path, args.retains, args.fold
+        src_path, args.retains, args.fold, args.create_test, args.retains_test
     )
 
     resolution_dict: dict[str, tuple[float, float, float]] = {}
@@ -204,13 +218,22 @@ def main(args: argparse.Namespace):
         dest_mode: Path = dest_path / mode
         print(f"Slicing {len(split_ids)} pairs to {dest_mode}")
 
-        pfun: Callable = partial(
-            slice_patient,
-            dest_path=dest_mode,
-            source_path=src_path,
-            shape=tuple(args.shape),
-            test_mode=mode == "test",
-        )
+        if not args.create_test:
+            pfun: Callable = partial(
+                slice_patient,
+                dest_path=dest_mode,
+                source_path=src_path,
+                shape=tuple(args.shape),
+                test_mode=mode == "test",
+            )
+        elif args.create_test:
+            pfun: Callable = partial(
+                slice_patient,
+                dest_path=dest_mode,
+                source_path=src_path,
+                shape=tuple(args.shape),
+                test_mode=False,
+            )
         resolutions: list[tuple[float, float, float]]
         iterator = tqdm_(split_ids)
         match args.process:
@@ -235,6 +258,8 @@ def get_args() -> argparse.Namespace:
     parser.add_argument("--dest_dir", type=str, required=True)
 
     parser.add_argument("--shape", type=int, nargs="+", default=[256, 256])
+    parser.add_argument("--create_test" , action="store_true", help="Creates the test set as part of the validation set")
+    parser.add_argument("--retains_test", type=int, default=10, help="Number of retained patient for the test data")
     parser.add_argument(
         "--retains",
         type=int,

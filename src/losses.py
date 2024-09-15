@@ -26,8 +26,55 @@
 import torch
 from torch import nn
 from torch import einsum
+import argparse
+from typing import Callable
+from monai.losses import DiceLoss, GeneralizedDiceLoss, GeneralizedWassersteinDiceLoss
 
 from utils import simplex, sset
+
+def get_loss_fn(args: argparse.Namespace, K) -> Callable:
+    """ Return the loss function class
+
+    Args:
+        args (argparse.Namespace): _description_
+        K (_type_): Number of classes
+
+    Returns:
+        Callable: loss
+    """    
+    if args.loss == "ce":
+        print(f"Using CrossEntropy loss with {K} classes")
+        return CrossEntropy(
+            idk=list(range(K))
+        )  # Supervise both background and foreground
+    elif args.loss == "dice":
+        print(f"Using Dice loss")
+        return DiceLoss(
+            include_background=True
+        )
+    elif args.loss == "gdl":
+        print(f"Using Generalized Dice loss")
+        return GeneralizedDiceLoss(
+            include_background=True
+        )
+        
+    elif args.loss == "dce":
+        print(f"Using Dice CrossEntropy loss")
+        return DiceCrossEntropy(
+            idk=list(range(K)),
+            ce_lambda=args.ce_lambda
+        )
+        
+    elif args.loss == "gwdl":
+        #TODO: Define the distance matrix
+        print(f"Using Generalized Wasserstein Dice loss")
+        return GeneralizedWassersteinDiceLoss(
+            dist_matrix=None
+        )
+        
+    else:
+        raise ValueError(f"Unsupported loss function: {args.loss}")
+        
 
 
 class CrossEntropy:
@@ -97,3 +144,14 @@ class DiceLoss(nn.Module):
 
 
 # TODO add (generalized) dice loss https://github.com/wolny/pytorch-3dunet/blob/master/pytorch3dunet/unet3d/losses.py#L8
+class DiceCrossEntropy(CrossEntropy):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.ce_lambda = kwargs["ce_lambda"]
+        self.dice_loss = DiceLoss(include_background=True)
+
+    def __call__(self, pred_softmax, weak_target):
+        ce_loss = super().__call__(pred_softmax, weak_target)
+        dice_loss = self.dice_loss(pred_softmax, weak_target)
+        total_loss = self.ce_lambda * ce_loss + dice_loss
+        return total_loss

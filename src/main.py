@@ -56,7 +56,7 @@ from utils import (
     save_images,
     set_seed,
 )
-from losses import CrossEntropy, DiceLoss
+from losses import get_loss_fn, CrossEntropy, DiceLoss
 
 from samed.sam_lora import LoRA_Sam
 from samed.segment_anything import sam_model_registry
@@ -69,6 +69,7 @@ datasets_params: dict[str, dict[str, Any]] = {}
 # Avoids the clases with C (often used for the number of Channel)
 datasets_params["TOY2"] = {"K": 2, "net": shallowCNN, "B": 2, "names": ["background", "foreground"]}
 datasets_params["SEGTHOR"] = {"K": 5, "net": ENet, "B": 8, "names": ["Background", "Esophagus", "Heart", "Trachea", "Aorta"]}
+datasets_params["SEGTHOR_TEST"] = {"K": 5, "net": ENet, "B": 8, "names": ["Background", "Esophagus", "Heart", "Trachea", "Aorta"]}
 
 
 def setup(args) -> tuple[nn.Module, Any, Any, DataLoader, DataLoader, int, Optional[CosineWarmupScheduler]]:
@@ -179,9 +180,7 @@ def runTraining(args):
     net, optimizer, device, train_loader, val_loader, K, scheduler = setup(args)
 
     if args.mode == "full":
-        loss_fn = CrossEntropy(
-            idk=list(range(K))
-        )  # Supervise both background and foreground
+        loss_fn = get_loss_fn(args, K)
     elif args.mode in ["partial"] and args.dataset in ["SEGTHOR", "SEGTHOR_STUDENTS"]:
         print(
             ">> NOTE Partial loss will not supervise the heart (class 2) so don't use it"
@@ -383,6 +382,8 @@ def main():
     )
     parser.add_argument("--dataset", default="SEGTHOR", choices=datasets_params.keys())
     parser.add_argument("--mode", default="full", choices=["partial", "full"])
+    parser.add_argument("--loss", default="ce", choices=["ce", "dice", "gdl", "dce"])
+    parser.add_argument("--ce_lambda", default=1.0, type=float)
     parser.add_argument(
         "--dest",
         type=Path,
