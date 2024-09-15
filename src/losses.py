@@ -28,7 +28,8 @@ from torch import nn
 from torch import einsum
 import argparse
 from typing import Callable
-from monai.losses import DiceLoss, GeneralizedDiceLoss, GeneralizedWassersteinDiceLoss
+import monai
+#from monai.losses import DiceLoss, GeneralizedDiceLoss, GeneralizedWassersteinDiceLoss
 
 from utils import simplex, sset
 
@@ -48,12 +49,12 @@ def get_loss_fn(args: argparse.Namespace, K) -> Callable:
         return CrossEntropy(
             idk=list(range(K))
         )  # Supervise both background and foreground
-    elif args.loss == "dice":
+    elif args.loss == "dice_monai":
         print(f"Using Dice loss")
-        return DiceLoss(include_background=True)
+        return monai.losses.DiceLoss(include_background=True)
     elif args.loss == "gdl":
         print(f"Using Generalized Dice loss")
-        return GeneralizedDiceLoss(include_background=True)
+        return monai.losses.GeneralizedDiceLoss(include_background=True)
 
     elif args.loss == "dce":
         print(f"Using Dice CrossEntropy loss")
@@ -62,11 +63,10 @@ def get_loss_fn(args: argparse.Namespace, K) -> Callable:
     elif args.loss == "gwdl":
         # TODO: Define the distance matrix
         print(f"Using Generalized Wasserstein Dice loss")
-        return GeneralizedWassersteinDiceLoss(dist_matrix=None)
+        return monai.losses.GeneralizedWassersteinDiceLoss(dist_matrix=None)
 
     else:
         raise ValueError(f"Unsupported loss function: {args.loss}")
-
 
 class CrossEntropy:
     def __init__(self, **kwargs):
@@ -141,7 +141,7 @@ class DiceCrossEntropy(CrossEntropy):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.ce_lambda = kwargs["ce_lambda"]
-        self.dice_loss = DiceLoss(include_background=True)
+        self.dice_loss = monai.losses.DiceLoss(include_background=True)
 
     def __call__(self, pred_softmax, weak_target):
         ce_loss = super().__call__(pred_softmax, weak_target)
