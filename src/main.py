@@ -31,6 +31,7 @@ from operator import itemgetter
 from shutil import copytree, rmtree
 from datetime import datetime
 import wandb
+import json
 
 import torch
 import numpy as np
@@ -56,6 +57,7 @@ from utils import (
     set_seed,
 )
 from losses import get_loss_fn, CrossEntropy
+from metrics import update_metrics
 
 
 datasets_params: dict[str, dict[str, Any]] = {}
@@ -169,8 +171,19 @@ def runTraining(args):
     log_dice_tra: Tensor = torch.zeros((args.epochs, len(train_loader.dataset), K))
     log_loss_val: Tensor = torch.zeros((args.epochs, len(val_loader)))
     log_dice_val: Tensor = torch.zeros((args.epochs, len(val_loader.dataset), K))
+    
+    # Create holders for segmentation predictions and ground truth
+    total_pred_seg_tra: Tensor = torch.zeros((len(train_loader.dataset), K, 256, 256), dtype=torch.int32)
+    total_gt_seg_tra: Tensor = torch.zeros((len(train_loader.dataset), K, 256, 256), dtype=torch.int32)
+    total_pred_seg_val: Tensor = torch.zeros((len(val_loader.dataset), K, 256, 256), dtype=torch.int32)
+    total_gt_seg_val: Tensor = torch.zeros((len(val_loader.dataset), K, 256, 256), dtype=torch.int32)
 
     best_dice = train_steps_done = val_steps_done = 0
+    
+    # Initialize the metrics dictionary
+    all_metrics = {}
+    for m in ["train", "val"]:
+        all_metrics[m] = {}
 
     for e in range(args.epochs):
         for m in ["train", "val"]:
@@ -183,6 +196,8 @@ def runTraining(args):
                     loader = train_loader
                     log_loss = log_loss_tra
                     log_dice = log_dice_tra
+                    total_pred_seg = total_pred_seg_tra
+                    total_gt_seg = total_gt_seg_tra
                 case "val":
                     net.eval()
                     opt = None
@@ -191,6 +206,8 @@ def runTraining(args):
                     loader = val_loader
                     log_loss = log_loss_val
                     log_dice = log_dice_val
+                    total_pred_seg = total_pred_seg_val
+                    total_gt_seg = total_gt_seg_val
             with cm():  # Either dummy context manager, or the torch.no_grad for validation
                 j = 0
                 tq_iter = tqdm_(enumerate(loader), total=len(loader), desc=desc)
@@ -212,11 +229,14 @@ def runTraining(args):
 
                     # Metrics computation, not used for training
                     pred_seg = probs2one_hot(pred_probs)
+                    
                     log_dice[e, j : j + B, :] = dice_coef(
                         pred_seg, gt
                     )  # One DSC value per sample and per class
 
-                    # TODO: add additional metrics
+                    # TODO: add additional metrics (no need to set to 0 after each epoch as it is overwritten)
+                    total_pred_seg[j : j + B, :, :] = pred_seg
+                    total_gt_seg[j : j + B, :, :] = gt
 
                     loss = loss_fn(pred_probs, gt)
                     log_loss[e, i] = (
@@ -275,12 +295,17 @@ def runTraining(args):
                             for k in range(1, K)
                         }
                     tq_iter.set_postfix(postfix_dict)
+            
+                #TODO save the metrics for each epoch for either training or validation
+                all_metrics[m][f"epoch_{e}"] = update_metrics(K, total_pred_seg, total_gt_seg)
 
         # I save it at each epochs, in case the code crashes or I decide to stop it early
         np.save(args.dest / "loss_tra.npy", log_loss_tra)
         np.save(args.dest / "dice_tra.npy", log_dice_tra)
         np.save(args.dest / "loss_val.npy", log_loss_val)
         np.save(args.dest / "dice_val.npy", log_dice_val)
+        with open(args.dest / "metrics.json", "w") as f:
+            json.dump(all_metrics, f)
 
         # Log the averaged validation metrics only at the end of each epoch
         if args.use_wandb:
