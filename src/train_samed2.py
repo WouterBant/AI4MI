@@ -42,6 +42,7 @@ from torch.utils.data import DataLoader
 from dataset import SliceDataset
 from ShallowNet import shallowCNN
 from ENet import ENet
+from scheduler import CosineWarmupScheduler
 from utils import (
     Dcm,
     class2one_hot,
@@ -73,6 +74,8 @@ datasets_params: dict[str, dict[str, Any]] = {}
 datasets_params["TOY2"] = {"K": 2, "net": shallowCNN, "B": 2, "names": ["background", "foreground"]}
 datasets_params["SEGTHOR"] = {"K": 5, "net": ENet, "B": 8, "names": ["Background", "Esophagus", "Heart", "Trachea", "Aorta"]}
 
+
+torch.set_float32_matmul_precision('high')
 
 def setup(args) -> tuple[nn.Module, Any, Any, DataLoader, DataLoader, int]:
     # Networks and scheduler
@@ -152,7 +155,7 @@ def setup(args) -> tuple[nn.Module, Any, Any, DataLoader, DataLoader, int]:
         gt_transform=gt_transform,
         debug=args.debug,
     )
-    train_loader = DataLoader(train_set, batch_size=B, num_workers=args.num_workers, shuffle=True)
+    train_loader = DataLoader(train_set, batch_size=B, num_workers=args.num_workers, shuffle=True, pin_memory=True)
 
     val_set = SliceDataset(
         "val",
@@ -161,11 +164,17 @@ def setup(args) -> tuple[nn.Module, Any, Any, DataLoader, DataLoader, int]:
         gt_transform=gt_transform,
         debug=args.debug,
     )
-    val_loader = DataLoader(val_set, batch_size=B, num_workers=args.num_workers, shuffle=False)
+    val_loader = DataLoader(val_set, batch_size=B, num_workers=args.num_workers, shuffle=False, pin_memory=True)
+
+    scheduler = None
+    if args.use_scheduler:
+        total_steps = args.epochs * len(train_loader)
+        warmup_steps = int(0.1 * total_steps)  # 10% of total steps for warmup
+        scheduler = CosineWarmupScheduler(optimizer, args.lr, warmup_steps, total_steps)
 
     args.dest.mkdir(parents=True, exist_ok=True)
 
-    return (net, optimizer, device, train_loader, val_loader, K)
+    return (net, optimizer, device, train_loader, val_loader, K, scheduler)
 
 
 def calc_loss(outputs, low_res_label_batch, ce_loss, dice_loss, dice_weight:float=0.8):
@@ -178,7 +187,7 @@ def calc_loss(outputs, low_res_label_batch, ce_loss, dice_loss, dice_weight:floa
 
 def runTraining(args):
     print(f">>> Setting up to train on {args.dataset} with {args.mode}")
-    net, optimizer, device, train_loader, val_loader, K = setup(args)
+    net, optimizer, device, train_loader, val_loader, K, scheduler = setup(args)
 
     if args.mode == "full":
         loss_fn = CrossEntropy(
@@ -199,6 +208,8 @@ def runTraining(args):
     log_dice_val: Tensor = torch.zeros((args.epochs, len(val_loader.dataset), K))
 
     best_dice = train_steps_done = val_steps_done = 0
+    dice_loss = DiceLoss(5)
+    ce_loss = torch.nn.CrossEntropyLoss()
 
     for e in range(args.epochs):
         for m in ["train", "val"]:
@@ -219,38 +230,53 @@ def runTraining(args):
                     loader = val_loader
                     log_loss = log_loss_val
                     log_dice = log_dice_val
-            with cm():  # Either dummy context manager, or the torch.no_grad for validation
+            
+            with cm():
                 j = 0
                 tq_iter = tqdm_(enumerate(loader), total=len(loader), desc=desc)
+                accumulated_loss = 0
                 for i, data in tq_iter:
                     img = data["images"].to(device)
                     gt = data["gts"].to(device)
 
-                    if opt:  # So only for training
-                        opt.zero_grad()
+                    # Forward pass
+                    preds = net(img)
+                    pred_logits = preds["low_res_logits"]
+                    pred_probs = F.softmax(1 * pred_logits, dim=1)
 
-                    # Sanity tests to see we loaded and encoded the data correctly
-                    assert 0 <= img.min() and img.max() <= 1
-                    B, _, W, H = img.shape
-
-                    pred_logits = net(img)["low_res_logits"]
-                    pred_probs = F.softmax(
-                        1 * pred_logits, dim=1
-                    )  # 1 is the temperature parameter
-
-                    # Metrics computation, not used for training
+                    # Metrics computation
                     pred_seg = probs2one_hot(pred_probs)
-                    log_dice[e, j : j + B, :] = dice_coef(
-                        pred_seg, gt
-                    )  # One DSC value per sample and per class
+                    log_dice[e, j : j + img.shape[0], :] = dice_coef(pred_seg, gt)
 
-                    # TODO: add additional metrics
-
+                    loss, loss_ce, loss_dice = calc_loss(preds, gt, ce_loss, dice_loss, dice_weight=0.8)
                     loss = loss_fn(pred_probs, gt)
-                    log_loss[e, i] = (
-                        loss.item()
-                    )  # One loss value per batch (averaged in the loss)
+                    loss = loss + dice_loss(pred_logits, gt, softmax=True)
+                    
+                    # Normalize the loss to account for batch accumulation
+                    loss = loss / args.gradient_accumulation_steps
+                    accumulated_loss += loss.item()
 
+                    # Backward pass
+                    if m == "train":
+                        loss.backward()
+
+                        # Gradient accumulation
+                        if (i + 1) % args.gradient_accumulation_steps == 0:
+                            if args.clip_grad:
+                                torch.nn.utils.clip_grad_norm_(net.parameters(), 1.0)
+                            opt.step()
+                            opt.zero_grad()
+                            
+                            # Log the accumulated loss
+                            log_loss[e, i // args.gradient_accumulation_steps] = accumulated_loss
+                            accumulated_loss = 0
+
+                            if scheduler:
+                                lr = scheduler.step()
+                                if args.use_wandb:
+                                    wandb.log({"learning_rate": lr})
+
+                    # Logging and metrics
                     if args.use_wandb:
                         if m == "train":
                             train_steps_done += 1
@@ -259,26 +285,18 @@ def runTraining(args):
                             val_steps_done += 1
                             steps_done = val_steps_done
 
-                        # Log metrics every 50 steps
                         if m == "train" and steps_done % 50 == 0:
                             metrics = {
-                                f"{m}_dice_{k}": log_dice[e, j : j + B, k].mean().item()
+                                f"{m}_dice_{k}": log_dice[e, j : j + img.shape[0], k].mean().item()
                                 for k in range(K)
                             }
-                            metrics[f"{m}_loss"] = loss.item()
+                            metrics[f"{m}_loss"] = loss.item() * args.gradient_accumulation_steps
                             wandb.log(metrics)
 
-                        # Log sample images every 1000 steps
                         if steps_done % 1000 == 0:
                             log_sample_images_wandb(
                                 img, gt, pred_probs, K, steps_done, m, datasets_params[args.dataset]["names"]
                             )
-
-                    if opt:  # Only for training
-                        loss.backward()
-                        if args.clip_grad:
-                            torch.nn.utils.clip_grad_norm_(net.parameters(), 1.0)
-                        opt.step()
 
                     if m == "val":
                         with warnings.catch_warnings():
@@ -291,11 +309,10 @@ def runTraining(args):
                                 args.dest / f"iter{e:03d}" / m,
                             )
 
-                    j += B  # Keep in mind that _in theory_, each batch might have a different size
-                    # For the DSC average: do not take the background class (0) into account:
+                    j += img.shape[0]
                     postfix_dict: dict[str, str] = {
                         "Dice": f"{log_dice[e, :j, 1:].mean():05.3f}",
-                        "Loss": f"{log_loss[e, :i + 1].mean():5.2e}",
+                        "Loss": f"{accumulated_loss * args.gradient_accumulation_steps:5.2e}",
                     }
                     if K > 2:
                         postfix_dict |= {
@@ -347,6 +364,15 @@ def main():
         type=int,
         help="Batch size",
         default=None,
+    )
+    parser.add_argument(
+        "--gradient_accumulation_steps",
+        type=int,
+        default=6,
+        help="Number of steps to accumulate gradients over",
+    )
+    parser.add_argument(
+        "--use_scheduler", action="store_true", help="Use CosineWarmupScheduler"
     )
     parser.add_argument(
         "--optimizer",
