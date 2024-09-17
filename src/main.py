@@ -183,7 +183,7 @@ def setup(
 
     scheduler = None
     if args.use_scheduler:
-        total_steps = args.epochs * len(train_loader)
+        total_steps = args.epochs * len(train_loader) / args.gradient_accumulation_steps
         warmup_steps = int(0.1 * total_steps)  # 10% of total steps for warmup
         scheduler = CosineWarmupScheduler(optimizer, args.lr, warmup_steps, total_steps)
 
