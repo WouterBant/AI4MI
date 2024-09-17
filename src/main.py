@@ -59,6 +59,7 @@ from utils import (
 )
 from losses import get_loss_fn, CrossEntropy, DiceLoss
 from metrics import update_metrics
+from adaptive_sampler import AdaptiveSampler
 
 from samed.sam_lora import LoRA_Sam
 from samed.segment_anything import sam_model_registry
@@ -92,7 +93,7 @@ datasets_params["SEGTHOR_TEST"] = {
 def setup(
     args,
 ) -> tuple[
-    nn.Module, Any, Any, DataLoader, DataLoader, int, Optional[CosineWarmupScheduler]
+    nn.Module, Any, Any, DataLoader, DataLoader, int, Optional[CosineWarmupScheduler], Optional[AdaptiveSampler]
 ]:
     # Networks and scheduler
     gpu: bool = args.gpu and torch.cuda.is_available()
@@ -167,9 +168,17 @@ def setup(
         gt_transform=gt_transform,
         debug=args.debug,
     )
-    train_loader = DataLoader(
-        train_set, batch_size=B, num_workers=args.num_workers, shuffle=True
-    )
+
+    sampler = None
+    if args.use_sampler:
+        sampler = AdaptiveSampler(train_set, B, args.epochs)
+        train_loader = DataLoader(
+            train_set, batch_size=B, num_workers=args.num_workers, sampler=sampler
+        )
+    else:
+        train_loader = DataLoader(
+            train_set, batch_size=B, num_workers=args.num_workers, shuffle=True
+        )
 
     val_set = SliceDataset(
         "val",
@@ -190,7 +199,7 @@ def setup(
 
     args.dest.mkdir(parents=True, exist_ok=True)
 
-    return (net, optimizer, device, train_loader, val_loader, K, scheduler)
+    return (net, optimizer, device, train_loader, val_loader, K, scheduler, sampler)
 
 
 def calc_loss(
@@ -205,7 +214,7 @@ def calc_loss(
 
 def runTraining(args):
     print(f">>> Setting up to train on {args.dataset} with {args.mode}")
-    net, optimizer, device, train_loader, val_loader, K, scheduler = setup(args)
+    net, optimizer, device, train_loader, val_loader, K, scheduler, sampler = setup(args)
 
     if args.mode == "full":
         loss_fn = get_loss_fn(args, K)
@@ -251,6 +260,8 @@ def runTraining(args):
                     log_dice = log_dice_tra
                     total_pred_seg = total_pred_seg_tra
                     total_gt_seg = total_gt_seg_tra
+                    if sampler:
+                        sampler.set_epoch(e)
                 case "val":
                     net.eval()
                     opt = None
@@ -296,8 +307,9 @@ def runTraining(args):
                         pred_seg, gt
                     )  # One DSC value per sample and per class
                     # TODO: add additional metrics (no need to set to 0 after each epoch as it is overwritten)
-                    total_pred_seg[j : j + B, :, :] = pred_seg
-                    total_gt_seg[j : j + B, :, :] = gt
+                    if not args.use_sampler:  # expects all samples to be used
+                        total_pred_seg[j : j + B, :, :] = pred_seg
+                        total_gt_seg[j : j + B, :, :] = gt
 
                     # Backward pass
                     if m == "train":
@@ -377,7 +389,8 @@ def runTraining(args):
                     tq_iter.set_postfix(postfix_dict)
             
                 #TODO save the metrics for each epoch for either training or validation
-                all_metrics[m][f"epoch_{e}"] = update_metrics(K, total_pred_seg, total_gt_seg)
+                if not args.use_sampler:  # expects all samples to be used
+                    all_metrics[m][f"epoch_{e}"] = update_metrics(K, total_pred_seg, total_gt_seg)
 
         # I save it at each epochs, in case the code crashes or I decide to stop it early
         # np.save(args.dest / "loss_tra.npy", log_loss_tra)
@@ -433,6 +446,9 @@ def main():
     )
     parser.add_argument(
         "--use_scheduler", action="store_true", help="Use CosineWarmupScheduler"
+    )
+    parser.add_argument(
+        "--use_sampler", action="store_true", help="Use AdaptiveSampler"
     )
     parser.add_argument(
         "--model",
