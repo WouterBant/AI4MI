@@ -168,3 +168,4 @@ bin/
 wandb/
 *.pth
 *.pt
+*.pkl

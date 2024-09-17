@@ -46,7 +46,7 @@ class Sam(nn.Module):
         self.mask_decoder = mask_decoder
         self.register_buffer("pixel_mean", torch.Tensor(pixel_mean).view(-1, 1, 1), False)
         self.register_buffer("pixel_std", torch.Tensor(pixel_std).view(-1, 1, 1), False)
-        self.up = nn.Upsample(scale_factor=2, mode="bilinear", align_corners=False)
+        # self.up = nn.Upsample(scale_factor=2, mode="bilinear", align_corners=False)
 
     @property
     def device(self) -> Any:
@@ -80,7 +80,8 @@ class Sam(nn.Module):
         outputs = {
             'masks': masks,
             'iou_predictions': iou_predictions,
-            'low_res_logits': self.up(low_res_masks)
+            'low_res_logits': low_res_masks
+            # 'low_res_logits': self.up(low_res_masks)
         }
         return outputs
 

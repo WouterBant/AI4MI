@@ -111,7 +111,7 @@ def setup(
     K: int = datasets_params[args.dataset]["K"]
     if args.model == "samed":
         sam, _ = sam_model_registry["vit_b"](  # TODO check these arguments
-            image_size=512,
+            image_size=1024,
             checkpoint="src/samed/checkpoints/sam_vit_b_01ec64.pth",
             num_classes=K,
             pixel_mean=[0.0457, 0.0457, 0.0457],
@@ -123,8 +123,33 @@ def setup(
         net.init_weights()  # TODO probably remove it and use the default one from pytorch
     
     if args.from_checkpoint:
-        net.load_state_dict(torch.load(args.from_checkpoint))
-        
+        # net = torch.load(args.from_checkpoint)
+        print(args.from_checkpoint)
+        net = torch.compile(net)   # When the model was compiled when saved, it needs to be compiled again
+
+        # Load the checkpoint
+        checkpoint = torch.load(args.from_checkpoint, map_location=device)
+
+        # If the checkpoint contains 'state_dict', use it, otherwise use the checkpoint directly
+        state_dict = checkpoint.get('state_dict', checkpoint)
+
+        # Get the model's current state_dict
+        model_dict = net.state_dict()
+
+        # Filter out keys with mismatched shapes
+        filtered_dict = {k: v for k, v in state_dict.items() if k in model_dict and v.shape == model_dict[k].shape}
+
+        # Display the parameters that are skipped
+        skipped_params = [k for k in state_dict if k not in filtered_dict]
+        if skipped_params:
+            print(f"Skipped loading parameters with mismatched shapes: {skipped_params}")
+
+        # Update the model's state_dict with the filtered parameters
+        model_dict.update(filtered_dict)
+
+        # Load the updated state_dict into the model
+        net.load_state_dict(model_dict, strict=True)
+
     net.to(device)
 
     # Use torch.compile for kernel fusion to be faster on the gpu
@@ -289,7 +314,7 @@ def runTraining(args):
                     B, _, W, H = img.shape
 
                     if args.model == "samed":
-                        preds = net(img, multimask_output=True, image_size=512)
+                        preds = net(img, multimask_output=True, image_size=1024)
                         pred_logits = preds["low_res_logits"]
                         pred_probs = F.softmax(
                             1 * pred_logits, dim=1
