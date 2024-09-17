@@ -110,6 +110,7 @@ def setup(
     K: int = datasets_params[args.dataset]["K"]
     if args.model == "samed":
         sam, _ = sam_model_registry["vit_b"](  # TODO check these arguments
+            image_size=512,
             checkpoint="src/samed/checkpoints/sam_vit_b_01ec64.pth",
             num_classes=K,
             pixel_mean=[0.0457, 0.0457, 0.0457],
@@ -273,7 +274,7 @@ def runTraining(args):
                     B, _, W, H = img.shape
 
                     if args.model == "samed":
-                        preds = net(img)
+                        preds = net(img, multimask_output=True, image_size=512)
                         pred_logits = preds["low_res_logits"]
                         pred_probs = F.softmax(
                             1 * pred_logits, dim=1
@@ -329,7 +330,7 @@ def runTraining(args):
                             val_steps_done += 1
                             steps_done = val_steps_done
 
-                        if m == "train" and steps_done % 50 == 0:
+                        if m == "train" and steps_done % 1 == 0:
                             metrics = {
                                 f"{m}_dice_{k}": log_dice[e, j : j + img.shape[0], k]
                                 .mean()
@@ -341,7 +342,7 @@ def runTraining(args):
                             )
                             wandb.log(metrics)
 
-                        if steps_done % 1000 == 0:
+                        if steps_done % 20 == 0:
                             log_sample_images_wandb(
                                 img,
                                 gt,
@@ -379,12 +380,12 @@ def runTraining(args):
                 all_metrics[m][f"epoch_{e}"] = update_metrics(K, total_pred_seg, total_gt_seg)
 
         # I save it at each epochs, in case the code crashes or I decide to stop it early
-        np.save(args.dest / "loss_tra.npy", log_loss_tra)
-        np.save(args.dest / "dice_tra.npy", log_dice_tra)
-        np.save(args.dest / "loss_val.npy", log_loss_val)
-        np.save(args.dest / "dice_val.npy", log_dice_val)
-        with open(args.dest / "metrics.json", "w") as f:
-            json.dump(all_metrics, f)
+        # np.save(args.dest / "loss_tra.npy", log_loss_tra)
+        # np.save(args.dest / "dice_tra.npy", log_dice_tra)
+        # np.save(args.dest / "loss_val.npy", log_loss_val)
+        # np.save(args.dest / "dice_val.npy", log_dice_val)
+        # with open(args.dest / "metrics.json", "w") as f:
+        #     json.dump(all_metrics, f)
 
         # Log the averaged validation metrics only at the end of each epoch
         if args.use_wandb:
