@@ -121,6 +121,10 @@ def setup(
     else:
         net = datasets_params[args.dataset]["net"](1, K)
         net.init_weights()  # TODO probably remove it and use the default one from pytorch
+    
+    if args.from_checkpoint:
+        net.load_state_dict(torch.load(args.from_checkpoint))
+        
     net.to(device)
 
     # Use torch.compile for kernel fusion to be faster on the gpu
@@ -194,7 +198,7 @@ def setup(
     scheduler = None
     if args.use_scheduler:
         total_steps = args.epochs * len(train_loader) / args.gradient_accumulation_steps
-        warmup_steps = int(0.1 * total_steps)  # 10% of total steps for warmup
+        warmup_steps = int(0.25 * total_steps)  # 25% of total steps for warmup
         scheduler = CosineWarmupScheduler(optimizer, args.lr, warmup_steps, total_steps)
 
     args.dest.mkdir(parents=True, exist_ok=True)
@@ -471,6 +475,7 @@ def main():
         default=None,
         help="Destination directory to save the results (predictions and weights).",
     )
+    parser.add_argument("--from_checkpoint", type=Path, default=None)
     parser.add_argument("--gpu", action="store_true")
     parser.add_argument("--num_workers", type=int, default=4)
     parser.add_argument(
