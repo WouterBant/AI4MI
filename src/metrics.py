@@ -19,6 +19,7 @@ def update_metrics(K: int, total_pred_seg: Tensor, total_gt_seg: Tensor):
     
     
 #TODO: Check for the correct implementation of the Hausdorff metric maybe also use the scikit-image implementation. 
+#TODO: Make more efficient using: https://cs.stackexchange.com/questions/117989/hausdorff-distance-between-two-binary-images-according-to-distance-maps
 def total_hausdorff_distance(ground_truth_tensor, prediction_tensor):
     hausdorf_metrics = torch.zeros((ground_truth_tensor.shape[0], ground_truth_tensor.shape[1]))
     for class_idx in range(ground_truth_tensor.shape[1]):
