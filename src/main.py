@@ -293,7 +293,6 @@ def runTraining(args):
                     log_dice[e, j : j + B, :] = dice_coef(
                         pred_seg, gt
                     )  # One DSC value per sample and per class
-                    # TODO: add additional metrics (no need to set to 0 after each epoch as it is overwritten)
                     total_pred_seg[j : j + B, :, :] = pred_seg
                     total_gt_seg[j : j + B, :, :] = gt
 
@@ -374,8 +373,8 @@ def runTraining(args):
                         }
                     tq_iter.set_postfix(postfix_dict)
             
-                #TODO save the metrics for each epoch for either training or validation
-                all_metrics[m][f"epoch_{e}"] = update_metrics(K, total_pred_seg, total_gt_seg)
+            #TODO save the metrics for each epoch for either training or validation
+            all_metrics[m][f"epoch_{e}"] = update_metrics(K, total_pred_seg, total_gt_seg)
 
         # I save it at each epochs, in case the code crashes or I decide to stop it early
         np.save(args.dest / "loss_tra.npy", log_loss_tra)

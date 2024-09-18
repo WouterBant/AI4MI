@@ -135,8 +135,6 @@ class DiceLoss(nn.Module):
             loss += dice * weight[i]
         return loss / self.n_classes
 
-
-# TODO add (generalized) dice loss https://github.com/wolny/pytorch-3dunet/blob/master/pytorch3dunet/unet3d/losses.py#L8
 class DiceCrossEntropy(CrossEntropy):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

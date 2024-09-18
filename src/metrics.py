@@ -16,6 +16,8 @@ def update_metrics(K: int, total_pred_seg: Tensor, total_gt_seg: Tensor):
     # Sensitivity metric and also specificity
     sensitivity, specificity = Sensitivity_Specifity_metrics(total_pred_seg, total_gt_seg)
     
+    return {"dice": dice_metric, "sensitivity": sensitivity, "specificity": specificity}
+    
     
     
 #TODO: Check for the correct implementation of the Hausdorff metric maybe also use the scikit-image implementation. 
