@@ -111,7 +111,6 @@ def setup(
     K: int = datasets_params[args.dataset]["K"]
     if args.model == "samed":
         sam, _ = sam_model_registry["vit_b"](  # TODO check these arguments
-            image_size=1024,
             checkpoint="src/samed/checkpoints/sam_vit_b_01ec64.pth",
             num_classes=K,
             pixel_mean=[0.0457, 0.0457, 0.0457],
@@ -123,7 +122,6 @@ def setup(
         net.init_weights()  # TODO probably remove it and use the default one from pytorch
     
     if args.from_checkpoint:
-        # net = torch.load(args.from_checkpoint)
         print(args.from_checkpoint)
         net = torch.compile(net)   # When the model was compiled when saved, it needs to be compiled again
 
@@ -262,10 +260,10 @@ def runTraining(args):
     log_dice_val: Tensor = torch.zeros((args.epochs, len(val_loader.dataset), K))
     
     # Create holders for segmentation predictions and ground truth
-    total_pred_seg_tra: Tensor = torch.zeros((len(train_loader.dataset), K, 256, 256), dtype=torch.int32)
-    total_gt_seg_tra: Tensor = torch.zeros((len(train_loader.dataset), K, 256, 256), dtype=torch.int32)
-    total_pred_seg_val: Tensor = torch.zeros((len(val_loader.dataset), K, 256, 256), dtype=torch.int32)
-    total_gt_seg_val: Tensor = torch.zeros((len(val_loader.dataset), K, 256, 256), dtype=torch.int32)
+    # total_pred_seg_tra: Tensor = torch.zeros((len(train_loader.dataset), K, 256, 256), dtype=torch.int32)
+    # total_gt_seg_tra: Tensor = torch.zeros((len(train_loader.dataset), K, 256, 256), dtype=torch.int32)
+    # total_pred_seg_val: Tensor = torch.zeros((len(val_loader.dataset), K, 256, 256), dtype=torch.int32)
+    # total_gt_seg_val: Tensor = torch.zeros((len(val_loader.dataset), K, 256, 256), dtype=torch.int32)
 
     best_dice = train_steps_done = val_steps_done = 0
     dice_loss = DiceLoss(K)
@@ -287,8 +285,8 @@ def runTraining(args):
                     loader = train_loader
                     log_loss = log_loss_tra
                     log_dice = log_dice_tra
-                    total_pred_seg = total_pred_seg_tra
-                    total_gt_seg = total_gt_seg_tra
+                    # total_pred_seg = total_pred_seg_tra
+                    # total_gt_seg = total_gt_seg_tra
                     if sampler:
                         sampler.set_epoch(e)
                 case "val":
@@ -299,8 +297,8 @@ def runTraining(args):
                     loader = val_loader
                     log_loss = log_loss_val
                     log_dice = log_dice_val
-                    total_pred_seg = total_pred_seg_val
-                    total_gt_seg = total_gt_seg_val
+                    # total_pred_seg = total_pred_seg_val
+                    # total_gt_seg = total_gt_seg_val
             with cm():  # Either dummy context manager, or the torch.no_grad for validation
                 j = 0
                 tq_iter = tqdm_(enumerate(loader), total=len(loader), desc=desc)
@@ -314,7 +312,7 @@ def runTraining(args):
                     B, _, W, H = img.shape
 
                     if args.model == "samed":
-                        preds = net(img, multimask_output=True, image_size=1024)
+                        preds = net(img)
                         pred_logits = preds["low_res_logits"]
                         pred_probs = F.softmax(
                             1 * pred_logits, dim=1
@@ -336,9 +334,9 @@ def runTraining(args):
                         pred_seg, gt
                     )  # One DSC value per sample and per class
                     # TODO: add additional metrics (no need to set to 0 after each epoch as it is overwritten)
-                    if not args.use_sampler:  # expects all samples to be used
-                        total_pred_seg[j : j + B, :, :] = pred_seg
-                        total_gt_seg[j : j + B, :, :] = gt
+                    # if not args.use_sampler:  # expects all samples to be used
+                    #     total_pred_seg[j : j + B, :, :] = pred_seg
+                    #     total_gt_seg[j : j + B, :, :] = gt
 
                     # Backward pass
                     if m == "train":
@@ -371,7 +369,7 @@ def runTraining(args):
                             val_steps_done += 1
                             steps_done = val_steps_done
 
-                        if m == "train" and steps_done % 1 == 0:
+                        if m == "train" and steps_done % 50 == 0:
                             metrics = {
                                 f"{m}_dice_{k}": log_dice[e, j : j + img.shape[0], k]
                                 .mean()
@@ -383,7 +381,7 @@ def runTraining(args):
                             )
                             wandb.log(metrics)
 
-                        if steps_done % 20 == 0:
+                        if steps_done % 1000 == 0:
                             log_sample_images_wandb(
                                 img,
                                 gt,
@@ -418,16 +416,16 @@ def runTraining(args):
                     tq_iter.set_postfix(postfix_dict)
             
                 #TODO save the metrics for each epoch for either training or validation
-                if not args.use_sampler:  # expects all samples to be used
-                    all_metrics[m][f"epoch_{e}"] = update_metrics(K, total_pred_seg, total_gt_seg)
+                # if not args.use_sampler:  # expects all samples to be used
+                #     all_metrics[m][f"epoch_{e}"] = update_metrics(K, total_pred_seg, total_gt_seg)
 
         # I save it at each epochs, in case the code crashes or I decide to stop it early
-        # np.save(args.dest / "loss_tra.npy", log_loss_tra)
-        # np.save(args.dest / "dice_tra.npy", log_dice_tra)
-        # np.save(args.dest / "loss_val.npy", log_loss_val)
-        # np.save(args.dest / "dice_val.npy", log_dice_val)
-        # with open(args.dest / "metrics.json", "w") as f:
-        #     json.dump(all_metrics, f)
+        np.save(args.dest / "loss_tra.npy", log_loss_tra)
+        np.save(args.dest / "dice_tra.npy", log_dice_tra)
+        np.save(args.dest / "loss_val.npy", log_loss_val)
+        np.save(args.dest / "dice_val.npy", log_dice_val)
+        with open(args.dest / "metrics.json", "w") as f:
+            json.dump(all_metrics, f)
 
         # Log the averaged validation metrics only at the end of each epoch
         if args.use_wandb:

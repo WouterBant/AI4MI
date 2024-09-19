@@ -249,13 +249,8 @@ def log_sample_images_wandb(
     m: str,
     names: List[str],
 ):
-    # Try to find a gt with at least one non-background pixel
+    # Select first image from the batch
     idx = 0
-    for i in range(gt.shape[0]):
-        if gt[i].argmax(dim=0).sum() > 0:
-            idx = i
-            break
-
     img = img[idx, ...].squeeze()  # 256, 256
     gt = gt[idx, ...]  # 5, 256, 256 (zeros and ones)
     pred_probs = pred_probs[idx, ...]  # 5, 256, 256
