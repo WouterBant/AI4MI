@@ -3,43 +3,51 @@ from typing import Callable, Iterable, List, Set, Tuple, TypeVar, cast
 import torch
 from torch import Tensor
 from utils import dice_coef
+from scipy.spatial.distance import directed_hausdorff
+import numpy as np
 
 def update_metrics(K: int, total_pred_seg: Tensor, total_gt_seg: Tensor):
     
     dice_metric = dice_coef(total_pred_seg, total_gt_seg) # the dice metric
     
-    # Hausdorff metric #TODO fix hausdorff metric nu nog fout
-    #hausdorff_metric = Hausdorff_metric_fast(total_pred_seg, total_gt_seg)
+    # Hausdorff metric
+    #hausdorff_metric = total_hausdorff_distance(total_pred_seg, total_gt_seg)
     
     # Sensitivity metric and also specificity
     sensitivity, specificity = Sensitivity_Specifity_metrics(total_pred_seg, total_gt_seg)
     
+    return {"dice": dice_metric, "sensitivity": sensitivity, "specificity": specificity}
+    
     
     
 #TODO: Check for the correct implementation of the Hausdorff metric maybe also use the scikit-image implementation. 
+#TODO: Make more efficient using: https://cs.stackexchange.com/questions/117989/hausdorff-distance-between-two-binary-images-according-to-distance-maps
+def total_hausdorff_distance(ground_truth_tensor, prediction_tensor):
+    hausdorf_metrics = torch.zeros((ground_truth_tensor.shape[0], ground_truth_tensor.shape[1]))
+    for class_idx in range(ground_truth_tensor.shape[1]):
+        for sample_idx in range(ground_truth_tensor.shape[0]):
+            ground_truth_img = ground_truth_tensor[sample_idx, class_idx]
+            prediction_img = prediction_tensor[sample_idx, class_idx]
+            hausdorf_metrics[sample_idx, class_idx] = calculate_hausdorff_distance(ground_truth_img, prediction_img)
 
-def Hausdorff_metric_fast(pred_seg: Tensor, gt_seg: Tensor):
-    n_samples, n_classes, height, width = pred_seg.shape
+def calculate_hausdorff_distance(ground_truth_tensor, prediction_tensor):
+    # Convert PyTorch tensors to NumPy arrays and move them to the CPU
+    ground_truth_np = ground_truth_tensor.cpu().numpy()
+    prediction_np = prediction_tensor.cpu().numpy()
     
-    # Reshape the predictions and ground truts
-    pred_flat = pred_seg.view(n_samples, n_classes, -1)
-    gt_flat = gt_seg.view(n_samples, n_classes, -1)
+    # Extract coordinates of the segmented regions (points with value 1)
+    ground_truth_points = np.argwhere(ground_truth_np == 1)
+    prediction_points = np.argwhere(prediction_np == 1)
     
-    # Compute the distance between al points in each class
-    dist_matrix = torch.cdist(pred_flat, gt_flat, p=2)
+    # Calculate directed Hausdorff distance in both directions
+    forward_hausdorff = directed_hausdorff(ground_truth_points, prediction_points)[0]
+    backward_hausdorff = directed_hausdorff(prediction_points, ground_truth_points)[0]
     
-    # Calculate the minimum distances
-    min_pred_to_gt = torch.min(dist_matrix, dim=3)[0]
-    min_gt_to_pred = torch.min(dist_matrix, dim=2)[0]
-    
-    # Take the maximum of the minimum distances for each sample and class
-    max_min_pred_to_gt = torch.max(min_pred_to_gt, dim=2)[0]
-    max_min_gt_to_pred = torch.max(min_gt_to_pred, dim=2)[0]
-    
-    # Hausdorff distance is the maximum of these two values
-    hausdorff_distance = torch.max(max_min_pred_to_gt, max_min_gt_to_pred)
+    # Return the maximum of the two directed distances (Hausdorff distance)
+    hausdorff_distance = max(forward_hausdorff, backward_hausdorff)
     
     return hausdorff_distance
+
 
 def Sensitivity_Specifity_metrics(pred_seg: Tensor, gt_seg: Tensor):
     n_samples, n_classes, height, width = pred_seg.shape

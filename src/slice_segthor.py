@@ -30,11 +30,13 @@ from pathlib import Path
 from functools import partial
 from multiprocessing import Pool
 from typing import Callable
+import torch
 
 import numpy as np
 import nibabel as nib
 from skimage.io import imsave
 from skimage.transform import resize
+from torchvision import transforms
 
 from utils import map_, tqdm_
 
@@ -92,6 +94,7 @@ def slice_patient(
     source_path: Path,
     shape: tuple[int, int],
     test_mode: bool = False,
+    original: bool = False,
 ) -> tuple[float, float, float]:
     id_path: Path = source_path / ("train" if not test_mode else "test") / id_
 
@@ -126,6 +129,18 @@ def slice_patient(
     for idz in range(z):
         img_slice = resize_(to_slice_ct[:, :, idz], shape).astype(np.uint8)
         gt_slice = resize_(to_slice_gt[:, :, idz], shape, order=0).astype(np.uint8)
+
+        if not original:
+            # Fix the heart data
+            gt_heart_slice = resize_(to_slice_gt[:, :, idz-15], shape, order=0).astype(np.uint8)
+            rotate = np.zeros_like(gt_slice)
+            rotate[gt_heart_slice == 2] = 2
+            gt_slice[gt_slice == 2] = 0
+            rotated = transforms.functional.affine(torch.from_numpy(rotate[None, ...]), angle=25, translate=(7, 45), scale=1.0, shear=0).squeeze()
+            mask = rotated > 0
+            gt_slice[mask] = 0
+            gt_slice = gt_slice + rotated.numpy()
+
         assert img_slice.shape == gt_slice.shape
         gt_slice *= 63
         assert gt_slice.dtype == np.uint8, gt_slice.dtype

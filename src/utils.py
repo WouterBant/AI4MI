@@ -309,10 +309,13 @@ def log_sample_images_wandb(
 def get_optimizer(
     args: argparse.Namespace, net: torch.nn.Module
 ) -> torch.optim.Optimizer:
+    weight_decay = args.weight_decay if hasattr(args, "weight_decay") else 0
     if args.optimizer == "adam":
         optimizer = torch.optim.Adam(net.parameters(), lr=args.lr, betas=(0.9, 0.999))
     elif args.optimizer == "sgd":
         optimizer = torch.optim.SGD(net.parameters(), lr=args.lr, momentum=0.9)
+    elif args.optimizer == "sgd-wd":    
+        optimizer = torch.optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=weight_decay)
     elif args.optimizer == "adamw":
         optimizer = torch.optim.AdamW(
             net.parameters(),

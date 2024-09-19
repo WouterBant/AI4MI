@@ -155,7 +155,6 @@ def setup(
         print(">> Compiling the network for faster execution")
         net = torch.compile(net)
 
-    # TODO consider adding weight decay
     # Initialize optimizer based on args
     optimizer = get_optimizer(args, net)
 
@@ -485,7 +484,7 @@ def main():
     parser.add_argument(
         "--optimizer",
         default="adam",
-        choices=["adam", "sgd", "adamw"],
+        choices=["adam", "sgd", "adamw", "sgd-wd"],
         help="Optimizer to use",
     )
     parser.add_argument("--dataset", default="SEGTHOR", choices=datasets_params.keys())
