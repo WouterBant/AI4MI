@@ -249,8 +249,13 @@ def log_sample_images_wandb(
     m: str,
     names: List[str],
 ):
-    # Select first image from the batch
+    # Select first image from the batch that is not entirely background
     idx = 0
+    for i in range(gt.shape[0]):
+        if gt[i].argmax(dim=0).sum() > 0:
+            idx = i
+            break
+
     img = img[idx, ...].squeeze()  # 256, 256
     gt = gt[idx, ...]  # 5, 256, 256 (zeros and ones)
     pred_probs = pred_probs[idx, ...]  # 5, 256, 256

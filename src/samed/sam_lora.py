@@ -6,6 +6,7 @@ from .segment_anything import sam_model_registry
 import math
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.nn.parameter import Parameter
 from .segment_anything.modeling import Sam
 

@@ -59,6 +59,7 @@ from utils import (
 )
 from losses import get_loss_fn, CrossEntropy, DiceLoss
 from metrics import update_metrics
+from adaptive_sampler import AdaptiveSampler
 
 from samed.sam_lora import LoRA_Sam
 from samed.segment_anything import sam_model_registry
@@ -92,7 +93,7 @@ datasets_params["SEGTHOR_TEST"] = {
 def setup(
     args,
 ) -> tuple[
-    nn.Module, Any, Any, DataLoader, DataLoader, int, Optional[CosineWarmupScheduler]
+    nn.Module, Any, Any, DataLoader, DataLoader, int, Optional[CosineWarmupScheduler], Optional[AdaptiveSampler]
 ]:
     # Networks and scheduler
     gpu: bool = args.gpu and torch.cuda.is_available()
@@ -119,6 +120,34 @@ def setup(
     else:
         net = datasets_params[args.dataset]["net"](1, K)
         net.init_weights()  # TODO probably remove it and use the default one from pytorch
+    
+    if args.from_checkpoint:
+        print(args.from_checkpoint)
+        net = torch.compile(net)   # When the model was compiled when saved, it needs to be compiled again
+
+        # Load the checkpoint
+        checkpoint = torch.load(args.from_checkpoint, map_location=device)
+
+        # If the checkpoint contains 'state_dict', use it, otherwise use the checkpoint directly
+        state_dict = checkpoint.get('state_dict', checkpoint)
+
+        # Get the model's current state_dict
+        model_dict = net.state_dict()
+
+        # Filter out keys with mismatched shapes
+        filtered_dict = {k: v for k, v in state_dict.items() if k in model_dict and v.shape == model_dict[k].shape}
+
+        # Display the parameters that are skipped
+        skipped_params = [k for k in state_dict if k not in filtered_dict]
+        if skipped_params:
+            print(f"Skipped loading parameters with mismatched shapes: {skipped_params}")
+
+        # Update the model's state_dict with the filtered parameters
+        model_dict.update(filtered_dict)
+
+        # Load the updated state_dict into the model
+        net.load_state_dict(model_dict, strict=True)
+
     net.to(device)
 
     # Use torch.compile for kernel fusion to be faster on the gpu
@@ -165,9 +194,17 @@ def setup(
         gt_transform=gt_transform,
         debug=args.debug,
     )
-    train_loader = DataLoader(
-        train_set, batch_size=B, num_workers=args.num_workers, shuffle=True
-    )
+
+    sampler = None
+    if args.use_sampler:
+        sampler = AdaptiveSampler(train_set, B, args.epochs)
+        train_loader = DataLoader(
+            train_set, batch_size=B, num_workers=args.num_workers, sampler=sampler
+        )
+    else:
+        train_loader = DataLoader(
+            train_set, batch_size=B, num_workers=args.num_workers, shuffle=True
+        )
 
     val_set = SliceDataset(
         "val",
@@ -183,12 +220,12 @@ def setup(
     scheduler = None
     if args.use_scheduler:
         total_steps = args.epochs * len(train_loader) / args.gradient_accumulation_steps
-        warmup_steps = int(0.1 * total_steps)  # 10% of total steps for warmup
+        warmup_steps = int(0.25 * total_steps)  # 25% of total steps for warmup
         scheduler = CosineWarmupScheduler(optimizer, args.lr, warmup_steps, total_steps)
 
     args.dest.mkdir(parents=True, exist_ok=True)
 
-    return (net, optimizer, device, train_loader, val_loader, K, scheduler)
+    return (net, optimizer, device, train_loader, val_loader, K, scheduler, sampler)
 
 
 def calc_loss(
@@ -203,7 +240,7 @@ def calc_loss(
 
 def runTraining(args):
     print(f">>> Setting up to train on {args.dataset} with {args.mode}")
-    net, optimizer, device, train_loader, val_loader, K, scheduler = setup(args)
+    net, optimizer, device, train_loader, val_loader, K, scheduler, sampler = setup(args)
 
     if args.mode == "full":
         loss_fn = get_loss_fn(args, K)
@@ -222,10 +259,10 @@ def runTraining(args):
     log_dice_val: Tensor = torch.zeros((args.epochs, len(val_loader.dataset), K))
     
     # Create holders for segmentation predictions and ground truth
-    total_pred_seg_tra: Tensor = torch.zeros((len(train_loader.dataset), K, 256, 256), dtype=torch.int32)
-    total_gt_seg_tra: Tensor = torch.zeros((len(train_loader.dataset), K, 256, 256), dtype=torch.int32)
-    total_pred_seg_val: Tensor = torch.zeros((len(val_loader.dataset), K, 256, 256), dtype=torch.int32)
-    total_gt_seg_val: Tensor = torch.zeros((len(val_loader.dataset), K, 256, 256), dtype=torch.int32)
+    # total_pred_seg_tra: Tensor = torch.zeros((len(train_loader.dataset), K, 256, 256), dtype=torch.int32)
+    # total_gt_seg_tra: Tensor = torch.zeros((len(train_loader.dataset), K, 256, 256), dtype=torch.int32)
+    # total_pred_seg_val: Tensor = torch.zeros((len(val_loader.dataset), K, 256, 256), dtype=torch.int32)
+    # total_gt_seg_val: Tensor = torch.zeros((len(val_loader.dataset), K, 256, 256), dtype=torch.int32)
 
     best_dice = train_steps_done = val_steps_done = 0
     dice_loss = DiceLoss(K)
@@ -247,8 +284,10 @@ def runTraining(args):
                     loader = train_loader
                     log_loss = log_loss_tra
                     log_dice = log_dice_tra
-                    total_pred_seg = total_pred_seg_tra
-                    total_gt_seg = total_gt_seg_tra
+                    # total_pred_seg = total_pred_seg_tra
+                    # total_gt_seg = total_gt_seg_tra
+                    if sampler:
+                        sampler.set_epoch(e)
                 case "val":
                     net.eval()
                     opt = None
@@ -257,8 +296,8 @@ def runTraining(args):
                     loader = val_loader
                     log_loss = log_loss_val
                     log_dice = log_dice_val
-                    total_pred_seg = total_pred_seg_val
-                    total_gt_seg = total_gt_seg_val
+                    # total_pred_seg = total_pred_seg_val
+                    # total_gt_seg = total_gt_seg_val
             with cm():  # Either dummy context manager, or the torch.no_grad for validation
                 j = 0
                 tq_iter = tqdm_(enumerate(loader), total=len(loader), desc=desc)
@@ -293,8 +332,10 @@ def runTraining(args):
                     log_dice[e, j : j + B, :] = dice_coef(
                         pred_seg, gt
                     )  # One DSC value per sample and per class
-                    total_pred_seg[j : j + B, :, :] = pred_seg
-                    total_gt_seg[j : j + B, :, :] = gt
+                    # TODO: add additional metrics (no need to set to 0 after each epoch as it is overwritten)
+                    # if not args.use_sampler:  # expects all samples to be used
+                    #     total_pred_seg[j : j + B, :, :] = pred_seg
+                    #     total_gt_seg[j : j + B, :, :] = gt
 
                     # Backward pass
                     if m == "train":
@@ -373,8 +414,9 @@ def runTraining(args):
                         }
                     tq_iter.set_postfix(postfix_dict)
             
-            #TODO save the metrics for each epoch for either training or validation
-            all_metrics[m][f"epoch_{e}"] = update_metrics(K, total_pred_seg, total_gt_seg)
+                #TODO save the metrics for each epoch for either training or validation
+                # if not args.use_sampler:  # expects all samples to be used
+                #     all_metrics[m][f"epoch_{e}"] = update_metrics(K, total_pred_seg, total_gt_seg)
 
         # I save it at each epochs, in case the code crashes or I decide to stop it early
         np.save(args.dest / "loss_tra.npy", log_loss_tra)
@@ -432,6 +474,9 @@ def main():
         "--use_scheduler", action="store_true", help="Use CosineWarmupScheduler"
     )
     parser.add_argument(
+        "--use_sampler", action="store_true", help="Use AdaptiveSampler"
+    )
+    parser.add_argument(
         "--model",
         default=None,
         help="Model to use",
@@ -452,6 +497,7 @@ def main():
         default=None,
         help="Destination directory to save the results (predictions and weights).",
     )
+    parser.add_argument("--from_checkpoint", type=Path, default=None)
     parser.add_argument("--gpu", action="store_true")
     parser.add_argument("--num_workers", type=int, default=4)
     parser.add_argument(
