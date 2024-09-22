@@ -82,7 +82,7 @@ datasets_params["SEGTHOR"] = {
     "B": 8,
     "names": ["Background", "Esophagus", "Heart", "Trachea", "Aorta"],
 }
-datasets_params["SEGTHOR_TEST"] = {
+datasets_params["SEGTHOR_MANUAL_SPLIT"] = {
     "K": 5,
     "net": ENet,
     "B": 8,
