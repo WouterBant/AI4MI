@@ -29,7 +29,7 @@ data/SEGTHOR: data/segthor_train
 		--shape 256 256 --retains 10
 	mv $@_tmp $@
 
-data/SEGTHOR_TEST: data/segthor_train
+data/SEGTHOR_MANUAL_SPLIT: data/segthor_train
 	$(info $(green)python $(CFLAGS) src/slice_segthor.py$(reset))
 	rm -rf $@_tmp $@
 	python $(CFLAGS) src/slice_segthor.py --source_dir $^ --dest_dir $@_tmp \
