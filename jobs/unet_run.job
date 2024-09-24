@@ -1,0 +1,45 @@
+#!/bin/bash
+
+#SBATCH --partition=gpu
+#SBATCH --gpus=1
+#SBATCH --job-name=train_25
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=18
+#SBATCH --time=00:30:00
+#SBATCH --output=slurm/train25_SEGTHOR_%A.out
+
+cd ../home/scur2517/AI4MI/src
+
+module purge
+module load 2022
+module load Anaconda3/2022.05
+
+ENV_NAME="ai4mi"
+PYTHON_VERSION="3.10"
+
+
+source activate $ENV_NAME
+
+echo "Run inference"
+
+# srun python main.py \
+# --dataset SEGTHOR \
+# --mode full \
+# --epoch 25 \
+# --dest results/toy2/ce \
+# --gpu \
+# --debug
+# options:
+#   -h, --help            show this help message and exit
+#   --epochs EPOCHS
+#   --dataset {TOY2,SEGTHOR}
+#   --mode {partial,full}
+#   --dest DEST           Destination directory to save the results (predictions and weights).
+#   --gpu
+#   --debug               Keep only a fraction (10 samples) of the datasets, to test the logic
+
+export nnUNet_raw_data_base="/home/scur2451/AI4MI/nnUNet_raw_data_base"
+export nnUNet_preprocessed="/home/scur2451/AI4MI/nnUNet_preprocessed"
+export RESULTS_FOLDER="/home/scur2451/AI4MI/RESULTS_FOLDER"
+
+srun nnUNet_predict -i $nnUNet_raw_data/Task055_SegTHOR/imagesTs/ -o OUTPUT_DIRECTORY -t 55 -m 3d_fullres --disable_tta

@@ -17,12 +17,15 @@ PYTHON_VERSION="3.10"
 
 source activate $ENV_NAME
 
+git clone https://github.com/sachab01/nnUNet.git
+
 # Change directory to nnUNet
 cd nnUNet
-
-# Install nnUNet
-echo "Installing nnUNet..."
+git checkout nnunetv1
 pip install -e .
+
 
 # Done
 echo "nnUNet installed successfully in the environment '$ENV_NAME'."
+
+
