@@ -47,19 +47,6 @@ def make_dataset(root, subset) -> list[tuple[Path, Path]]:
     return list(zip(images, full_labels))
 
 
-def make_dataset(root, subset) -> list[tuple[Path, Path]]:
-    assert subset in ["train", "val", "test"]
-
-    root = Path(root)
-
-    img_path = root / subset / "img"
-    full_path = root / subset / "gt"
-
-    images = sorted(img_path.glob("*.png"))
-    full_labels = sorted(full_path.glob("*.png"))
-
-    return list(zip(images, full_labels))
-
 class SliceDataset(Dataset):
     def __init__(
         self,
