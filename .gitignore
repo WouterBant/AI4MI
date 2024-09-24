@@ -171,6 +171,7 @@ dataset/*
 nnUNet_raw_data_base/*
 RESULTS_FOLDER/*
 OUTPUT_DIRECTORY/*
+jobs/*
 
 
 # nnUNet
