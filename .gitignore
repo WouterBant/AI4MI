@@ -172,3 +172,4 @@ wandb/
 *.pth
 *.pt
 *.pkl
+.conda
