@@ -24,10 +24,13 @@
 
 from pathlib import Path
 from typing import Callable, Union
+import random
 
+import torch
 from torch import Tensor
 from PIL import Image
 from torch.utils.data import Dataset
+from torchvision import transforms
 
 
 def make_dataset(root, subset) -> list[tuple[Path, Path]]:
@@ -43,6 +46,19 @@ def make_dataset(root, subset) -> list[tuple[Path, Path]]:
 
     return list(zip(images, full_labels))
 
+
+def make_dataset(root, subset) -> list[tuple[Path, Path]]:
+    assert subset in ["train", "val", "test"]
+
+    root = Path(root)
+
+    img_path = root / subset / "img"
+    full_path = root / subset / "gt"
+
+    images = sorted(img_path.glob("*.png"))
+    full_labels = sorted(full_path.glob("*.png"))
+
+    return list(zip(images, full_labels))
 
 class SliceDataset(Dataset):
     def __init__(
@@ -76,6 +92,35 @@ class SliceDataset(Dataset):
 
         img: Tensor = self.img_transform(Image.open(img_path))
         gt: Tensor = self.gt_transform(Image.open(gt_path))
+
+        if self.augmentation:
+
+            # Apply augmentation if random is above trheshold
+            if random.random() > 2/3:
+
+                # Only apply one augmentation at a time
+                random_val = random.random()
+
+                if random_val < 0.2:
+                    img = transforms.functional.vflip(img)
+                    gt = transforms.functional.vflip(gt)
+
+                elif random_val < 0.4:
+                    angle = random.uniform(-5, 5)
+                    img = transforms.functional.rotate(img, angle)
+                    gt = transforms.functional.rotate(gt, angle)
+
+                elif random_val < 0.7:
+                    # Custom cropping implementation
+                    crop_size = (int(img.size(1) / 1.1), int(img.size(2) / 1.1))
+                    i = random.randint(0, img.size(1) - crop_size[0])
+                    j = random.randint(0, img.size(2) - crop_size[1])
+                    img = img[:, i:i+crop_size[0], j:j+crop_size[1]]
+                    gt = gt[:, i:i+crop_size[0], j:j+crop_size[1]]
+                    
+                else:
+                    noise = torch.randn(img.size()) * 0.01
+                    img = img + noise
 
         _, W, H = img.shape
         K, _, _ = gt.shape
