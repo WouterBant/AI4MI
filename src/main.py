@@ -193,6 +193,7 @@ def setup(
         img_transform=img_transform,
         gt_transform=gt_transform,
         debug=args.debug,
+        augment=args.augment,
     )
 
     sampler = None
@@ -475,6 +476,9 @@ def main():
     )
     parser.add_argument(
         "--use_sampler", action="store_true", help="Use AdaptiveSampler"
+    )
+    parser.add_argument(
+        "--augment", action="store_true", help="Augment the training dataset"
     )
     parser.add_argument(
         "--model",
