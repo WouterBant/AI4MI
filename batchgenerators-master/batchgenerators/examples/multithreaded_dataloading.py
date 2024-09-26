@@ -1,7 +1,26 @@
 from batchgenerators.dataloading.data_loader import SlimDataLoaderBase
 from batchgenerators.dataloading.multi_threaded_augmenter import MultiThreadedAugmenter
 import numpy as np
+from torch.utils.data import Dataset, DataLoader
+import torch
+from batchgenerators.dataloading.data_loader import SlimDataLoaderBase
 
+
+
+class ImageDataset(SlimDataLoaderBase):
+    def __init__(self, images, batch_size):
+        super(ImageDataset, self).__init__(None, batch_size)
+        self.images = [self.add_channel_dim(img) for img in images]  # Keep original size
+
+    def add_channel_dim(self, img):
+        # Ensure image has a channel dimension (1, H, W)
+        return np.expand_dims(img, axis=0)  # Add channel dimension (1, H, W)
+
+    def generate_train_batch(self):
+        # Randomly select indices for the batch
+        indices = np.random.choice(len(self.images), self.batch_size, replace=False)
+        batch_data = np.stack([self.images[i] for i in indices], axis=0)
+        return {'data': batch_data}
 
 class DummyDL(SlimDataLoaderBase):
     def __init__(self, num_threads_in_mt=8):

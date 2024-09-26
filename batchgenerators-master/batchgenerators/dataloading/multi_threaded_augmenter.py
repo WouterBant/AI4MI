@@ -16,12 +16,12 @@
 import traceback
 from typing import List, Union
 import threading
-from multiprocessing import Process, Queue
+from multiprocess import Process, Queue
 from queue import Queue as thrQueue
 import numpy as np
 import sys
 import logging
-from multiprocessing import Event
+from multiprocess import Event
 from time import sleep, time
 from threadpoolctl import threadpool_limits
 
