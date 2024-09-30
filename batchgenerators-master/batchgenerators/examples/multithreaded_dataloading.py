@@ -11,6 +11,7 @@ class ImageDataset(SlimDataLoaderBase):
     def __init__(self, images, batch_size):
         super(ImageDataset, self).__init__(None, batch_size)
         self.images = [self.add_channel_dim(img) for img in images]  # Keep original size
+        self.images = [img.astype(np.float32) for img in self.images]
 
     def add_channel_dim(self, img):
         # Ensure image has a channel dimension (1, H, W)
@@ -21,6 +22,28 @@ class ImageDataset(SlimDataLoaderBase):
         indices = np.random.choice(len(self.images), self.batch_size, replace=False)
         batch_data = np.stack([self.images[i] for i in indices], axis=0)
         return {'data': batch_data}
+    
+class CTImageDataset(SlimDataLoaderBase):
+    """
+    Custom DataLoader to handle paired CT images and ground truth masks for medical image processing.
+    """
+
+    def __init__(self, images, gts, batch_size):
+        super(CTImageDataset, self).__init__(None, batch_size)
+        self.images = [self.add_channel_dim(img) for img in images]  # Add channel dimension
+        self.gts = [self.add_channel_dim(gt) for gt in gts]  # Add channel dimension to GT
+        self.images = [img.astype(np.float32) for img in self.images]  # Ensure float32 for consistency
+        self.gts = [gt.astype(np.float32) for gt in self.gts]  # Ensure float32 for GT as well
+
+    def add_channel_dim(self, img):
+        return np.expand_dims(img, axis=0)  # Add channel dimension (1, H, W)
+
+    def generate_train_batch(self):
+        # Randomly select indices for the batch
+        indices = np.random.choice(len(self.images), self.batch_size, replace=False)
+        batch_data = np.stack([self.images[i] for i in indices], axis=0)
+        batch_gts = np.stack([self.gts[i] for i in indices], axis=0)
+        return {'data': batch_data, 'gt': batch_gts}  # Return both input data and GT
 
 class DummyDL(SlimDataLoaderBase):
     def __init__(self, num_threads_in_mt=8):
