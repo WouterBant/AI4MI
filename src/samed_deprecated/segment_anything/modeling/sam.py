@@ -70,10 +70,10 @@ class Sam(nn.Module):
         )
         masks = self.postprocess_masks(
             low_res_masks,
-            input_size=(256,256),
-            original_size=(256,256),
+            input_size=images_.shape[-2:],
+            original_size=images_.shape[-2:],
         )
-        #masks = masks > self.mask_threshold
+        masks = masks > self.mask_threshold
         return {
             "masks": masks,
             "iou_predictions": iou_predictions,
@@ -152,7 +152,6 @@ class Sam(nn.Module):
                 input_size=image_record["image"].shape[-2:],
                 original_size=image_record["original_size"],
             )
-            masks = masks > self.mask_threshold
             outputs.append(
                 {
                     "masks": masks,
