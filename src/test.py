@@ -109,11 +109,6 @@ def setup(args):
 
     net.to(device)
 
-    # Use torch.compile for kernel fusion to be faster on the gpu
-    if gpu and args.epochs > 3:  # jit compilation takes too much time for few epochs
-        print(">> Compiling the network for faster execution")
-        net = torch.compile(net)
-
     # Dataset part
     B: int = args.batch_size
     root_dir = Path("data") / args.dataset
@@ -175,7 +170,6 @@ def run_test(args):
             loader = test_loader
             print(f">>> Running {mode} mode")
         
-        
         context_manager = torch.no_grad
         
         metrics = {}
@@ -212,7 +206,8 @@ def run_test(args):
                 segmentation_prediction = probs2one_hot(pred_probs)
                 for metric_type in metric_types:
                     metrics[metric_type][data_count:data_count+Batch_size, :] = update_metrics(segmentation_prediction, gt, metric_type) 
-
+                data_count += Batch_size
+                
             # Save the metrics in pickle format
             with open(args.dest / f"{mode}_metrics.pkl", "wb") as f:
                 pickle.dump(metrics, f)
@@ -270,11 +265,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-               
-                
-    
-
-
-
-
