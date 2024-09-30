@@ -92,7 +92,7 @@ def plot_batch(batch):
     plt.show()
 
 
-def save_augmented_images(batch, output_folder, prefix="augmented"):
+def save_augmented_images(batch, output_folder, start_num, prefix="augmented"):
     """
     Save the augmented images and GT masks to the specified output folder.
     
@@ -108,14 +108,11 @@ def save_augmented_images(batch, output_folder, prefix="augmented"):
         img = np.squeeze(img).astype(np.uint8)  # Remove single-dimensional entries from the shape (H, W)
         gt = np.squeeze(gt).astype(np.uint8)  # Remove single-dimensional entries from the shape (H, W)
 
-        img_save_path = os.path.join(output_folder, f"{prefix}_image_{i}.png")
-        gt_save_path = os.path.join(output_folder, f"{prefix}_gt_{i}.png")
+        img_save_path = os.path.join(output_folder, f"{prefix}_image_{str(int(start_num)+int(i))}.png")
+        gt_save_path = os.path.join(output_folder, f"{prefix}_gt_{str(int(start_num)+int(i))}.png")
 
         imsave(img_save_path, img)
         imsave(gt_save_path, gt)
-
-        print(f"Saved {img_save_path} and {gt_save_path}")
-
 
 # ------------------- Augmentation Component -------------------
 
@@ -257,26 +254,46 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Data Augmentation Pipeline')
     parser.add_argument('--data_folder', type=str, default='/Users/sachabuijs/Documents/AI4MI/data/SEGTHOR/train', help='Path to the training data folder')
     parser.add_argument('--output_folder', type=str, default='/Users/sachabuijs/Documents/AI4MI/data/SEGTHOR/augmented', help='Path to the output folder')
-    parser.add_argument('--batch', type=bool, default=False, help='Do you want batches or to augment all the data at once?')
+    parser.add_argument('--batch_size', type=int, default=0, help='If you want to augment only one batch of data (for debugging), enter the batch size. If not enter 0.')
+    parser.add_argument('--num_batches', type=int, default=4, help='If you  want to augment all the data at once, the number of batches to augment. ')
 
     args = parser.parse_args()
 
     # Load the training images from the folder
     train_images, train_gts = load_ct_images_and_gts(args.data_folder)
     print(len(train_images))
-    
-    # Initialize the data loader with batch size of 4
-    batchgen = CTImageDataset(train_images, train_gts, batch_size=4, batch=args.batch)
+    batch_sizes = len(train_images) // args.num_batches +1
 
     # Initialize the augmentation pipeline with the target patch size
     target_patch_size = train_images[0].shape  # Assuming HxW image
     augmentation_pipeline = AugmentationPipeline(target_patch_size)
 
-    # Create the data generator with augmentations
-    augmented_data_generator = augmentation_pipeline.create_data_generator(batchgen)
+    # If you want to augment one batch
+    if args.batch_size != 0:
+        # Initialize the data loader with batch size of 4
+        batchgen = CTImageDataset(train_images, train_gts, batch_size= args.batch_size, batch=args.batch)
 
-    # Retrieve a batch of augmented images and visualize
-    augmented_batch = next(augmented_data_generator)
+        # Create the data generator with augmentations
+        augmented_data_generator = augmentation_pipeline.create_data_generator(batchgen)
 
+        # Retrieve a batch of augmented images and visualize
+        augmented_batch = next(augmented_data_generator)
+        plot_batch(augmented_batch)
+        save_augmented_images(augmented_batch, args.output_folder, 0)
 
-    save_augmented_images(augmented_batch, args.output_folder)
+    #if you want to augment all the data (this is done in batches for memory reasons)
+    else:
+        for i in range(args.num_batches):
+            train_images_batch = train_images[i*batch_sizes:(i+1)*batch_sizes]
+            train_gts_batch = train_gts[i*batch_sizes:(i+1)*batch_sizes]
+
+            # Initialize the data loader with batch size of 4
+            batchgen = CTImageDataset(train_images_batch, train_gts_batch, batch_size=4, batch=args.batch)
+
+            # Create the data generator with augmentations
+            augmented_data_generator = augmentation_pipeline.create_data_generator(batchgen)
+
+            # Retrieve a batch of augmented images and visualize
+            augmented_batch = next(augmented_data_generator)
+
+            save_augmented_images(augmented_batch, args.output_folder,i*batch_sizes)
