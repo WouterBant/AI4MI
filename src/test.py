@@ -1,45 +1,28 @@
 # Script used to test the model and calculate the metrics
 
 import argparse
-import warnings
-from typing import Any, Optional
+from typing import Any
 from pathlib import Path
 from pprint import pprint
 from operator import itemgetter
-from shutil import copytree, rmtree
 from datetime import datetime
-import wandb
-import json
 import tqdm
 import pickle
 
 import torch
 import numpy as np
 import torch.nn.functional as F
-from torch import nn, Tensor
 from torchvision import transforms
 from torch.utils.data import DataLoader
 
 from dataset import SliceDataset
 from ShallowNet import shallowCNN
-from scheduler import CosineWarmupScheduler
 from ENet import ENet
 from utils import (
-    Dcm,
     class2one_hot,
-    get_optimizer,
-    init_wandb,
-    log_sample_images_wandb,
     probs2one_hot,
-    probs2class,
-    tqdm_,
-    dice_coef,
-    save_images,
-    set_seed,
 )
-from losses import get_loss_fn, CrossEntropy, DiceLoss
 from metrics import update_metrics, print_store_metrics
-from adaptive_sampler import AdaptiveSampler
 
 from samed.sam_lora import LoRA_Sam
 from samed.segment_anything import sam_model_registry
@@ -70,11 +53,7 @@ datasets_params["SEGTHOR_MANUAL_SPLIT"] = {
 }
 
 
-def setup(
-    args,
-) -> tuple[
-    nn.Module, Any, Any, DataLoader, DataLoader, int, Optional[CosineWarmupScheduler], Optional[AdaptiveSampler]
-]:
+def setup(args):
     # Networks and scheduler
     gpu: bool = args.gpu and torch.cuda.is_available()
     device = torch.device("cuda") if gpu else torch.device("cpu")
@@ -90,7 +69,7 @@ def setup(
 
     K: int = datasets_params[args.dataset]["K"]
     if args.model == "samed":
-        sam, _ = sam_model_registry["vit_b"](  # TODO check these arguments
+        sam, _ = sam_model_registry["vit_b"](
             checkpoint="src/samed/checkpoints/sam_vit_b_01ec64.pth",
             num_classes=K,
             pixel_mean=[0.0457, 0.0457, 0.0457],
@@ -99,7 +78,7 @@ def setup(
         net = LoRA_Sam(sam, r=4)
     else:
         net = datasets_params[args.dataset]["net"](1, K)
-        net.init_weights()  # TODO probably remove it and use the default one from pytorch
+        net.init_weights()
     
     if args.from_checkpoint:
         print(args.from_checkpoint)
@@ -135,9 +114,6 @@ def setup(
         print(">> Compiling the network for faster execution")
         net = torch.compile(net)
 
-    # Initialize optimizer based on args
-    optimizer = get_optimizer(args, net)
-
     # Dataset part
     B: int = args.batch_size
     root_dir = Path("data") / args.dataset
@@ -167,63 +143,25 @@ def setup(
         ]
     )
 
-    train_set = SliceDataset(
-        "train",
+    test_set = SliceDataset(
+        "test",
         root_dir,
         img_transform=img_transform,
         gt_transform=gt_transform,
         debug=args.debug,
     )
-
-    sampler = None
-    if args.use_sampler:
-        sampler = AdaptiveSampler(train_set, B, args.epochs)
-        train_loader = DataLoader(
-            train_set, batch_size=B, num_workers=args.num_workers, sampler=sampler
-        )
-    else:
-        train_loader = DataLoader(
-            train_set, batch_size=B, num_workers=args.num_workers, shuffle=True
-        )
-
-    val_set = SliceDataset(
-        "val",
-        root_dir,
-        img_transform=img_transform,
-        gt_transform=gt_transform,
-        debug=args.debug,
+    test_loader = DataLoader(
+        test_set, batch_size=B, num_workers=args.num_workers, shuffle=False
     )
-    val_loader = DataLoader(
-        val_set, batch_size=B, num_workers=args.num_workers, shuffle=False
-    )
-    if args.dataset == "SEGTHOR_MANUAL_SPLIT":
-        test_set = SliceDataset(
-            "test",
-            root_dir,
-            img_transform=img_transform,
-            gt_transform=gt_transform,
-            debug=args.debug,
-        )
-        test_loader = DataLoader(
-            test_set, batch_size=B, num_workers=args.num_workers, shuffle=False
-        )
-    else: 
-        test_loader = None
-
-    scheduler = None
-    if args.use_scheduler:
-        total_steps = args.epochs * len(train_loader) / args.gradient_accumulation_steps
-        warmup_steps = int(0.25 * total_steps)  # 25% of total steps for warmup
-        scheduler = CosineWarmupScheduler(optimizer, args.lr, warmup_steps, total_steps)
 
     args.dest.mkdir(parents=True, exist_ok=True)
 
-    return (net, optimizer, device, train_loader, val_loader, test_loader, K, scheduler, sampler)
+    return (net, device, test_loader, K)
 
 
 def run_test(args):
     print(f">>> Setting up to train on {args.dataset} with {args.mode}")
-    net, optimizer, device, train_loader, val_loader, test_loader, K, scheduler, sampler = setup(args)
+    net, device, test_loader, K = setup(args)
     
     if args.mode=='partial':
         raise NotImplementedError("args.mode partial training should not be used")
@@ -258,7 +196,7 @@ def run_test(args):
                 # Samed model
                 if args.model == "samed":
                         preds = net(img)
-                        pred_logits = preds["low_res_logits"]
+                        pred_logits = preds["masks"]
                         pred_probs = F.softmax(
                             1 * pred_logits, dim=1
                         )  # 1 is the temperature parameter
@@ -282,15 +220,11 @@ def run_test(args):
             # Print and store the metrics
             print_store_metrics(metrics, args.dest / f"{mode}_metrics")
                 
-            
                 
                 
 def main():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--epochs", default=200, type=int)
-    parser.add_argument("--lr", default=0.0005, type=float, help="Learning rate")
-    parser.add_argument("--weight_decay", default=0.1, type=float, help="Weight decay")
     parser.add_argument(
         "--batch_size",
         type=int,
@@ -298,38 +232,18 @@ def main():
         default=None,
     )
     parser.add_argument(
-        "--gradient_accumulation_steps",
-        type=int,
-        default=1,
-        help="Number of steps to accumulate gradients over",
-    )
-    parser.add_argument(
-        "--use_scheduler", action="store_true", help="Use CosineWarmupScheduler"
-    )
-    parser.add_argument(
-        "--use_sampler", action="store_true", help="Use AdaptiveSampler"
-    )
-    parser.add_argument(
         "--model",
         default=None,
         help="Model to use",
     )
-    parser.add_argument(
-        "--optimizer",
-        default="adam",
-        choices=["adam", "sgd", "adamw", "sgd-wd"],
-        help="Optimizer to use",
-    )
-    parser.add_argument("--dataset", default="SEGTHOR", choices=datasets_params.keys())
-    parser.add_argument("--mode", default="full", choices=["partial", "full"])
-    parser.add_argument("--loss", default="ce", choices=["ce", "dice_monai", "gdl", "dce"])
-    parser.add_argument("--ce_lambda", default=1.0, type=float)
     parser.add_argument(
         "--dest",
         type=Path,
         default=None,
         help="Destination directory to save the results (predictions and weights).",
     )
+    parser.add_argument("--dataset", default="SEGTHOR_MANUAL_SPLIT", choices=datasets_params.keys())
+    parser.add_argument("--mode", default="full", choices=["partial", "full"])
     parser.add_argument("--from_checkpoint", type=Path, default=None)
     parser.add_argument("--gpu", action="store_true")
     parser.add_argument("--num_workers", type=int, default=4)
@@ -339,25 +253,9 @@ def main():
         help="Keep only a fraction (10 samples) of the datasets, "
         "to test the logic around epochs and logging easily.",
     )
-    parser.add_argument(
-        "--deterministic", action="store_true", help="Make the training deterministic"
-    )
-    parser.add_argument(
-        "--use_wandb", action="store_true", help="Use wandb for logging"
-    )
-    parser.add_argument(
-        "--clip_grad", action="store_true", help="Enable gradient clipping"
-    )
-
     args = parser.parse_args()
 
     pprint(args)
-
-    if args.deterministic:
-        set_seed(2024)
-
-    # Disable wandb if it failed to initialize
-    args.use_wandb = args.use_wandb and init_wandb(args)
 
     if args.batch_size is None:
         args.batch_size = datasets_params[args.dataset]["B"]
