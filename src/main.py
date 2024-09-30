@@ -110,7 +110,7 @@ def setup(
 
     K: int = datasets_params[args.dataset]["K"]
     if args.model == "samed":
-        sam, _ = sam_model_registry["vit_b"](  # TODO check these arguments
+        sam, _ = sam_model_registry["vit_b"](
             checkpoint="src/samed/checkpoints/sam_vit_b_01ec64.pth",
             num_classes=K,
             pixel_mean=[0.0457, 0.0457, 0.0457],
@@ -119,7 +119,7 @@ def setup(
         net = LoRA_Sam(sam, r=4)
     else:
         net = datasets_params[args.dataset]["net"](1, K)
-        net.init_weights()  # TODO probably remove it and use the default one from pytorch
+        net.init_weights()
     
     if args.from_checkpoint:
         print(args.from_checkpoint)
@@ -151,7 +151,7 @@ def setup(
     net.to(device)
 
     # Use torch.compile for kernel fusion to be faster on the gpu
-    if gpu and args.epochs > 3:  # jit compilation takes too much time for few epochs
+    if gpu and args.epochs > 3 and not args.from_checkpoint:  # jit compilation takes too much time for few epochs
         print(">> Compiling the network for faster execution")
         net = torch.compile(net)
 
@@ -229,10 +229,10 @@ def setup(
     return (net, optimizer, device, train_loader, val_loader, K, scheduler, sampler)
 
 
-def calc_loss(
+def calc_loss_samed(
     outputs, low_res_label_batch, ce_loss, dice_loss, dice_weight: float = 0.8
 ):
-    low_res_logits = outputs["low_res_logits"]
+    low_res_logits = outputs["masks"]
     loss_ce = ce_loss(low_res_logits, low_res_label_batch[:].float())
     loss_dice = dice_loss(low_res_logits, low_res_label_batch, softmax=True)
     loss = (1 - dice_weight) * loss_ce + dice_weight * loss_dice
@@ -258,12 +258,6 @@ def runTraining(args):
     log_dice_tra: Tensor = torch.zeros((args.epochs, len(train_loader.dataset), K))
     log_loss_val: Tensor = torch.zeros((args.epochs, len(val_loader)))
     log_dice_val: Tensor = torch.zeros((args.epochs, len(val_loader.dataset), K))
-    
-    # Create holders for segmentation predictions and ground truth
-    # total_pred_seg_tra: Tensor = torch.zeros((len(train_loader.dataset), K, 256, 256), dtype=torch.int32)
-    # total_gt_seg_tra: Tensor = torch.zeros((len(train_loader.dataset), K, 256, 256), dtype=torch.int32)
-    # total_pred_seg_val: Tensor = torch.zeros((len(val_loader.dataset), K, 256, 256), dtype=torch.int32)
-    # total_gt_seg_val: Tensor = torch.zeros((len(val_loader.dataset), K, 256, 256), dtype=torch.int32)
 
     best_dice = train_steps_done = val_steps_done = 0
     dice_loss = DiceLoss(K)
@@ -285,8 +279,6 @@ def runTraining(args):
                     loader = train_loader
                     log_loss = log_loss_tra
                     log_dice = log_dice_tra
-                    # total_pred_seg = total_pred_seg_tra
-                    # total_gt_seg = total_gt_seg_tra
                     if sampler:
                         sampler.set_epoch(e)
                 case "val":
@@ -297,8 +289,6 @@ def runTraining(args):
                     loader = val_loader
                     log_loss = log_loss_val
                     log_dice = log_dice_val
-                    # total_pred_seg = total_pred_seg_val
-                    # total_gt_seg = total_gt_seg_val
             with cm():  # Either dummy context manager, or the torch.no_grad for validation
                 j = 0
                 tq_iter = tqdm_(enumerate(loader), total=len(loader), desc=desc)
@@ -313,11 +303,11 @@ def runTraining(args):
 
                     if args.model == "samed":
                         preds = net(img)
-                        pred_logits = preds["low_res_logits"]
+                        pred_logits = preds["masks"]
                         pred_probs = F.softmax(
                             1 * pred_logits, dim=1
                         )  # 1 is the temperature parameter
-                        loss, loss_ce, loss_dice = calc_loss(
+                        loss, loss_ce, loss_dice = calc_loss_samed(
                             preds, gt, ce_loss, dice_loss, dice_weight=0.8
                         )
                     else:
@@ -333,10 +323,6 @@ def runTraining(args):
                     log_dice[e, j : j + B, :] = dice_coef(
                         pred_seg, gt
                     )  # One DSC value per sample and per class
-                    # TODO: add additional metrics (no need to set to 0 after each epoch as it is overwritten)
-                    # if not args.use_sampler:  # expects all samples to be used
-                    #     total_pred_seg[j : j + B, :, :] = pred_seg
-                    #     total_gt_seg[j : j + B, :, :] = gt
 
                     # Backward pass
                     if m == "train":
@@ -414,10 +400,6 @@ def runTraining(args):
                             for k in range(1, K)
                         }
                     tq_iter.set_postfix(postfix_dict)
-            
-                #TODO save the metrics for each epoch for either training or validation
-                # if not args.use_sampler:  # expects all samples to be used
-                #     all_metrics[m][f"epoch_{e}"] = update_metrics(K, total_pred_seg, total_gt_seg)
 
         # I save it at each epochs, in case the code crashes or I decide to stop it early
         np.save(args.dest / "loss_tra.npy", log_loss_tra)
@@ -491,7 +473,7 @@ def main():
         choices=["adam", "sgd", "adamw", "sgd-wd"],
         help="Optimizer to use",
     )
-    parser.add_argument("--dataset", default="SEGTHOR", choices=datasets_params.keys())
+    parser.add_argument("--dataset", default="SEGTHOR_MANUAL_SPLIT", choices=datasets_params.keys())
     parser.add_argument("--mode", default="full", choices=["partial", "full"])
     parser.add_argument("--loss", default="ce", choices=["ce", "dice_monai", "gdl", "dce"])
     parser.add_argument("--ce_lambda", default=1.0, type=float)
