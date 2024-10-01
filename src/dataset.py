@@ -33,6 +33,7 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 import torch.nn.functional as F
 import torchvision.transforms.functional as TF
+import numpy as np
 
 
 def make_dataset(root, subset) -> list[tuple[Path, Path]]:
@@ -57,16 +58,15 @@ class SliceDataset(Dataset):
         img_transform=None,
         gt_transform=None,
         augment=False,
-        equalize=False,
+        normalize=False,
         debug=False,
     ):
         self.root_dir: str = root_dir
         self.img_transform: Callable = img_transform
         self.gt_transform: Callable = gt_transform
-        self.augmentation: bool = augment  # TODO: implement
-        self.equalize: bool = equalize  # TODO: know if we need it
+        self.augmentation: bool = augment
+        self.normalize: bool = normalize
 
-        # TODO make our own test set, now 5453 train and 1967 val
         self.files = make_dataset(root_dir, subset)
         if debug:
             self.files = self.files[:10]
@@ -76,11 +76,43 @@ class SliceDataset(Dataset):
     def __len__(self):
         return len(self.files)
 
+    def histogram_equalization(self, img: Tensor) -> Tensor:
+        # Convert to numpy for easier histogram manipulation
+        img_np = img.cpu().numpy()
+        
+        # Calculate histogram
+        hist, bin_edges = np.histogram(img_np, bins=256, range=(img_np.min(), img_np.max()))
+        
+        # Calculate cumulative distribution function (CDF)
+        cdf = hist.cumsum()
+        cdf_normalized = cdf * hist.max() / cdf.max()
+        
+        # Linear interpolation of CDF to map intensity values
+        img_equalized = np.interp(img_np.flatten(), bin_edges[:-1], cdf_normalized)
+        
+        # Reshape back to original shape and convert to tensor
+        img_equalized = torch.from_numpy(img_equalized.reshape(img_np.shape)).to(img.device)
+        
+        return img_equalized
+
+    def normalize_mediastinal_window(self, img: Tensor) -> Tensor:
+        # Apply histogram equalization
+        equalized_img = self.histogram_equalization(img)
+
+        # Normalize to [-1, 1] range
+        normalized_img = 2 * (equalized_img - equalized_img.min()) / (equalized_img.max() - equalized_img.min()) - 1
+
+        return normalized_img
+
+
     def __getitem__(self, index) -> dict[str, Union[Tensor, int, str]]:
         img_path, gt_path = self.files[index]
 
         img: Tensor = self.img_transform(Image.open(img_path))
         gt: Tensor = self.gt_transform(Image.open(gt_path))
+
+        if self.normalize:
+            img = self.normalize_mediastinal_window(img)
 
         if self.augmentation:
             # Apply augmentation if random is above trheshold
