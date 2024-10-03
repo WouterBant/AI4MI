@@ -118,7 +118,7 @@ def setup(
             checkpoint="src/samed/checkpoints/sam_vit_b_01ec64.pth",
             num_classes=K,
             pixel_mean=[0.0457, 0.0457, 0.0457],
-            pixel_std=[0.0723, 0.0723, 0.0723],
+            pixel_std=[1.0, 1.0, 1.0],
             image_size=512
         )
         net = LoRA_Sam(sam, r=4)
@@ -219,6 +219,7 @@ def setup(
         img_transform=img_transform,
         gt_transform=gt_transform,
         debug=args.debug,
+        normalize=args.normalize,
     )
     val_loader = DataLoader(
         val_set, batch_size=B, num_workers=args.num_workers, shuffle=False
