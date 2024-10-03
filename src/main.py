@@ -61,9 +61,6 @@ from losses import get_loss_fn, CrossEntropy, DiceLoss
 from metrics import update_metrics
 from adaptive_sampler import AdaptiveSampler
 
-from samed.sam_lora import LoRA_Sam
-from samed.segment_anything import sam_model_registry
-
 
 torch.set_float32_matmul_precision("high")
 
@@ -109,12 +106,20 @@ def setup(
     print(f">> Picked {device} to run experiments")
 
     K: int = datasets_params[args.dataset]["K"]
-    if args.model == "samed":
+    if args.model == "samed" or args.model == "samed_fast":
+        if args.model == "samed_fast":
+            from samed_fast.sam_lora import LoRA_Sam
+            from samed_fast.segment_anything import sam_model_registry
+        elif args.model == "samed":
+            from samed.sam_lora import LoRA_Sam
+            from samed.segment_anything import sam_model_registry
+
         sam, _ = sam_model_registry["vit_b"](
             checkpoint="src/samed/checkpoints/sam_vit_b_01ec64.pth",
             num_classes=K,
             pixel_mean=[0.0457, 0.0457, 0.0457],
             pixel_std=[0.0723, 0.0723, 0.0723],
+            image_size=512
         )
         net = LoRA_Sam(sam, r=4)
     else:
@@ -194,6 +199,7 @@ def setup(
         gt_transform=gt_transform,
         debug=args.debug,
         augment=args.augment,
+        normalize=args.normalize,
     )
 
     sampler = None
@@ -297,12 +303,16 @@ def runTraining(args):
                     img = data["images"].to(device)
                     gt = data["gts"].to(device)
 
-                    # Sanity tests to see we loaded and encoded the data correctly
-                    assert 0 <= img.min() and img.max() <= 1
+                    # Sanity tests to see we loaded and encoded the data 
+                    if not args.normalize:
+                        assert 0 <= img.min() and img.max() <= 1
+                    else:
+                        assert -1 <= img.min() and img.max() <= 1
+                    
                     B, _, W, H = img.shape
 
-                    if args.model == "samed":
-                        preds = net(img)
+                    if args.model == "samed" or args.model == "samed_fast":
+                        preds = net(img, multimask_output=True, image_size=512)
                         pred_logits = preds["masks"]
                         pred_probs = F.softmax(
                             1 * pred_logits, dim=1
@@ -491,6 +501,11 @@ def main():
         action="store_true",
         help="Keep only a fraction (10 samples) of the datasets, "
         "to test the logic around epochs and logging easily.",
+    )
+    parser.add_argument(
+        "--normalize",
+        action="store_true",
+        help="Normalize the input images",
     )
     parser.add_argument(
         "--deterministic", action="store_true", help="Make the training deterministic"

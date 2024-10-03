@@ -95,14 +95,14 @@ class SliceDataset(Dataset):
         
         return img_equalized
 
-    def normalize_mediastinal_window(self, img: Tensor) -> Tensor:
+    def normalize_img(self, img: Tensor) -> Tensor:
         # Apply histogram equalization
         equalized_img = self.histogram_equalization(img)
 
         # Normalize to [-1, 1] range
         normalized_img = 2 * (equalized_img - equalized_img.min()) / (equalized_img.max() - equalized_img.min()) - 1
 
-        return normalized_img
+        return normalized_img.float()
 
 
     def __getitem__(self, index) -> dict[str, Union[Tensor, int, str]]:
@@ -112,7 +112,7 @@ class SliceDataset(Dataset):
         gt: Tensor = self.gt_transform(Image.open(gt_path))
 
         if self.normalize:
-            img = self.normalize_mediastinal_window(img)
+            img = self.normalize_img(img)
 
         if self.augmentation:
             # Apply augmentation if random is above trheshold
