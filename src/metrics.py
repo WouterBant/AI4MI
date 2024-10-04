@@ -54,11 +54,19 @@ def update_metrics(pred: Tensor, gt: Tensor, metric_type: str) -> dict:
     if metric_type == "specificity":
         return Sensitivity_Specifity_metrics(pred, gt)[1]
     
+    # Would not recommend using this metric as it is very slow
     if metric_type == "hausdorff":
         return calculate_hausdorff_distance(pred, gt)
     
-    # Hausdorff metric
-    #hausdorff_metric = total_hausdorff_distance(total_pred_seg, total_gt_seg)
+    if metric_type == "iou":
+        return jaccard_index(pred, gt)
+    
+    if metric_type == "precision":
+        return precision_metric(pred, gt)
+    
+    if metric_type == "volumetric":
+        return volumetric_similarity(pred, gt)
+    
     
     
     
@@ -71,7 +79,7 @@ def total_hausdorff_distance(pred_tensor, gt_tensor):
         for sample_idx in range(gt_tensor.shape[0]):
             ground_truth_img = gt_tensor[sample_idx, class_idx]
             prediction_img = pred_tensor[sample_idx, class_idx]
-            hausdorf_metrics[sample_idx, class_idx] = hausdorff_distance_fast(ground_truth_img, prediction_img)
+            hausdorf_metrics[sample_idx, class_idx] = calculate_hausdorff_distance(ground_truth_img, prediction_img)
 
 def calculate_hausdorff_distance(ground_truth_tensor, prediction_tensor):
     # Convert PyTorch tensors to NumPy arrays and move them to the CPU
@@ -150,3 +158,35 @@ def Sensitivity_Specifity_metrics(pred_seg: Tensor, gt_seg: Tensor):
     
     return sensitivity, specificity
     
+def jaccard_index(pred, gt):
+    # Compute intersection and union over the last two dimensions
+    intersection = torch.logical_and(gt == 1, pred == 1).sum(dim=(-2, -1)).float()
+    union = torch.logical_or(gt == 1, pred == 1).sum(dim=(-2, -1)).float()
+    
+    # Handle division by zero (no positives in ground truth and prediction)
+    iou = intersection / (union + 1e-6)  # Adding small epsilon to prevent division by zero
+    return iou
+
+def precision_metric(pred, gt):
+    # Compute true positives and predicted positives over the last two dimensions
+    true_positive = torch.logical_and(gt == 1, pred == 1).sum(dim=(-2, -1)).float()
+    predicted_positive = (pred == 1).sum(dim=(-2, -1)).float()
+    
+    # Handle division by zero (no positives predicted)
+    precision = true_positive / (predicted_positive + 1e-6)  # Adding small epsilon to prevent division by zero
+    return precision
+
+def volumetric_similarity(pred, gt):
+    # Calculate the volumes (number of foreground pixels)
+    vol_gt = (gt == 1).sum(dim=(-2, -1)).float()
+    vol_pred = (pred == 1).sum(dim=(-2, -1)).float()
+
+    # Compute the absolute difference and the total volume
+    abs_diff = torch.abs(vol_gt - vol_pred)
+    total_vol = vol_gt + vol_pred
+
+    # Return Volumetric Similarity (1 - relative volume difference)
+    vs = 1 - abs_diff / (total_vol + 1e-6)  # Adding epsilon to avoid division by zero
+    return vs
+
+
