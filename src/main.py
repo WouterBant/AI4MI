@@ -61,9 +61,6 @@ from losses import get_loss_fn, CrossEntropy, DiceLoss
 from metrics import update_metrics
 from adaptive_sampler import AdaptiveSampler
 
-from samed.sam_lora import LoRA_Sam
-from samed.segment_anything import sam_model_registry
-
 
 torch.set_float32_matmul_precision("high")
 
@@ -109,17 +106,25 @@ def setup(
     print(f">> Picked {device} to run experiments")
 
     K: int = datasets_params[args.dataset]["K"]
-    if args.model == "samed":
-        sam, _ = sam_model_registry["vit_b"](  # TODO check these arguments
+    if args.model == "samed" or args.model == "samed_fast":
+        if args.model == "samed_fast":
+            from samed_fast.sam_lora import LoRA_Sam
+            from samed_fast.segment_anything import sam_model_registry
+        elif args.model == "samed":
+            from samed.sam_lora import LoRA_Sam
+            from samed.segment_anything import sam_model_registry
+
+        sam, _ = sam_model_registry["vit_b"](
             checkpoint="src/samed/checkpoints/sam_vit_b_01ec64.pth",
             num_classes=K,
             pixel_mean=[0.0457, 0.0457, 0.0457],
-            pixel_std=[0.0723, 0.0723, 0.0723],
+            pixel_std=[1.0, 1.0, 1.0],
+            image_size=512
         )
         net = LoRA_Sam(sam, r=4)
     else:
         net = datasets_params[args.dataset]["net"](1, K)
-        net.init_weights()  # TODO probably remove it and use the default one from pytorch
+        net.init_weights()
     
     if args.from_checkpoint:
         print(args.from_checkpoint)
@@ -151,7 +156,7 @@ def setup(
     net.to(device)
 
     # Use torch.compile for kernel fusion to be faster on the gpu
-    if gpu and args.epochs > 3:  # jit compilation takes too much time for few epochs
+    if gpu and args.epochs > 3 and not args.from_checkpoint:  # jit compilation takes too much time for few epochs
         print(">> Compiling the network for faster execution")
         net = torch.compile(net)
 
@@ -193,6 +198,8 @@ def setup(
         img_transform=img_transform,
         gt_transform=gt_transform,
         debug=args.debug,
+        augment=args.augment,
+        normalize=args.normalize,
     )
 
     sampler = None
@@ -212,6 +219,7 @@ def setup(
         img_transform=img_transform,
         gt_transform=gt_transform,
         debug=args.debug,
+        normalize=args.normalize,
     )
     val_loader = DataLoader(
         val_set, batch_size=B, num_workers=args.num_workers, shuffle=False
@@ -228,10 +236,10 @@ def setup(
     return (net, optimizer, device, train_loader, val_loader, K, scheduler, sampler)
 
 
-def calc_loss(
+def calc_loss_samed(
     outputs, low_res_label_batch, ce_loss, dice_loss, dice_weight: float = 0.8
 ):
-    low_res_logits = outputs["low_res_logits"]
+    low_res_logits = outputs["masks"]
     loss_ce = ce_loss(low_res_logits, low_res_label_batch[:].float())
     loss_dice = dice_loss(low_res_logits, low_res_label_batch, softmax=True)
     loss = (1 - dice_weight) * loss_ce + dice_weight * loss_dice
@@ -257,12 +265,6 @@ def runTraining(args):
     log_dice_tra: Tensor = torch.zeros((args.epochs, len(train_loader.dataset), K))
     log_loss_val: Tensor = torch.zeros((args.epochs, len(val_loader)))
     log_dice_val: Tensor = torch.zeros((args.epochs, len(val_loader.dataset), K))
-    
-    # Create holders for segmentation predictions and ground truth
-    # total_pred_seg_tra: Tensor = torch.zeros((len(train_loader.dataset), K, 256, 256), dtype=torch.int32)
-    # total_gt_seg_tra: Tensor = torch.zeros((len(train_loader.dataset), K, 256, 256), dtype=torch.int32)
-    # total_pred_seg_val: Tensor = torch.zeros((len(val_loader.dataset), K, 256, 256), dtype=torch.int32)
-    # total_gt_seg_val: Tensor = torch.zeros((len(val_loader.dataset), K, 256, 256), dtype=torch.int32)
 
     best_dice = train_steps_done = val_steps_done = 0
     dice_loss = DiceLoss(K)
@@ -284,8 +286,6 @@ def runTraining(args):
                     loader = train_loader
                     log_loss = log_loss_tra
                     log_dice = log_dice_tra
-                    # total_pred_seg = total_pred_seg_tra
-                    # total_gt_seg = total_gt_seg_tra
                     if sampler:
                         sampler.set_epoch(e)
                 case "val":
@@ -296,8 +296,6 @@ def runTraining(args):
                     loader = val_loader
                     log_loss = log_loss_val
                     log_dice = log_dice_val
-                    # total_pred_seg = total_pred_seg_val
-                    # total_gt_seg = total_gt_seg_val
             with cm():  # Either dummy context manager, or the torch.no_grad for validation
                 j = 0
                 tq_iter = tqdm_(enumerate(loader), total=len(loader), desc=desc)
@@ -306,17 +304,21 @@ def runTraining(args):
                     img = data["images"].to(device)
                     gt = data["gts"].to(device)
 
-                    # Sanity tests to see we loaded and encoded the data correctly
-                    assert 0 <= img.min() and img.max() <= 1
+                    # Sanity tests to see we loaded and encoded the data 
+                    if not args.normalize:
+                        assert 0 <= img.min() and img.max() <= 1
+                    else:
+                        assert -1 <= img.min() and img.max() <= 1
+                    
                     B, _, W, H = img.shape
 
-                    if args.model == "samed":
-                        preds = net(img)
-                        pred_logits = preds["low_res_logits"]
+                    if args.model == "samed" or args.model == "samed_fast":
+                        preds = net(img, multimask_output=True, image_size=512)
+                        pred_logits = preds["masks"]
                         pred_probs = F.softmax(
                             1 * pred_logits, dim=1
                         )  # 1 is the temperature parameter
-                        loss, loss_ce, loss_dice = calc_loss(
+                        loss, loss_ce, loss_dice = calc_loss_samed(
                             preds, gt, ce_loss, dice_loss, dice_weight=0.8
                         )
                     else:
@@ -332,10 +334,6 @@ def runTraining(args):
                     log_dice[e, j : j + B, :] = dice_coef(
                         pred_seg, gt
                     )  # One DSC value per sample and per class
-                    # TODO: add additional metrics (no need to set to 0 after each epoch as it is overwritten)
-                    # if not args.use_sampler:  # expects all samples to be used
-                    #     total_pred_seg[j : j + B, :, :] = pred_seg
-                    #     total_gt_seg[j : j + B, :, :] = gt
 
                     # Backward pass
                     if m == "train":
@@ -413,10 +411,6 @@ def runTraining(args):
                             for k in range(1, K)
                         }
                     tq_iter.set_postfix(postfix_dict)
-            
-                #TODO save the metrics for each epoch for either training or validation
-                # if not args.use_sampler:  # expects all samples to be used
-                #     all_metrics[m][f"epoch_{e}"] = update_metrics(K, total_pred_seg, total_gt_seg)
 
         # I save it at each epochs, in case the code crashes or I decide to stop it early
         np.save(args.dest / "loss_tra.npy", log_loss_tra)
@@ -477,6 +471,9 @@ def main():
         "--use_sampler", action="store_true", help="Use AdaptiveSampler"
     )
     parser.add_argument(
+        "--augment", action="store_true", help="Augment the training dataset"
+    )
+    parser.add_argument(
         "--model",
         default=None,
         help="Model to use",
@@ -487,7 +484,7 @@ def main():
         choices=["adam", "sgd", "adamw", "sgd-wd"],
         help="Optimizer to use",
     )
-    parser.add_argument("--dataset", default="SEGTHOR", choices=datasets_params.keys())
+    parser.add_argument("--dataset", default="SEGTHOR_MANUAL_SPLIT", choices=datasets_params.keys())
     parser.add_argument("--mode", default="full", choices=["partial", "full"])
     parser.add_argument("--loss", default="ce", choices=["ce", "dice_monai", "gdl", "dce"])
     parser.add_argument("--ce_lambda", default=1.0, type=float)
@@ -505,6 +502,11 @@ def main():
         action="store_true",
         help="Keep only a fraction (10 samples) of the datasets, "
         "to test the logic around epochs and logging easily.",
+    )
+    parser.add_argument(
+        "--normalize",
+        action="store_true",
+        help="Normalize the input images",
     )
     parser.add_argument(
         "--deterministic", action="store_true", help="Make the training deterministic"

@@ -23,6 +23,7 @@ def build_sam_vit_h(
     num_classes=3,
     pixel_mean=[123.675, 116.28, 103.53],
     pixel_std=[58.395, 57.12, 57.375],
+    image_size=256,
 ):
     return _build_sam(
         encoder_embed_dim=1280,
@@ -44,6 +45,7 @@ def build_sam_vit_l(
     num_classes=3,
     pixel_mean=[123.675, 116.28, 103.53],
     pixel_std=[58.395, 57.12, 57.375],
+    image_size=256,
 ):
     return _build_sam(
         encoder_embed_dim=1024,
@@ -62,6 +64,7 @@ def build_sam_vit_b(
     num_classes=3,
     pixel_mean=[123.675, 116.28, 103.53],
     pixel_std=[58.395, 57.12, 57.375],
+    image_size=256,
 ):
     return _build_sam(
         encoder_embed_dim=768,
@@ -92,6 +95,7 @@ def _build_sam(
     num_classes=3,
     pixel_mean=[123.675, 116.28, 103.53],
     pixel_std=[58.395, 57.12, 57.375],
+    image_size=256,
 ):
     prompt_embed_dim = 256
     image_size = 1024
