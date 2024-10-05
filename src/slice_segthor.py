@@ -131,6 +131,22 @@ def slice_patient(
         gt_slice = resize_(to_slice_gt[:, :, idz], shape, order=0).astype(np.uint8)
 
         if not original:
+            """"
+            Fix the heart data:
+
+            In a 3D visualization tool we saw that the rotation only happened in x and y direction 
+            and the only transformation on the z axis is translation. 
+            After listing the images from both nifti files of patient 17 side by side, we could handpick the z-translation, 
+            which could easily be seen to be 15. After this the problem was as simple as finding the 2D affine matrix.
+
+            Not shown here but we used the number of mismatching pixels to determine the exact parameter values for transforms.functional.affine.
+            For this we did a simple grid search over the translation parameters and the rotation angle.
+            (we eyeballed approximate parameters first). When comparing to the actual affine matrix we see that our rotation 
+            is off by 2 degrees (we have 25 degrees instead of the actual 27), which can be attributed to the various 
+            interpolations that were caused by applying and reversing the affine transformation.
+
+            Note that we apply it after resizing, so the ground truth translations don't match.
+            """
             # Fix the heart data
             gt_heart_slice = resize_(to_slice_gt[:, :, idz-15], shape, order=0).astype(np.uint8)
             rotate = np.zeros_like(gt_slice)
