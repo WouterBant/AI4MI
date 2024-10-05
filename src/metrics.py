@@ -8,6 +8,7 @@ from scipy.ndimage import distance_transform_edt
 import numpy as np
 import pandas as pd
 import os
+import time
 
 def print_store_metrics(metrics, destination):
     classes = ["Background", "Esophagus", "Heart", "Trachea", "Aorta"]
@@ -46,6 +47,8 @@ def update_metrics(pred: Tensor, gt: Tensor, metric_type: str) -> dict:
         raise ValueError(f"Unsupported metric type: {metric_type}")
 
     if metric_type == "dice":
+        print("Calculating Dice coefficient")
+        print(dice_coef(pred, gt).shape)
         return dice_coef(pred, gt)
     
     if metric_type == "sensitivity":
@@ -56,7 +59,7 @@ def update_metrics(pred: Tensor, gt: Tensor, metric_type: str) -> dict:
     
     # Would not recommend using this metric as it is very slow
     if metric_type == "hausdorff":
-        return calculate_hausdorff_distance(pred, gt)
+        return total_hausdorff_distance(pred, gt)
     
     if metric_type == "iou":
         return jaccard_index(pred, gt)
@@ -67,10 +70,6 @@ def update_metrics(pred: Tensor, gt: Tensor, metric_type: str) -> dict:
     if metric_type == "volumetric":
         return volumetric_similarity(pred, gt)
     
-    
-    
-    
-    
 #TODO: Check for the correct implementation of the Hausdorff metric maybe also use the scikit-image implementation. 
 #TODO: Make more efficient using: https://cs.stackexchange.com/questions/117989/hausdorff-distance-between-two-binary-images-according-to-distance-maps
 def total_hausdorff_distance(pred_tensor, gt_tensor):
@@ -80,6 +79,7 @@ def total_hausdorff_distance(pred_tensor, gt_tensor):
             ground_truth_img = gt_tensor[sample_idx, class_idx]
             prediction_img = pred_tensor[sample_idx, class_idx]
             hausdorf_metrics[sample_idx, class_idx] = calculate_hausdorff_distance(ground_truth_img, prediction_img)
+    return hausdorf_metrics
 
 def calculate_hausdorff_distance(ground_truth_tensor, prediction_tensor):
     # Convert PyTorch tensors to NumPy arrays and move them to the CPU
