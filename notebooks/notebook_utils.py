@@ -92,11 +92,8 @@ def get_worst_predictions(
     """
     model.eval()
     worst_predictions = []
-    total_processed = 0
 
     for batch in tqdm(dataloader):
-        if total_processed > 30:
-            break
         x, y = batch["images"], batch["gts"]
         x, y = x.to(device), y.to(device)
 
