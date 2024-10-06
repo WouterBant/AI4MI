@@ -24,10 +24,6 @@ from utils import (
 )
 from metrics import update_metrics, print_store_metrics
 
-from samed.sam_lora import LoRA_Sam
-from samed.segment_anything import sam_model_registry
-
-
 torch.set_float32_matmul_precision("high")
 
 datasets_params: dict[str, dict[str, Any]] = {}
@@ -68,14 +64,22 @@ def setup(args):
     print(f">> Picked {device} to run experiments")
 
     K: int = datasets_params[args.dataset]["K"]
-    if args.model == "samed":
+    if args.model == "samed" or args.model == "samed_fast":
+        if args.model == "samed_fast":
+            from samed_fast.sam_lora import LoRA_Sam
+            from samed_fast.segment_anything import sam_model_registry
+        elif args.model == "samed":
+            from samed.sam_lora import LoRA_Sam
+            from samed.segment_anything import sam_model_registry
+
         sam, _ = sam_model_registry["vit_b"](
             checkpoint="src/samed/checkpoints/sam_vit_b_01ec64.pth",
             num_classes=K,
             pixel_mean=[0.0457, 0.0457, 0.0457],
-            pixel_std=[0.0723, 0.0723, 0.0723],
+            pixel_std=[1.0, 1.0, 1.0],
+            image_size=512
         )
-        net = LoRA_Sam(sam, r=4)
+        net = LoRA_Sam(sam, r=args.r)
     else:
         net = datasets_params[args.dataset]["net"](1, K)
         net.init_weights()
@@ -144,6 +148,7 @@ def setup(args):
         img_transform=img_transform,
         gt_transform=gt_transform,
         debug=args.debug,
+        normalize=args.normalize,
     )
     test_loader = DataLoader(
         test_set, batch_size=B, num_workers=args.num_workers, shuffle=False
@@ -155,65 +160,56 @@ def setup(args):
 
 
 def run_test(args):
-    print(f">>> Setting up to train on {args.dataset} with {args.mode}")
-    net, device, test_loader, K = setup(args)
+    print(f">>> Setting up to testing on {args.dataset} with {args.mode}")
+    net, device, loader, K = setup(args)
     
     if args.mode=='partial':
         raise NotImplementedError("args.mode partial training should not be used")
-    
-    for mode in ['train', 'val', 'test']:
-        if mode in ['train', 'val']:
-            # currently only do metrics for test
-            continue
-        else:
-            net.eval()
-            loader = test_loader
-            print(f">>> Running {mode} mode")
-        
-        context_manager = torch.no_grad
-        
-        metrics = {}
-        metric_types = ["dice", "sensitivity", "specificity"]
-        for metric_type in metric_types:
-            metrics[metric_type] = torch.zeros((len(loader.dataset), K))
-        
-        data_count = 0
-        
-        # Loop over the dataset
-        with context_manager():
-            for i, data in enumerate(tqdm.tqdm(loader)):
-                img = data["images"].to(device)
-                gt = data["gts"].to(device)
-                
-                Batch_size, _, _, _ = img.shape
-                
-                # Samed model
-                if args.model == "samed":
-                        preds = net(img)
-                        pred_logits = preds["masks"]
-                        pred_probs = F.softmax(
-                            1 * pred_logits, dim=1
-                        )  # 1 is the temperature parameter
 
-                # Other models
-                else:
-                    pred_logits = net(img)
+    mode = "test"
+    net.eval()
+    metrics = {}
+    metric_types = ["dice", "sensitivity", "specificity"]
+    for metric_type in metric_types:
+        metrics[metric_type] = torch.zeros((len(loader.dataset), K))
+    
+    data_count = 0
+    
+    # Loop over the dataset
+    with torch.no_grad():
+        for i, data in enumerate(tqdm.tqdm(loader)):
+            img = data["images"].to(device)
+            gt = data["gts"].to(device)
+            
+            Batch_size, _, _, _ = img.shape
+            
+            # Samed model
+            if args.model == "samed" or args.model == "samed_fast":
+                    preds = net(img, multimask_output=True, image_size=512)
+                    pred_logits = preds["masks"]
                     pred_probs = F.softmax(
                         1 * pred_logits, dim=1
                     )  # 1 is the temperature parameter
-                    
-                # Metrics
-                segmentation_prediction = probs2one_hot(pred_probs)
-                for metric_type in metric_types:
-                    metrics[metric_type][data_count:data_count+Batch_size, :] = update_metrics(segmentation_prediction, gt, metric_type) 
-                data_count += Batch_size
+
+            # Other models
+            else:
+                pred_logits = net(img)
+                pred_probs = F.softmax(
+                    1 * pred_logits, dim=1
+                )  # 1 is the temperature parameter
                 
-            # Save the metrics in pickle format
-            with open(args.dest / f"{mode}_metrics.pkl", "wb") as f:
-                pickle.dump(metrics, f)
-                
-            # Print and store the metrics
-            print_store_metrics(metrics, args.dest / f"{mode}_metrics")
+            # Metrics
+            segmentation_prediction = probs2one_hot(pred_probs)
+            for metric_type in metric_types:
+                metrics[metric_type][data_count:data_count+Batch_size, :] = update_metrics(segmentation_prediction, gt, metric_type) 
+            data_count += Batch_size
+            
+        # Save the metrics in pickle format
+        with open(args.dest / f"{mode}_metrics.pkl", "wb") as f:
+            pickle.dump(metrics, f)
+            
+        # Print and store the metrics
+        print_store_metrics(metrics, args.dest / f"{mode}_metrics")
                 
                 
                 
@@ -237,6 +233,12 @@ def main():
         default=None,
         help="Destination directory to save the results (predictions and weights).",
     )
+    parser.add_argument(
+        "--r",
+        type=int,
+        default=6,
+        help="The rank of the LoRa matrices.",
+    )
     parser.add_argument("--dataset", default="SEGTHOR_MANUAL_SPLIT", choices=datasets_params.keys())
     parser.add_argument("--mode", default="full", choices=["partial", "full"])
     parser.add_argument("--from_checkpoint", type=Path, default=None)
@@ -247,6 +249,11 @@ def main():
         action="store_true",
         help="Keep only a fraction (10 samples) of the datasets, "
         "to test the logic around epochs and logging easily.",
+    )
+    parser.add_argument(
+        "--normalize",
+        action="store_true",
+        help="Normalize the input images",
     )
     args = parser.parse_args()
 

@@ -58,7 +58,6 @@ from utils import (
     set_seed,
 )
 from losses import get_loss_fn, CrossEntropy, DiceLoss
-from metrics import update_metrics
 from adaptive_sampler import AdaptiveSampler
 
 
@@ -121,7 +120,7 @@ def setup(
             pixel_std=[1.0, 1.0, 1.0],
             image_size=512
         )
-        net = LoRA_Sam(sam, r=4)
+        net = LoRA_Sam(sam, r=args.r)
     else:
         net = datasets_params[args.dataset]["net"](1, K)
         net.init_weights()
@@ -340,6 +339,7 @@ def runTraining(args):
 
                     # Backward pass
                     if m == "train":
+                        loss = loss / args.gradient_accumulation_steps
                         loss.backward()
 
                         # Gradient accumulation
@@ -451,7 +451,6 @@ def runTraining(args):
 def apply_crf(net, args):
     from crfseg.model import CRF
     
-    
     if args.finetune_crf:
         # Freeze the provided model except the last layer
         for param in net.parameters():
@@ -461,9 +460,6 @@ def apply_crf(net, args):
         # Now unfreeze the last layer
         for param in layers[-1].parameters():
             param.requires_grad = True
-        
-            
-                
                 
     # Add the CRF layer to the model
     model = nn.Sequential(
@@ -520,6 +516,12 @@ def main():
         type=Path,
         default=None,
         help="Destination directory to save the results (predictions and weights).",
+    )
+    parser.add_argument(
+        "--r",
+        type=int,
+        default=6,
+        help="The rank of the LoRa matrices.",
     )
     parser.add_argument("--from_checkpoint", type=Path, default=None)
     parser.add_argument("--gpu", action="store_true")
