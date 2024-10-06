@@ -20,6 +20,7 @@ from batchgenerators.transforms.color_transforms import BrightnessMultiplicative
 from batchgenerators.transforms.resample_transforms import SimulateLowResolutionTransform
 from batchgenerators.transforms.color_transforms import GammaTransform
 from tqdm import tqdm
+import warnings
 
 
 # ------------------- Data Loading Component for CT Data -------------------
@@ -92,6 +93,8 @@ def plot_batch(batch):
     plt.show()
 
 
+warnings.filterwarnings("ignore", category=UserWarning)
+
 def save_augmented_images(batch, output_folder, start_num, prefix="augmented"):
     """
     Save the augmented images and GT masks to the specified output folder.
@@ -103,13 +106,19 @@ def save_augmented_images(batch, output_folder, start_num, prefix="augmented"):
     """
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
+    
+    if not os.path.exists(os.path.join(output_folder, "train")):
+        os.makedirs(os.path.join(output_folder, "train"))
+
+    if not os.path.exists(os.path.join(output_folder, "gt")):
+        os.makedirs(os.path.join(output_folder, "gt"))
 
     for i, (img, gt) in enumerate(tqdm(zip(batch['data'], batch['gt']), total=len(batch['data']), desc="Saving augmented images")):
         img = np.squeeze(img).astype(np.uint8)  # Remove single-dimensional entries from the shape (H, W)
         gt = np.squeeze(gt).astype(np.uint8)  # Remove single-dimensional entries from the shape (H, W)
 
-        img_save_path = os.path.join(output_folder, f"{prefix}_image_{str(int(start_num)+int(i))}.png")
-        gt_save_path = os.path.join(output_folder, f"{prefix}_gt_{str(int(start_num)+int(i))}.png")
+        img_save_path = os.path.join(output_folder, f"train/image_{str(int(start_num)+int(i))}.png")
+        gt_save_path = os.path.join(output_folder, f"gt/image_{str(int(start_num)+int(i))}.png")
 
         imsave(img_save_path, img)
         imsave(gt_save_path, gt)
@@ -252,8 +261,8 @@ class AugmentationPipeline:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Data Augmentation Pipeline')
-    parser.add_argument('--data_folder', type=str, default='/Users/sachabuijs/Documents/AI4MI/data/SEGTHOR/train', help='Path to the training data folder')
-    parser.add_argument('--output_folder', type=str, default='/Users/sachabuijs/Documents/AI4MI/data/SEGTHOR/augmented', help='Path to the output folder')
+    parser.add_argument('--data_folder', type=str, default='data/SEGTHOR_MANUAL_SPLIT/train', help='Path to the training data folder')
+    parser.add_argument('--output_folder', type=str, default='data/SEGTHOR_MANUAL_SPLIT/augmented_train', help='Path to the output folder')
     parser.add_argument('--batch_size', type=int, default=0, help='If you want to augment only one batch of data (for debugging), enter the batch size. If not enter 0.')
     parser.add_argument('--num_batches', type=int, default=4, help='If you  want to augment all the data at once, the number of batches to augment. ')
 
@@ -261,7 +270,7 @@ if __name__ == "__main__":
 
     # Load the training images from the folder
     train_images, train_gts = load_ct_images_and_gts(args.data_folder)
-    print(len(train_images))
+    print('Number of images to augment:',len(train_images))
     batch_sizes = len(train_images) // args.num_batches +1
 
     # Initialize the augmentation pipeline with the target patch size
@@ -271,7 +280,7 @@ if __name__ == "__main__":
     # If you want to augment one batch
     if args.batch_size != 0:
         # Initialize the data loader with batch size of 4
-        batchgen = CTImageDataset(train_images, train_gts, batch_size= args.batch_size, batch=args.batch)
+        batchgen = CTImageDataset(train_images, train_gts, batch_size= args.batch_size, batch=args.num_batches)
 
         # Create the data generator with augmentations
         augmented_data_generator = augmentation_pipeline.create_data_generator(batchgen)
@@ -284,16 +293,17 @@ if __name__ == "__main__":
     #if you want to augment all the data (this is done in batches for memory reasons)
     else:
         for i in range(args.num_batches):
+            print(f'Batch: {i}/{args.num_batches}')
             train_images_batch = train_images[i*batch_sizes:(i+1)*batch_sizes]
             train_gts_batch = train_gts[i*batch_sizes:(i+1)*batch_sizes]
 
             # Initialize the data loader with batch size of 4
-            batchgen = CTImageDataset(train_images_batch, train_gts_batch, batch_size=4, batch=args.batch)
+            batchgen = CTImageDataset(train_images_batch, train_gts_batch, batch_size=4, batch=args.num_batches)
 
             # Create the data generator with augmentations
             augmented_data_generator = augmentation_pipeline.create_data_generator(batchgen)
 
             # Retrieve a batch of augmented images and visualize
             augmented_batch = next(augmented_data_generator)
-
+            
             save_augmented_images(augmented_batch, args.output_folder,i*batch_sizes)
