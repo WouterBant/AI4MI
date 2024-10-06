@@ -152,6 +152,9 @@ def setup(
 
         # Load the updated state_dict into the model
         net.load_state_dict(model_dict, strict=True)
+        
+    if args.crf:
+        net = apply_crf(net, args)
 
     net.to(device)
 
@@ -445,6 +448,30 @@ def runTraining(args):
             torch.save(net, args.dest / "bestmodel.pkl")
             torch.save(net.state_dict(), args.dest / "bestweights.pt")
 
+def apply_crf(net, args):
+    from crfseg.model import CRF
+    
+    
+    if args.finetune_crf:
+        # Freeze the provided model except the last layer
+        for param in net.parameters():
+            param.requires_grad = False
+        layers = list(net.children())
+        
+        # Now unfreeze the last layer
+        for param in layers[-1].parameters():
+            param.requires_grad = True
+        
+            
+                
+                
+    # Add the CRF layer to the model
+    model = nn.Sequential(
+        net,
+        CRF(n_spatial_dims=2)
+    )
+    return model
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -516,6 +543,12 @@ def main():
     )
     parser.add_argument(
         "--clip_grad", action="store_true", help="Enable gradient clipping"
+    )
+    parser.add_argument(
+        "--crf", action="store_true", help="Apply CRF on the output"
+    )
+    parser.add_argument(
+        "--finetune_crf", action="store_true", help="Freeze the model and only train CRF and the last layer"
     )
 
     args = parser.parse_args()
