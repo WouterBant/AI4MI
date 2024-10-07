@@ -1,6 +1,6 @@
 # Some command to generate the scripts for some models watch out, if trained with CRF, enable CRF flat 
 # ALWAYS CHANGE THE CHECKPOINT PATH AND THE MODEL NAME
-# src/test.py --dataset SEGTHOR --mode full --dest results/SEGTHOR --batch_size 5 --model ENet --num_workers 0 --crf --finetune_crf --from_checkpoint src/samed/checkpoints/sam_vit_b_01ec64.pth
+# src/test.py --dataset SEGTHOR --mode full --dest results/SEGTHOR --batch_size 5 --model ENet --num_workers 4 --crf --finetune_crf --from_checkpoint src/samed/checkpoints/sam_vit_b_01ec64.pth
 
 
 # Script used to test the model and calculate the metrics
