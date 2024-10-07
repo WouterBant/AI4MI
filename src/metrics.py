@@ -39,9 +39,9 @@ def print_store_metrics(metrics, destination):
     # Save the DataFrame to a CSV file
     df.to_csv(str(destination) + "/results.csv")
 
-def update_metrics(pred: Tensor, gt: Tensor, metric_type: str) -> dict:
+def update_metrics_2D(pred: Tensor, gt: Tensor, metric_type: str) -> dict:
     
-    if metric_type not in ["dice", "sensitivity", "specificity", "hausdorff"]:
+    if metric_type not in ["dice", "sensitivity", "specificity", "hausdorff", "iou", "precision", "volumetric", "VOE"]:
         raise ValueError(f"Unsupported metric type: {metric_type}")
 
     if metric_type == "dice":
@@ -65,6 +65,12 @@ def update_metrics(pred: Tensor, gt: Tensor, metric_type: str) -> dict:
     
     if metric_type == "volumetric":
         return volumetric_similarity(pred, gt)
+    
+    if metric_type == "VOE": # Volume Overlap Error
+        return 1 - jaccard_index(pred, gt)
+    
+    #TODO maybe add average Averagey Symmetric Surface Distance (ASSD) however also slow and already have Hausdorff distance
+    
     
 #TODO: Check for the correct implementation of the Hausdorff metric maybe also use the scikit-image implementation. 
 #TODO: Make more efficient using: https://cs.stackexchange.com/questions/117989/hausdorff-distance-between-two-binary-images-according-to-distance-maps

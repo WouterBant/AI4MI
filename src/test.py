@@ -1,3 +1,8 @@
+# Some command to generate the scripts for some models watch out, if trained with CRF, enable CRF flat 
+# ALWAYS CHANGE THE CHECKPOINT PATH AND THE MODEL NAME
+# src/test.py --dataset SEGTHOR --mode full --dest results/SEGTHOR --batch_size 5 --model ENet --num_workers 0 --crf --finetune_crf --from_checkpoint src/samed/checkpoints/sam_vit_b_01ec64.pth
+
+
 # Script used to test the model and calculate the metrics
 
 import argparse
@@ -23,7 +28,7 @@ from utils import (
     class2one_hot,
     probs2one_hot,
 )
-from metrics import update_metrics, print_store_metrics
+from metrics import update_metrics_2D, print_store_metrics
 from crf_model import apply_crf
 
 torch.set_float32_matmul_precision("high")
@@ -82,7 +87,7 @@ def setup(args):
             image_size=512
         )
         net = LoRA_Sam(sam, r=args.r)
-    else:
+    elif args.model == "ENet":
         net = datasets_params[args.dataset]["net"](1, K)
         net.init_weights()
     
@@ -158,14 +163,16 @@ def setup(args):
         test_set, batch_size=B, num_workers=args.num_workers, shuffle=False
     )
 
+    n_patients = len(set([str(f).split("_")[1] for f in test_set.files]))
+
     args.dest.mkdir(parents=True, exist_ok=True)
 
-    return (net, device, test_loader, K)
+    return (net, device, test_loader, n_patients, K)
 
 
 def run_test(args):
     print(f">>> Setting up to testing on {args.dataset} with {args.mode}")
-    net, device, loader, K = setup(args)
+    net, device, loader, n_patients, K = setup(args)
     
     if args.mode=='partial':
         raise NotImplementedError("args.mode partial training should not be used")
@@ -173,7 +180,7 @@ def run_test(args):
     mode = "test"
     net.eval()
     metrics = {}
-    metric_types = ["dice", "sensitivity", "specificity"]
+    metric_types = ["dice", "sensitivity", "specificity", "hausdorff", "iou", "precision", "volumetric", "VOE"]
     for metric_type in metric_types:
         metrics[metric_type] = torch.zeros((len(loader.dataset), K))
     
@@ -184,6 +191,7 @@ def run_test(args):
         for i, data in enumerate(tqdm.tqdm(loader)):
             img = data["images"].to(device)
             gt = data["gts"].to(device)
+            stems = data["stems"]
             
             Batch_size, _, _, _ = img.shape
             
@@ -205,15 +213,17 @@ def run_test(args):
             # Metrics
             segmentation_prediction = probs2one_hot(pred_probs)
             for metric_type in metric_types:
-                metrics[metric_type][data_count:data_count+Batch_size, :] = update_metrics(segmentation_prediction, gt, metric_type) 
+                metrics[metric_type][data_count:data_count+Batch_size, :] = update_metrics_2D(segmentation_prediction, gt, metric_type) 
             data_count += Batch_size
             
         # Save the metrics in pickle format
-        with open(args.dest / f"{mode}_metrics.pkl", "wb") as f:
+        save_directory = args.dest / args.model
+        save_directory.mkdir(parents=True, exist_ok=True)
+        with open(str(save_directory) + f"/{mode}_metrics.pkl", "wb") as f:
             pickle.dump(metrics, f)
             
         # Print and store the metrics
-        print_store_metrics(metrics, args.dest / f"{mode}_metrics")
+        print_store_metrics(metrics, str(save_directory))
                 
 def apply_crf(net, args):
     from crfseg.model import CRF
@@ -246,7 +256,8 @@ def main():
     )
     parser.add_argument(
         "--model",
-        default=None,
+        required=True,
+        choices=["samed", "samed_fast", "ENet", "nnUnet"],
         help="Model to use",
     )
     parser.add_argument(
