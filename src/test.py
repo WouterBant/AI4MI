@@ -14,6 +14,7 @@ import numpy as np
 import torch.nn.functional as F
 from torchvision import transforms
 from torch.utils.data import DataLoader
+import torch.nn as nn
 
 from dataset import SliceDataset
 from ShallowNet import shallowCNN
@@ -111,6 +112,8 @@ def setup(args):
         # Load the updated state_dict into the model
         net.load_state_dict(model_dict, strict=True)
 
+    if args.crf:
+        net = apply_crf(net, args)
     net.to(device)
 
     # Dataset part
@@ -211,7 +214,25 @@ def run_test(args):
         # Print and store the metrics
         print_store_metrics(metrics, args.dest / f"{mode}_metrics")
                 
+def apply_crf(net, args):
+    from crfseg.model import CRF
+    
+    if args.finetune_crf:
+        # Freeze the provided model except the last layer
+        for param in net.parameters():
+            param.requires_grad = False
+        layers = list(net.children())
+        
+        # Now unfreeze the last layer
+        for param in layers[-1].parameters():
+            param.requires_grad = True
                 
+    # Add the CRF layer to the model
+    model = nn.Sequential(
+        net,
+        CRF(n_spatial_dims=2)
+    )
+    return model        
                 
 def main():
     parser = argparse.ArgumentParser()
@@ -254,6 +275,12 @@ def main():
         "--normalize",
         action="store_true",
         help="Normalize the input images",
+    )
+    parser.add_argument(
+        "--crf", action="store_true", help="Apply CRF on the output"
+    )
+    parser.add_argument(
+        "--finetune_crf", action="store_true", help="Freeze the model and only train CRF and the last layer"
     )
     args = parser.parse_args()
 
