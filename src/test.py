@@ -117,9 +117,6 @@ def setup(args):
         net = apply_crf(net, args)
     net.to(device)
 
-    if args.crf:
-        net = apply_crf(net, args)
-
     # Dataset part
     B: int = args.batch_size
     root_dir = Path("data") / args.dataset
@@ -279,12 +276,6 @@ def main():
         "--normalize",
         action="store_true",
         help="Normalize the input images",
-    )
-    parser.add_argument(
-        "--crf", action="store_true", help="Apply CRF on the output"
-    )
-    parser.add_argument(
-        "--finetune_crf", action="store_true", help="Freeze the model and only train CRF and the last layer"
     )
     parser.add_argument(
         "--crf", action="store_true", help="Apply CRF on the output"
