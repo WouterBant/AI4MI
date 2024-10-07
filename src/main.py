@@ -59,6 +59,7 @@ from utils import (
 )
 from losses import get_loss_fn, CrossEntropy, DiceLoss
 from adaptive_sampler import AdaptiveSampler
+from crf_model import apply_crf
 
 
 torch.set_float32_matmul_precision("high")
@@ -447,26 +448,6 @@ def runTraining(args):
 
             torch.save(net, args.dest / "bestmodel.pkl")
             torch.save(net.state_dict(), args.dest / "bestweights.pt")
-
-def apply_crf(net, args):
-    from crfseg.model import CRF
-    
-    if args.finetune_crf:
-        # Freeze the provided model except the last layer
-        for param in net.parameters():
-            param.requires_grad = False
-        layers = list(net.children())
-        
-        # Now unfreeze the last layer
-        for param in layers[-1].parameters():
-            param.requires_grad = True
-                
-    # Add the CRF layer to the model
-    model = nn.Sequential(
-        net,
-        CRF(n_spatial_dims=2)
-    )
-    return model
 
 
 def main():
