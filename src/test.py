@@ -23,6 +23,7 @@ from utils import (
     probs2one_hot,
 )
 from metrics import update_metrics, print_store_metrics
+from crf_model import apply_crf
 
 torch.set_float32_matmul_precision("high")
 
@@ -112,6 +113,9 @@ def setup(args):
         net.load_state_dict(model_dict, strict=True)
 
     net.to(device)
+
+    if args.crf:
+        net = apply_crf(net, args)
 
     # Dataset part
     B: int = args.batch_size
@@ -254,6 +258,12 @@ def main():
         "--normalize",
         action="store_true",
         help="Normalize the input images",
+    )
+    parser.add_argument(
+        "--crf", action="store_true", help="Apply CRF on the output"
+    )
+    parser.add_argument(
+        "--finetune_crf", action="store_true", help="Freeze the model and only train CRF and the last layer"
     )
     args = parser.parse_args()
 
