@@ -37,8 +37,6 @@ def print_store_metrics(metrics, destination):
     print(df.to_latex())
     
     # Save the DataFrame to a CSV file
-    if not os.path.exists(destination):
-        os.makedirs(destination)
     df.to_csv(str(destination) + "/results.csv")
 
 def update_metrics(pred: Tensor, gt: Tensor, metric_type: str) -> dict:
@@ -47,8 +45,6 @@ def update_metrics(pred: Tensor, gt: Tensor, metric_type: str) -> dict:
         raise ValueError(f"Unsupported metric type: {metric_type}")
 
     if metric_type == "dice":
-        print("Calculating Dice coefficient")
-        print(dice_coef(pred, gt).shape)
         return dice_coef(pred, gt)
     
     if metric_type == "sensitivity":
