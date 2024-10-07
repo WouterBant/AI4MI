@@ -22,11 +22,11 @@ class CRFAugmented(nn.Module):
         }
 
 def apply_crf(net, args):
+    for param in net.parameters():
+        param.requires_grad = False
     
     if args.finetune_crf:
         # Freeze the provided model except the last layer
-        for param in net.parameters():
-            param.requires_grad = False
         layers = list(net.children())
         
         # Now unfreeze the last layer

@@ -214,9 +214,8 @@ def run_test(args):
             
         # Print and store the metrics
         print_store_metrics(metrics, args.dest / f"{mode}_metrics")
-                
-                
-                
+
+
 def main():
     parser = argparse.ArgumentParser()
 
