@@ -17,10 +17,21 @@ data/TOY2:
 
 
 # Extraction and slicing for Segthor
-data/segthor_train: data/segthor_train.zip
+# data/segthor_train: data/segthor_train.zip
+# 	$(info $(yellow)unzip $<$(reset))
+# 	sha256sum -c data/segthor_train.sha256
+# 	unzip -q $<
+
+
+data/segthor_train: 
 	$(info $(yellow)unzip $<$(reset))
 	sha256sum -c data/segthor_train.sha256
-	unzip -q $<
+	unzip -q data/segthor_train.zip
+	
+	$(info $(yellow)unzip $<$(reset))
+	sha256sum -c data/test.zip.sha256
+	unzip -q data/test.zip -d data/segthor_train
+
 
 data/SEGTHOR: data/segthor_train
 	$(info $(green)python $(CFLAGS) src/slice_segthor.py$(reset))
@@ -34,4 +45,18 @@ data/SEGTHOR_MANUAL_SPLIT: data/segthor_train
 	rm -rf $@_tmp $@
 	python $(CFLAGS) src/slice_segthor.py --source_dir $^ --dest_dir $@_tmp \
 		--shape 256 256 --retains 12 --create_test --retains_test 4
+	mv $@_tmp $@
+
+
+data/segthor_testonly: data/test.zip
+	$(info $(yellow)unzip $<$(reset))
+	sha256sum -c data/test.zip.sha256
+	unzip -q $< -d data/segthor_train
+
+
+data/SEGTHOR_TESTONLY: data/test
+	$(info $(green)python $(CFLAGS) src/slice_segthor.py$(reset))
+	rm -rf $@_tmp $@
+	python $(CFLAGS) src/slice_segthor.py --source_dir $^ --dest_dir $@_tmp \
+		--shape 256 256 --retains 0 --retains_test 0
 	mv $@_tmp $@
