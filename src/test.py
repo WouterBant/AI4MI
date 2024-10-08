@@ -227,10 +227,6 @@ def run_test(args):
         with open(str(save_directory) + f"/{mode}_metrics.pkl", "wb") as f:
             pickle.dump(metrics, f)
             
-<<<<<<< HEAD
-        # Print and store the metrics
-        print_store_metrics(metrics, str(save_directory))   
-=======
         # Also write in a txt file which metrics for which classes are stored. Call it toelichting metrics pkl. Create a new txt file
         if (save_directory / f"{mode}_metrics_toelichting.txt").exists():
             (save_directory / f"{mode}_metrics_toelichting.txt").unlink()
@@ -271,7 +267,6 @@ def convert_to_dict(d):
         return {k: convert_to_dict(v) for k, v in d.items()}
     else:
         return d      
->>>>>>> bd524f15c2d8a04e9ee8cb79c30c1522e8634891
                 
 def main():
     parser = argparse.ArgumentParser()
