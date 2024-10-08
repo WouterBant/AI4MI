@@ -32,7 +32,6 @@ from shutil import copytree, rmtree
 from datetime import datetime
 import wandb
 import json
-
 import torch
 import numpy as np
 import torch.nn.functional as F
@@ -40,10 +39,11 @@ from torch import nn, Tensor
 from torchvision import transforms
 from torch.utils.data import DataLoader
 
-from dataset import SliceDataset
+from dataset2 import SliceDataset
 from ShallowNet import shallowCNN
 from scheduler import CosineWarmupScheduler
 from ENet import ENet
+from sam2unet_model import SAM2UNet
 from utils import (
     Dcm,
     class2one_hot,
@@ -57,9 +57,12 @@ from utils import (
     save_images,
     set_seed,
 )
-from losses import get_loss_fn, CrossEntropy, DiceLoss
+
 from adaptive_sampler import AdaptiveSampler
-from crf_model import apply_crf
+from losses import get_loss_fn, CrossEntropy, DiceLoss
+
+# from samed.sam_lora import LoRA_Sam
+# from samed.segment_anything import sam_model_registry
 
 
 torch.set_float32_matmul_precision("high")
@@ -79,18 +82,23 @@ datasets_params["SEGTHOR"] = {
     "B": 8,
     "names": ["Background", "Esophagus", "Heart", "Trachea", "Aorta"],
 }
-datasets_params["SEGTHOR_MANUAL_SPLIT"] = {
+datasets_params["SEGTHOR_TEST"] = {
     "K": 5,
     "net": ENet,
     "B": 8,
     "names": ["Background", "Esophagus", "Heart", "Trachea", "Aorta"],
 }
-
+datasets_params["/data/SEGTHOR_MANUAL_SPLIT"] = {
+    "K": 5,
+    "net": SAM2UNet,
+    "B": 8,
+    "names": ["Background", "Esophagus", "Heart", "Trachea", "Aorta"],
+}
 
 def setup(
     args,
 ) -> tuple[
-    nn.Module, Any, Any, DataLoader, DataLoader, int, Optional[CosineWarmupScheduler], Optional[AdaptiveSampler]
+    nn.Module, Any, Any, DataLoader, DataLoader, int, Optional[CosineWarmupScheduler]
 ]:
     # Networks and scheduler
     gpu: bool = args.gpu and torch.cuda.is_available()
@@ -106,62 +114,28 @@ def setup(
     print(f">> Picked {device} to run experiments")
 
     K: int = datasets_params[args.dataset]["K"]
-    if args.model == "samed" or args.model == "samed_fast":
-        if args.model == "samed_fast":
-            from samed_fast.sam_lora import LoRA_Sam
-            from samed_fast.segment_anything import sam_model_registry
-        elif args.model == "samed":
-            from samed.sam_lora import LoRA_Sam
-            from samed.segment_anything import sam_model_registry
-
-        sam, _ = sam_model_registry["vit_b"](
+    if args.model == "samed":
+        sam, _ = sam_model_registry["vit_b"](  # TODO check these arguments
             checkpoint="src/samed/checkpoints/sam_vit_b_01ec64.pth",
             num_classes=K,
             pixel_mean=[0.0457, 0.0457, 0.0457],
-            pixel_std=[1.0, 1.0, 1.0],
-            image_size=512
+            pixel_std=[0.0723, 0.0723, 0.0723],
         )
-        net = LoRA_Sam(sam, r=args.r)
+        net = LoRA_Sam(sam, r=4)
+    elif args.model == "SAM2UNet":
+        device = torch.device("cuda")
+        net = SAM2UNet(args.hiera_path)
     else:
         net = datasets_params[args.dataset]["net"](1, K)
-        net.init_weights()
-    
-    if args.from_checkpoint:
-        print(args.from_checkpoint)
-
-        # Load the checkpoint
-        checkpoint = torch.load(args.from_checkpoint, map_location=device)
-
-        # If the checkpoint contains 'state_dict', use it, otherwise use the checkpoint directly
-        state_dict = checkpoint.get('state_dict', checkpoint)
-
-        # Get the model's current state_dict
-        model_dict = net.state_dict()
-
-        # Filter out keys with mismatched shapes
-        filtered_dict = {k: v for k, v in state_dict.items() if k in model_dict and v.shape == model_dict[k].shape}
-
-        # Display the parameters that are skipped
-        skipped_params = [k for k in state_dict if k not in filtered_dict]
-        if skipped_params:
-            print(f"Skipped loading parameters with mismatched shapes: {skipped_params}")
-
-        # Update the model's state_dict with the filtered parameters
-        model_dict.update(filtered_dict)
-
-        # Load the updated state_dict into the model
-        net.load_state_dict(model_dict, strict=True)
-        
-    if args.crf:
-        net = apply_crf(net, args)
-
+        net.init_weights()  # TODO probably remove it and use the default one from pytorch
     net.to(device)
 
     # Use torch.compile for kernel fusion to be faster on the gpu
-    if gpu and args.epochs > 3 and not args.from_checkpoint:  # jit compilation takes too much time for few epochs
+    if gpu and args.epochs > 3:  # jit compilation takes too much time for few epochs
         print(">> Compiling the network for faster execution")
         net = torch.compile(net)
 
+    # TODO consider adding weight decay
     # Initialize optimizer based on args
     optimizer = get_optimizer(args, net)
 
@@ -200,8 +174,20 @@ def setup(
         img_transform=img_transform,
         gt_transform=gt_transform,
         debug=args.debug,
-        augment=args.augment,
-        normalize=args.normalize,
+    )
+    train_loader = DataLoader(
+        train_set, batch_size=B, num_workers=args.num_workers, shuffle=True
+    )
+
+    val_set = SliceDataset(
+        "val",
+        root_dir,
+        img_transform=img_transform,
+        gt_transform=gt_transform,
+        debug=args.debug,
+    )
+    val_loader = DataLoader(
+        val_set, batch_size=B, num_workers=args.num_workers, shuffle=False
     )
 
     sampler = None
@@ -215,42 +201,34 @@ def setup(
             train_set, batch_size=B, num_workers=args.num_workers, shuffle=True
         )
 
-    val_set = SliceDataset(
-        "val",
-        root_dir,
-        img_transform=img_transform,
-        gt_transform=gt_transform,
-        debug=args.debug,
-        normalize=args.normalize,
-    )
-    val_loader = DataLoader(
-        val_set, batch_size=B, num_workers=args.num_workers, shuffle=False
-    )
-
-    scheduler = None
-    if args.use_scheduler:
-        total_steps = args.epochs * len(train_loader) / args.gradient_accumulation_steps
-        warmup_steps = int(0.25 * total_steps)  # 25% of total steps for warmup
-        scheduler = CosineWarmupScheduler(optimizer, args.lr, warmup_steps, total_steps)
-
     args.dest.mkdir(parents=True, exist_ok=True)
 
-    return (net, optimizer, device, train_loader, val_loader, K, scheduler, sampler)
+    return (net, optimizer, device, train_loader, val_loader, K, scheduler)
 
 
-def calc_loss_samed(
+def calc_loss(
     outputs, low_res_label_batch, ce_loss, dice_loss, dice_weight: float = 0.8
 ):
-    low_res_logits = outputs["masks"]
+    low_res_logits = outputs["low_res_logits"]
     loss_ce = ce_loss(low_res_logits, low_res_label_batch[:].float())
     loss_dice = dice_loss(low_res_logits, low_res_label_batch, softmax=True)
     loss = (1 - dice_weight) * loss_ce + dice_weight * loss_dice
     return loss, loss_ce, loss_dice
 
 
+def calc_loss_sam(
+    outputs, low_res_label_batch, ce_loss, dice_loss, dice_weight: float = 0.8
+):
+    outputs = outputs
+    loss_ce = ce_loss(outputs, low_res_label_batch[:].float())
+    loss_dice = dice_loss(outputs, low_res_label_batch, softmax=True)
+    loss = (1 - dice_weight) * loss_ce + dice_weight * loss_dice
+    return loss, loss_ce, loss_dice
+
+
 def runTraining(args):
     print(f">>> Setting up to train on {args.dataset} with {args.mode}")
-    net, optimizer, device, train_loader, val_loader, K, scheduler, sampler = setup(args)
+    net, optimizer, device, train_loader, val_loader, K, scheduler = setup(args)
 
     if args.mode == "full":
         loss_fn = get_loss_fn(args, K)
@@ -271,7 +249,7 @@ def runTraining(args):
     best_dice = train_steps_done = val_steps_done = 0
     dice_loss = DiceLoss(K)
     ce_loss = torch.nn.CrossEntropyLoss()
-    
+
     # Initialize the metrics dictionary
     all_metrics = {}
     for m in ["train", "val"]:
@@ -279,25 +257,26 @@ def runTraining(args):
 
     for e in range(args.epochs):
         for m in ["train", "val"]:
-            match m:
-                case "train":
-                    net.train()
-                    opt = optimizer
-                    cm = Dcm
-                    desc = f">> Training   ({e: 4d})"
-                    loader = train_loader
-                    log_loss = log_loss_tra
-                    log_dice = log_dice_tra
-                    if sampler:
-                        sampler.set_epoch(e)
-                case "val":
-                    net.eval()
-                    opt = None
-                    cm = torch.no_grad
-                    desc = f">> Validation ({e: 4d})"
-                    loader = val_loader
-                    log_loss = log_loss_val
-                    log_dice = log_dice_val
+            print(f'Split m : {m}')
+            if "train":
+                net.train()
+                opt = optimizer
+                cm = Dcm
+                desc = f">> Training   ({e: 4d})"
+                loader = train_loader
+                log_loss = log_loss_tra
+                log_dice = log_dice_tra
+                if sampler:
+                    sampler.set_epoch(e)
+            elif "val":
+                net.eval()
+                opt = None
+                cm = torch.no_grad
+                desc = f">> Validation ({e: 4d})"
+                loader = val_loader
+                log_loss = log_loss_val
+                log_dice = log_dice_val
+                print(f'Log dice in val {log_dice}')
             with cm():  # Either dummy context manager, or the torch.no_grad for validation
                 j = 0
                 tq_iter = tqdm_(enumerate(loader), total=len(loader), desc=desc)
@@ -306,30 +285,23 @@ def runTraining(args):
                     img = data["images"].to(device)
                     gt = data["gts"].to(device)
 
-                    # Sanity tests to see we loaded and encoded the data 
+                    # Sanity tests to see we loaded and encoded the data correctly
                     if not args.normalize:
                         assert 0 <= img.min() and img.max() <= 1
                     else:
                         assert -1 <= img.min() and img.max() <= 1
-                    
+
                     B, _, W, H = img.shape
 
-                    if args.model == "samed" or args.model == "samed_fast":
-                        preds = net(img, multimask_output=True, image_size=512)
-                        pred_logits = preds["masks"]
+                    if args.model == "SAM2UNet":
+                        pred_logits, preds1, preds2 = net(img)
                         pred_probs = F.softmax(
                             1 * pred_logits, dim=1
                         )  # 1 is the temperature parameter
-                        loss, loss_ce, loss_dice = calc_loss_samed(
-                            preds, gt, ce_loss, dice_loss, dice_weight=0.8
+                        loss, loss_ce, loss_dice = calc_loss_sam(
+                            pred_logits, gt, ce_loss, dice_loss, dice_weight=0.8
                         )
-                    else:
-                        pred_logits = net(img)
-                        pred_probs = F.softmax(
-                            1 * pred_logits, dim=1
-                        )  # 1 is the temperature parameter
-                        loss = loss_fn(pred_probs, gt)
-
+                    
                     # Metrics computation, not used for training
                     pred_seg = probs2one_hot(pred_probs)
                     
@@ -355,6 +327,8 @@ def runTraining(args):
                             )
                             accumulated_loss = 0
 
+                            if scheduler:
+                                lr = scheduler.step()
                             if scheduler:
                                 lr = scheduler.step()
                                 if args.use_wandb:
@@ -420,6 +394,7 @@ def runTraining(args):
         np.save(args.dest / "dice_tra.npy", log_dice_tra)
         np.save(args.dest / "loss_val.npy", log_loss_val)
         np.save(args.dest / "dice_val.npy", log_dice_val)
+
         with open(args.dest / "metrics.json", "w") as f:
             json.dump(all_metrics, f)
 
@@ -431,6 +406,8 @@ def runTraining(args):
             metrics[f"val_loss"] = log_loss_val[e, :].mean().item()
             wandb.log(metrics)
 
+        print(f'shape log dice val {log_dice_val.shape}')
+        print(f'shape [e, :, 1:] {log_dice_val[e, :, 1:].shape}')
         current_dice: float = log_dice_val[e, :, 1:].mean().item()
         if current_dice > best_dice:
             print(
@@ -471,12 +448,6 @@ def main():
         "--use_scheduler", action="store_true", help="Use CosineWarmupScheduler"
     )
     parser.add_argument(
-        "--use_sampler", action="store_true", help="Use AdaptiveSampler"
-    )
-    parser.add_argument(
-        "--augment", action="store_true", help="Augment the training dataset"
-    )
-    parser.add_argument(
         "--model",
         default=None,
         help="Model to use",
@@ -484,12 +455,12 @@ def main():
     parser.add_argument(
         "--optimizer",
         default="adam",
-        choices=["adam", "sgd", "adamw", "sgd-wd"],
+        choices=["adam", "sgd", "adamw"],
         help="Optimizer to use",
     )
-    parser.add_argument("--dataset", default="SEGTHOR_MANUAL_SPLIT", choices=datasets_params.keys())
+    parser.add_argument("--dataset", default="SEGTHOR", choices=datasets_params.keys())
     parser.add_argument("--mode", default="full", choices=["partial", "full"])
-    parser.add_argument("--loss", default="ce", choices=["ce", "dice_monai", "gdl", "dce"])
+    parser.add_argument("--loss", default="ce", choices=["ce", "dice", "gdl", "dce"])
     parser.add_argument("--ce_lambda", default=1.0, type=float)
     parser.add_argument(
         "--dest",
@@ -497,13 +468,6 @@ def main():
         default=None,
         help="Destination directory to save the results (predictions and weights).",
     )
-    parser.add_argument(
-        "--r",
-        type=int,
-        default=6,
-        help="The rank of the LoRa matrices.",
-    )
-    parser.add_argument("--from_checkpoint", type=Path, default=None)
     parser.add_argument("--gpu", action="store_true")
     parser.add_argument("--num_workers", type=int, default=4)
     parser.add_argument(
@@ -511,11 +475,6 @@ def main():
         action="store_true",
         help="Keep only a fraction (10 samples) of the datasets, "
         "to test the logic around epochs and logging easily.",
-    )
-    parser.add_argument(
-        "--normalize",
-        action="store_true",
-        help="Normalize the input images",
     )
     parser.add_argument(
         "--deterministic", action="store_true", help="Make the training deterministic"
@@ -526,11 +485,11 @@ def main():
     parser.add_argument(
         "--clip_grad", action="store_true", help="Enable gradient clipping"
     )
-    parser.add_argument(
-        "--crf", action="store_true", help="Apply CRF on the output"
+    parser.add_argument("--hiera_path", type=str, required=True, 
+        help="path to the sam2 pretrained hiera"
     )
     parser.add_argument(
-        "--finetune_crf", action="store_true", help="Freeze the model and only train CRF and the last layer"
+        "--use_sampler", action="store_true", help="Use AdaptiveSampler"
     )
 
     args = parser.parse_args()
@@ -548,7 +507,7 @@ def main():
 
     if args.dest is None:
         args.dest = Path(
-            f"results/{args.dataset}/{datetime.now().strftime("%Y-%m-%d")}"
+            f"results/{args.dataset}/{datetime.now().strftime('%Y-%m-%d')}"
         )
 
     runTraining(args)
