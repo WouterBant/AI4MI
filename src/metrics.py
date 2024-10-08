@@ -217,9 +217,14 @@ def volumetric_similarity(pred, gt):
 
 
 def append_metrics(old_metrics, patients, slices, classes, metric_name, results):
+    # First transform the results tensor to a numpy array
+    results = results.cpu().numpy()
+    
     data = []
     for i, patient in enumerate(patients):
         for j, class_name in enumerate(classes):
+            
+            
             data.append({
                 "patient_id": patient,
                 "slice_name": slices[i],
