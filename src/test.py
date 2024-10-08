@@ -287,9 +287,14 @@ def main():
         args.batch_size = datasets_params[args.dataset]["B"]
 
     if args.dest is None:
-        args.dest = Path(
-            f"results/{args.dataset}/{datetime.now().strftime("%Y-%m-%d")}"
-        )
+        try:
+            args.dest = Path(
+                f"results/{str(args.from_checkpoint).split("checkpoints/")[1].strip(".pt")}_{datetime.now().strftime("%Y-%m-%d")}"
+            )
+        except:
+            args.dest = Path(
+                f"results/{args.dataset}/{datetime.now().strftime("%Y-%m-%d")}"
+            )
 
     run_test(args)
 
