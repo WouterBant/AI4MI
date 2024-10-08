@@ -151,11 +151,12 @@ def save_images(segs: Tensor, names: Iterable[str], root: Path) -> None:
 
 # Metrics
 def meta_dice(
-    sum_str: str, label: Tensor, pred: Tensor, smooth: float = 1e-8
+    sum_str: str, label: Tensor, pred: Tensor, smooth: float = 1e-8, skip_bg: bool = False
 ) -> Tensor:
     assert label.shape == pred.shape
-    assert one_hot(label)
-    assert one_hot(pred)
+    if not skip_bg:
+        assert one_hot(label)
+        assert one_hot(pred)
 
     inter_size: Tensor = einsum(sum_str, [intersection(label, pred)]).type(
         torch.float32
