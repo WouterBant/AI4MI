@@ -31,6 +31,7 @@ from utils import (
 from metrics import calc_metrics_2D, print_store_metrics
 from crf_model import apply_crf
 from collections import defaultdict
+import pandas as pd
 
 torch.set_float32_matmul_precision("high")
 
@@ -177,7 +178,7 @@ def run_test(args):
 
     mode = "test"
     net.eval()
-    metrics = {}
+    metrics = pd.dataframe()
     metric_types = ["dice", "sensitivity", "specificity", "hausdorff", "iou", "precision", "volumetric", "VOE"]
     metrics = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
     # for metric_type in metric_types:
