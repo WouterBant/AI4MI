@@ -39,36 +39,46 @@ def print_store_metrics(metrics, destination):
     # Save the DataFrame to a CSV file
     df.to_csv(str(destination) + "/results.csv")
 
-def update_metrics_2D(pred: Tensor, gt: Tensor, metric_type: str) -> dict:
+def calc_metrics_2D(pred: Tensor, gt: Tensor, metric_types: List) -> dict:
     
-    if metric_type not in ["dice", "sensitivity", "specificity", "hausdorff", "iou", "precision", "volumetric", "VOE"]:
-        raise ValueError(f"Unsupported metric type: {metric_type}")
+    # Create an empty torch tensor to append the results
+    results = torch.zeros((pred.shape[0], len(metric_types), pred.shape[1]))
+    i = 0
+    
 
-    if metric_type == "dice":
-        return dice_coef(pred, gt)
-    
-    if metric_type == "sensitivity":
-        return Sensitivity_Specifity_metrics(pred, gt)[0]
-    
-    if metric_type == "specificity":
-        return Sensitivity_Specifity_metrics(pred, gt)[1]
-    
-    # Would not recommend using this metric as it is very slow
-    if metric_type == "hausdorff":
-        return total_hausdorff_distance(pred, gt)
-    
-    if metric_type == "iou":
-        return jaccard_index(pred, gt)
-    
-    if metric_type == "precision":
-        return precision_metric(pred, gt)
-    
-    if metric_type == "volumetric":
-        return volumetric_similarity(pred, gt)
-    
-    if metric_type == "VOE": # Volume Overlap Error
-        return 1 - jaccard_index(pred, gt)
-    
+    if "dice" in metric_types:
+        results[:, i, :] = dice_coef(pred, gt)
+        i += 1
+        
+    if "sensitivity" in metric_types:
+        results[:, i, :] = Sensitivity_Specifity_metrics(pred, gt)[0]
+        i += 1
+        
+    if "specificity" in metric_types:
+        results[:, i, :] = Sensitivity_Specifity_metrics(pred, gt)[1]
+        i += 1
+        
+    if "hausdorff" in metric_types:
+        results[:, i, :] = total_hausdorff_distance(pred, gt)
+        i += 1
+        
+    if "iou" in metric_types:
+        results[:, i, :] = jaccard_index(pred, gt)
+        i += 1
+        
+    if "precision" in metric_types:
+        results[:, i, :] = precision_metric(pred, gt)
+        i += 1
+        
+    if "volumetric" in metric_types:
+        results[:, i, :] = volumetric_similarity(pred, gt)
+        i += 1
+        
+    if "VOE" in metric_types: # Volume Overlap Error
+        results[:, i, :] = 1 - jaccard_index(pred, gt)
+        i += 1
+
+    return results    
     #TODO maybe add average Averagey Symmetric Surface Distance (ASSD) however also slow and already have Hausdorff distance
     
     

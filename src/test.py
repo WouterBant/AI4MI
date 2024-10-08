@@ -28,8 +28,9 @@ from utils import (
     class2one_hot,
     probs2one_hot,
 )
-from metrics import update_metrics_2D, print_store_metrics
+from metrics import calc_metrics_2D, print_store_metrics
 from crf_model import apply_crf
+from collections import defaultdict
 
 torch.set_float32_matmul_precision("high")
 
@@ -179,8 +180,9 @@ def run_test(args):
     net.eval()
     metrics = {}
     metric_types = ["dice", "sensitivity", "specificity", "hausdorff", "iou", "precision", "volumetric", "VOE"]
-    for metric_type in metric_types:
-        metrics[metric_type] = torch.zeros((len(loader.dataset), K))
+    metrics = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+    # for metric_type in metric_types:
+    #     metrics[metric_type] = torch.zeros((len(loader.dataset), K))
     
     data_count = 0
     
@@ -190,6 +192,8 @@ def run_test(args):
             img = data["images"].to(device)
             gt = data["gts"].to(device)
             stems = data["stems"]
+            patients = [stem.split("_")[1] for stem in stems]
+            slices = [stem.split("_")[2] for stem in stems]
             
             Batch_size, _, _, _ = img.shape
             
@@ -210,18 +214,64 @@ def run_test(args):
                 
             # Metrics
             segmentation_prediction = probs2one_hot(pred_probs)
-            for metric_type in metric_types:
-                metrics[metric_type][data_count:data_count+Batch_size, :] = update_metrics_2D(segmentation_prediction, gt, metric_type) 
-            data_count += Batch_size
+            metric = calc_metrics_2D(segmentation_prediction, gt, metric_types)
+            for i in range(Batch_size):
+                patient = patients[i]
+                slice_num = slices[i]
+                metrics[patient][slice_num] = metric[i]
             
         # Save the metrics in pickle format
         save_directory = args.dest / args.model
         save_directory.mkdir(parents=True, exist_ok=True)
+        metrics = convert_to_dict(metrics) # Convert the defaultdict to a dict
         with open(str(save_directory) + f"/{mode}_metrics.pkl", "wb") as f:
             pickle.dump(metrics, f)
             
+<<<<<<< HEAD
         # Print and store the metrics
         print_store_metrics(metrics, str(save_directory))   
+=======
+        # Also write in a txt file which metrics for which classes are stored. Call it toelichting metrics pkl. Create a new txt file
+        if (save_directory / f"{mode}_metrics_toelichting.txt").exists():
+            (save_directory / f"{mode}_metrics_toelichting.txt").unlink()
+        
+        with open(str(save_directory) + f"/{mode}_metrics_toelichting.txt", "w") as f:
+            f.write("Metrics are stored in a pickle file with the following structure:\n")
+            f.write("metrics[patient][slice_num][2D torch array]\n")
+            f.write(f"The columns are in order: {datasets_params[args.dataset]['names']}\n")
+            f.write(f"Where the metric types are in order of rows: {metric_types}\n")
+            f.write("The metrics are stored as a torch tensor\n")
+            
+        # Print and store the metrics #TODO: Fix the print_store_metrics function
+        #print_store_metrics(metrics, str(save_directory))
+                
+def apply_crf(net, args):
+    from crfseg.model import CRF
+    
+    if args.finetune_crf:
+        # Freeze the provided model except the last layer
+        for param in net.parameters():
+            param.requires_grad = False
+        layers = list(net.children())
+        
+        # Now unfreeze the last layer
+        for param in layers[-1].parameters():
+            param.requires_grad = True
+                
+    # Add the CRF layer to the model
+    model = nn.Sequential(
+        net,
+        CRF(n_spatial_dims=2)
+    )
+    return model  
+
+def convert_to_dict(d):
+    if isinstance(d, defaultdict):
+        # Recursively convert any nested defaultdicts
+        return {k: convert_to_dict(v) for k, v in d.items()}
+    else:
+        return d      
+>>>>>>> bd524f15c2d8a04e9ee8cb79c30c1522e8634891
                 
 def main():
     parser = argparse.ArgumentParser()
