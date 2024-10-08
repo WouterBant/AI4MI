@@ -39,11 +39,11 @@ from torch import nn, Tensor
 from torchvision import transforms
 from torch.utils.data import DataLoader
 
-from dataset2 import SliceDataset
+from dataset import SliceDataset
 from ShallowNet import shallowCNN
 from scheduler import CosineWarmupScheduler
 from ENet import ENet
-from sam2unet_model import SAM2UNet
+from sam2.sam2unet_model import SAM2UNet
 from utils import (
     Dcm,
     class2one_hot,
@@ -130,12 +130,17 @@ def setup(
         net.init_weights()  # TODO probably remove it and use the default one from pytorch
     net.to(device)
 
+        
+    if args.crf:
+        net = apply_crf(net, args)
+
+    net.to(device)
+
     # Use torch.compile for kernel fusion to be faster on the gpu
-    if gpu and args.epochs > 3:  # jit compilation takes too much time for few epochs
+    if gpu and args.epochs > 3 and not args.from_checkpoint:  # jit compilation takes too much time for few epochs
         print(">> Compiling the network for faster execution")
         net = torch.compile(net)
 
-    # TODO consider adding weight decay
     # Initialize optimizer based on args
     optimizer = get_optimizer(args, net)
 
@@ -174,24 +179,11 @@ def setup(
         img_transform=img_transform,
         gt_transform=gt_transform,
         debug=args.debug,
-    )
-    train_loader = DataLoader(
-        train_set, batch_size=B, num_workers=args.num_workers, shuffle=True
-    )
-
-    val_set = SliceDataset(
-        "val",
-        root_dir,
-        img_transform=img_transform,
-        gt_transform=gt_transform,
-        debug=args.debug,
-    )
-    val_loader = DataLoader(
-        val_set, batch_size=B, num_workers=args.num_workers, shuffle=False
+        augment=args.augment,
+        normalize=args.normalize,
     )
 
     sampler = None
-    scheduler = None
     if args.use_sampler:
         sampler = AdaptiveSampler(train_set, B, args.epochs)
         train_loader = DataLoader(
@@ -202,9 +194,27 @@ def setup(
             train_set, batch_size=B, num_workers=args.num_workers, shuffle=True
         )
 
+    val_set = SliceDataset(
+        "val",
+        root_dir,
+        img_transform=img_transform,
+        gt_transform=gt_transform,
+        debug=args.debug,
+        normalize=args.normalize,
+    )
+    val_loader = DataLoader(
+        val_set, batch_size=B, num_workers=args.num_workers, shuffle=False
+    )
+
+    scheduler = None
+    if args.use_scheduler:
+        total_steps = args.epochs * len(train_loader) / args.gradient_accumulation_steps
+        warmup_steps = int(0.25 * total_steps)  # 25% of total steps for warmup
+        scheduler = CosineWarmupScheduler(optimizer, args.lr, warmup_steps, total_steps)
+
     args.dest.mkdir(parents=True, exist_ok=True)
 
-    return (net, optimizer, device, train_loader, val_loader, K, scheduler)
+    return (net, optimizer, device, train_loader, val_loader, K, scheduler, sampler)
 
 
 def calc_loss(
@@ -229,7 +239,7 @@ def calc_loss_sam(
 
 def runTraining(args):
     print(f">>> Setting up to train on {args.dataset} with {args.mode}")
-    net, optimizer, device, train_loader, val_loader, K, scheduler = setup(args)
+    net, optimizer, device, train_loader, val_loader, K, scheduler, sampler = setup(args)
 
     if args.mode == "full":
         loss_fn = get_loss_fn(args, K)
@@ -258,8 +268,7 @@ def runTraining(args):
 
     for e in range(args.epochs):
         for m in ["train", "val"]:
-            print(f'Split m : {m}')
-            if "train":
+            if m == "train":
                 net.train()
                 opt = optimizer
                 cm = Dcm
@@ -267,7 +276,7 @@ def runTraining(args):
                 loader = train_loader
                 log_loss = log_loss_tra
                 log_dice = log_dice_tra
-            elif "val":
+            elif m == "val":
                 net.eval()
                 opt = None
                 cm = torch.no_grad
@@ -275,7 +284,6 @@ def runTraining(args):
                 loader = val_loader
                 log_loss = log_loss_val
                 log_dice = log_dice_val
-                print(f'Log dice in val {log_dice}')
             with cm():  # Either dummy context manager, or the torch.no_grad for validation
                 j = 0
                 tq_iter = tqdm_(enumerate(loader), total=len(loader), desc=desc)
@@ -326,9 +334,7 @@ def runTraining(args):
                             )
                             accumulated_loss = 0
 
-                            if scheduler:
-                                lr = scheduler.step()
-                            if scheduler:
+                            if args.use_scheduler:
                                 lr = scheduler.step()
                                 if args.use_wandb:
                                     wandb.log({"learning_rate": lr})
@@ -379,7 +385,7 @@ def runTraining(args):
                     j += img.shape[0]
                     postfix_dict: dict[str, str] = {
                         "Dice": f"{log_dice[e, :j, 1:].mean():05.3f}",
-                        "Loss": f"{accumulated_loss * args.gradient_accumulation_steps:5.2e}",
+                        "Loss": f"{loss * args.gradient_accumulation_steps:5.2e}",
                     }
                     if K > 2:
                         postfix_dict |= {
@@ -405,11 +411,7 @@ def runTraining(args):
             metrics[f"val_loss"] = log_loss_val[e, :].mean().item()
             wandb.log(metrics)
 
-        # print(f'shape log dice val {log_dice_val.shape}')
-        # print(f'shape [e, :, 1:] {log_dice[e, :, 1:].shape}')
-        current_dice: float = log_dice[e, :, 1:].mean().item()
-        print(current_dice)
-        print(f'log dice val {log_dice_val[e, :, 1:].mean().item()}')
+        current_dice: float = log_dice_val[e, :, 1:].mean().item()
         if current_dice > best_dice:
             print(
                 f">>> Improved dice at epoch {e}: {best_dice:05.3f}->{current_dice:05.3f} DSC"
@@ -460,6 +462,7 @@ def main():
         help="Optimizer to use",
     )
     parser.add_argument("--dataset", default="SEGTHOR", choices=datasets_params.keys())
+    parser.add_argument("--from_checkpoint", type=Path, default=None)
     parser.add_argument("--mode", default="full", choices=["partial", "full"])
     parser.add_argument("--loss", default="ce", choices=["ce", "dice", "gdl", "dce"])
     parser.add_argument("--ce_lambda", default=1.0, type=float)
@@ -486,6 +489,12 @@ def main():
     parser.add_argument(
         "--clip_grad", action="store_true", help="Enable gradient clipping"
     )
+    parser.add_argument(
+        "--crf", action="store_true", help="Apply CRF on the output"
+    )
+    parser.add_argument(
+        "--finetune_crf", action="store_true", help="Freeze the model and only train CRF and the last layer"
+    )
     parser.add_argument("--hiera_path", type=str, required=True, 
         help="path to the sam2 pretrained hiera"
     )
@@ -496,6 +505,9 @@ def main():
         "--normalize",
         action="store_true",
         help="Normalize the input images",
+    )
+    parser.add_argument(
+        "--augment", action="store_true", help="Augment the training dataset"
     )
 
     args = parser.parse_args()
