@@ -1,4 +1,6 @@
-# CT scan image segmentation: nnUnet vs finetuning SAM
+[![](https://img.shields.io/badge/PyTorch-2.4.0-ee4c2c.svg)](https://pytorch.org/) [![](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)  [![](https://img.shields.io/github/license/ResidentMario/missingno.svg)](https://github.com/ResidentMario/missingno/blob/master/LICENSE.md) 
+
+# CT scan image segmentation: nnUnet vs finetuning SAM 
 
 <table align="center">
   <tr align="center">
@@ -10,7 +12,7 @@
 </table>
 
 ## Introduction
-The code for reproducing our paper "". We experiment with different SAM based methods and more standard methods like Enet and nnUnet on the SEGHOR dataset. Short description of our main findings
+The code for reproducing our paper "". We experiment with different SAM based methods and more standard methods like Enet and nnUnet on the SEGHTOR dataset. Short description of our main findings. The obtained results can be found [here](results).
 
 ## Quick Start
 
