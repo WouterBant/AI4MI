@@ -240,26 +240,6 @@ def run_test(args):
             
         # Print and store the metrics #TODO: Fix the print_store_metrics function
         #print_store_metrics(metrics, str(save_directory))
-                
-def apply_crf(net, args):
-    from crfseg.model import CRF
-    
-    if args.finetune_crf:
-        # Freeze the provided model except the last layer
-        for param in net.parameters():
-            param.requires_grad = False
-        layers = list(net.children())
-        
-        # Now unfreeze the last layer
-        for param in layers[-1].parameters():
-            param.requires_grad = True
-                
-    # Add the CRF layer to the model
-    model = nn.Sequential(
-        net,
-        CRF(n_spatial_dims=2)
-    )
-    return model  
 
 def convert_to_dict(d):
     if isinstance(d, defaultdict):

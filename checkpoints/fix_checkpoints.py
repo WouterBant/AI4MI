@@ -3,17 +3,16 @@ import torch
 
 
 def remove_prefix(text, prefix):
-    # if text.startswith(prefix):
-    #     return text[len(prefix) :]
-    prefix = "net._orig_mod."
     if text.startswith(prefix):
-        return "net." + text[len(prefix) :]
+        return text[len(prefix) :]
+    # prefix = "net._orig_mod."
+    # if text.startswith(prefix):
+    #     return "net." + text[len(prefix) :]
     return text
 
 # adjusted from https://github.com/pytorch/pytorch/issues/101107
 def repair_checkpoint(path):
     in_state_dict = torch.load(path, map_location="cpu")
-    print(in_state_dict.keys())
     pairings = [
         (src_key, remove_prefix(src_key, "_orig_mod."))
         for src_key in in_state_dict.keys()
