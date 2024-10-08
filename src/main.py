@@ -191,6 +191,7 @@ def setup(
     )
 
     sampler = None
+    scheduler = None
     if args.use_sampler:
         sampler = AdaptiveSampler(train_set, B, args.epochs)
         train_loader = DataLoader(
@@ -266,8 +267,6 @@ def runTraining(args):
                 loader = train_loader
                 log_loss = log_loss_tra
                 log_dice = log_dice_tra
-                if sampler:
-                    sampler.set_epoch(e)
             elif "val":
                 net.eval()
                 opt = None
@@ -406,9 +405,11 @@ def runTraining(args):
             metrics[f"val_loss"] = log_loss_val[e, :].mean().item()
             wandb.log(metrics)
 
-        print(f'shape log dice val {log_dice_val.shape}')
-        print(f'shape [e, :, 1:] {log_dice_val[e, :, 1:].shape}')
-        current_dice: float = log_dice_val[e, :, 1:].mean().item()
+        # print(f'shape log dice val {log_dice_val.shape}')
+        # print(f'shape [e, :, 1:] {log_dice[e, :, 1:].shape}')
+        current_dice: float = log_dice[e, :, 1:].mean().item()
+        print(current_dice)
+        print(f'log dice val {log_dice_val[e, :, 1:].mean().item()}')
         if current_dice > best_dice:
             print(
                 f">>> Improved dice at epoch {e}: {best_dice:05.3f}->{current_dice:05.3f} DSC"
@@ -490,6 +491,11 @@ def main():
     )
     parser.add_argument(
         "--use_sampler", action="store_true", help="Use AdaptiveSampler"
+    )
+    parser.add_argument(
+        "--normalize",
+        action="store_true",
+        help="Normalize the input images",
     )
 
     args = parser.parse_args()
