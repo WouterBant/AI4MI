@@ -21,4 +21,4 @@
 # wget --header="Referer: https://huggingface.co/" -P . https://huggingface.co/Wouter01/AI4MI/resolve/main/bestweights/bestweights_crf_samed_512_r6_augment_yes_normalize_no.pt
 
 # The segment anything vit_b checkpoint (from meta)
-# wget -P ../src/samed/checkpoints https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth
+# wget -P src/samed/checkpoints https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth
