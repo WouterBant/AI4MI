@@ -10,3 +10,4 @@ wandb
 monai==1.3.2
 pandas==2.2.2
 ipykernel
+seaborn==0.13.2
