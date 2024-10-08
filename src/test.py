@@ -49,7 +49,6 @@ datasets_params["SEGTHOR_MANUAL_SPLIT"] = {
     "names": ["Background", "Esophagus", "Heart", "Trachea", "Aorta"],
 }
 
-
 def setup(args):
     # Networks and scheduler
     gpu: bool = args.gpu and torch.cuda.is_available()
@@ -87,8 +86,6 @@ def setup(args):
     
     if args.from_checkpoint:
         print(args.from_checkpoint)
-        net = torch.compile(net)   # When the model was compiled when saved, it needs to be compiled again
-
         # Load the checkpoint
         checkpoint = torch.load(args.from_checkpoint, map_location=device)
 

@@ -128,7 +128,6 @@ def setup(
     
     if args.from_checkpoint:
         print(args.from_checkpoint)
-        net = torch.compile(net)   # When the model was compiled when saved, it needs to be compiled again
 
         # Load the checkpoint
         checkpoint = torch.load(args.from_checkpoint, map_location=device)
