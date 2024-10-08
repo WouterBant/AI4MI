@@ -103,7 +103,7 @@ def plot_batch(batch):
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
-def save_augmented_images(batch, output_folder, start_num, prefix="augmented"):
+def save_augmented_images(batch, output_folder, start_num, train_images):
     """
     Save the augmented images and GT masks to the specified output folder.
     
@@ -121,9 +121,14 @@ def save_augmented_images(batch, output_folder, start_num, prefix="augmented"):
     if not os.path.exists(os.path.join(output_folder, "gt")):
         os.makedirs(os.path.join(output_folder, "gt"))
 
+    
     for i, (img, gt) in enumerate(tqdm(zip(batch['data'], batch['seg']), total=len(batch['data']), desc="Saving augmented images")):
         img = resize(np.squeeze(img), (256,256), preserve_range=True, anti_aliasing=True).astype(np.uint8)  # Remove single-dimensional entries from the shape (H, W)
         gt =  resize(np.squeeze(gt), (256,256), preserve_range=True, anti_aliasing=True).astype(np.uint8)  # Remove single-dimensional entries from the shape (H, W)
+
+        # only save the augmented images
+        if img.all() == train_images[i].all():
+            continue
 
         img_save_path = os.path.join(output_folder, f"img/image_{str(int(start_num)+int(i))}.png")
         gt_save_path = os.path.join(output_folder, f"gt/image_{str(int(start_num)+int(i))}.png")
@@ -314,4 +319,4 @@ if __name__ == "__main__":
             # Retrieve a batch of augmented images and visualize
             augmented_batch = next(augmented_data_generator)
             
-            save_augmented_images(augmented_batch, args.output_folder,i*batch_sizes)
+            save_augmented_images(augmented_batch, args.output_folder,i*batch_sizes, train_images = train_images_batch)
