@@ -454,7 +454,7 @@ def main():
 
     parser.add_argument("--epochs", default=200, type=int)
     parser.add_argument("--lr", default=0.0005, type=float, help="Learning rate")
-    parser.add_argument("--weight_decay", default=0.1, type=float, help="Weight decay")
+    parser.add_argument("--weight_decay", default=0.0001, type=float, help="Weight decay")
     parser.add_argument(
         "--batch_size",
         type=int,
@@ -478,12 +478,12 @@ def main():
     )
     parser.add_argument(
         "--model",
-        default=None,
+        default='enet',
         help="Model to use",
     )
     parser.add_argument(
         "--optimizer",
-        default="adam",
+        default="adamw",
         choices=["adam", "sgd", "adamw", "sgd-wd"],
         help="Optimizer to use",
     )
