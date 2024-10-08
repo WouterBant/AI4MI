@@ -236,7 +236,7 @@ class AugmentationPipeline:
 
     def get_mirror_transform(self):
         return MirrorTransform(
-            axes=(0, 1, 2),
+            axes=(0,),
             p_per_sample=0.5
         )
 
