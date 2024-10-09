@@ -21,6 +21,7 @@ from batchgenerators.transforms.resample_transforms import SimulateLowResolution
 from batchgenerators.transforms.color_transforms import GammaTransform
 from tqdm import tqdm
 import warnings
+from skimage.transform import resize
 
 
 # ------------------- Data Loading Component for CT Data -------------------
@@ -50,7 +51,14 @@ class CTImageDataset(SlimDataLoaderBase):
         else:
             batch_data = np.stack([img for img in self.images], axis=0)
             batch_gts = np.stack([gt for gt in self.gts], axis=0)
-        return {'data': batch_data, 'gt': batch_gts}  # Return both input data and GT
+        return {'data': batch_data, 'seg': batch_gts}  # Return both input data and GT
+    
+    def __next__(self):
+        """
+        This method is invoked when the MultiThreadedAugmenter requests the next batch.
+        It uses the generate_train_batch method to provide the next batch in the correct format.
+        """
+        return self.generate_train_batch()
 
 
 def load_ct_images_and_gts(image_folder):
@@ -88,14 +96,14 @@ def plot_batch(batch):
         plt.imshow(batch['data'][i, 0], cmap="gray")  # Visualize input image
         plt.axis('off')
         plt.subplot(2, batch_size, batch_size + i + 1)
-        plt.imshow(batch['gt'][i, 0], cmap="gray")  # Visualize GT
+        plt.imshow(batch['seg'][i, 0], cmap="gray")  # Visualize GT
         plt.axis('off')
     plt.show()
 
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
-def save_augmented_images(batch, output_folder, start_num, prefix="augmented"):
+def save_augmented_images(batch, output_folder, start_num, train_images):
     """
     Save the augmented images and GT masks to the specified output folder.
     
@@ -107,17 +115,22 @@ def save_augmented_images(batch, output_folder, start_num, prefix="augmented"):
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
     
-    if not os.path.exists(os.path.join(output_folder, "train")):
-        os.makedirs(os.path.join(output_folder, "train"))
+    if not os.path.exists(os.path.join(output_folder, "img")):
+        os.makedirs(os.path.join(output_folder, "img"))
 
     if not os.path.exists(os.path.join(output_folder, "gt")):
         os.makedirs(os.path.join(output_folder, "gt"))
 
-    for i, (img, gt) in enumerate(tqdm(zip(batch['data'], batch['gt']), total=len(batch['data']), desc="Saving augmented images")):
-        img = np.squeeze(img).astype(np.uint8)  # Remove single-dimensional entries from the shape (H, W)
-        gt = np.squeeze(gt).astype(np.uint8)  # Remove single-dimensional entries from the shape (H, W)
+    
+    for i, (img, gt) in enumerate(tqdm(zip(batch['data'], batch['seg']), total=len(batch['data']), desc="Saving augmented images")):
+        img = resize(np.squeeze(img), (256,256), preserve_range=True, anti_aliasing=True).astype(np.uint8)  # Remove single-dimensional entries from the shape (H, W)
+        gt =  resize(np.squeeze(gt), (256,256), preserve_range=True, anti_aliasing=True).astype(np.uint8)  # Remove single-dimensional entries from the shape (H, W)
 
-        img_save_path = os.path.join(output_folder, f"train/image_{str(int(start_num)+int(i))}.png")
+        # only save the augmented images
+        if img.all() == train_images[i].all():
+            continue
+
+        img_save_path = os.path.join(output_folder, f"img/image_{str(int(start_num)+int(i))}.png")
         gt_save_path = os.path.join(output_folder, f"gt/image_{str(int(start_num)+int(i))}.png")
 
         imsave(img_save_path, img)
@@ -223,7 +236,7 @@ class AugmentationPipeline:
 
     def get_mirror_transform(self):
         return MirrorTransform(
-            axes=(0, 1, 2),
+            axes=(0,),
             p_per_sample=0.5
         )
 
@@ -257,7 +270,7 @@ class AugmentationPipeline:
             num_cached_per_queue=num_cached_per_queue,
             seeds=None
         )
-
+    
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Data Augmentation Pipeline')
@@ -293,7 +306,7 @@ if __name__ == "__main__":
     #if you want to augment all the data (this is done in batches for memory reasons)
     else:
         for i in range(args.num_batches):
-            print(f'Batch: {i}/{args.num_batches}')
+            print(f'Batch: {i+1}/{args.num_batches}')
             train_images_batch = train_images[i*batch_sizes:(i+1)*batch_sizes]
             train_gts_batch = train_gts[i*batch_sizes:(i+1)*batch_sizes]
 
@@ -306,4 +319,4 @@ if __name__ == "__main__":
             # Retrieve a batch of augmented images and visualize
             augmented_batch = next(augmented_data_generator)
             
-            save_augmented_images(augmented_batch, args.output_folder,i*batch_sizes)
+            save_augmented_images(augmented_batch, args.output_folder,i*batch_sizes, train_images = train_images_batch)
