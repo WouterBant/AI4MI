@@ -275,7 +275,7 @@ class AugmentationPipeline:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Data Augmentation Pipeline')
     parser.add_argument('--data_folder', type=str, default='data/SEGTHOR_MANUAL_SPLIT/train', help='Path to the training data folder')
-    parser.add_argument('--output_folder', type=str, default='data/SEGTHOR_MANUAL_SPLIT/augmented_train', help='Path to the output folder')
+    parser.add_argument('--output_folder', type=str, default='data/SEGTHOR_MANUAL_SPLIT/train', help='Path to the output folder')
     parser.add_argument('--batch_size', type=int, default=0, help='If you want to augment only one batch of data (for debugging), enter the batch size. If not enter 0.')
     parser.add_argument('--num_batches', type=int, default=4, help='If you  want to augment all the data at once, the number of batches to augment. ')
 
