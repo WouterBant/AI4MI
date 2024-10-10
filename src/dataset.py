@@ -34,6 +34,7 @@ from torchvision import transforms
 import torch.nn.functional as F
 import torchvision.transforms.functional as TF
 import numpy as np
+from data_augmenter import CTImageDataset, load_ct_images_and_gts, AugmentationPipeline
 
 
 def make_dataset(root, subset) -> list[tuple[Path, Path]]:
@@ -115,67 +116,15 @@ class SliceDataset(Dataset):
             img = self.normalize_img(img)
 
         if self.augmentation:
-            # Apply augmentation if random is above trheshold
-            if random.random() > 2 / 3:
-                # Only apply one augmentation at a time
-                random_val = random.random()
-
-                if random_val < 0.1:
-                    img = transforms.functional.vflip(img)
-                    gt = transforms.functional.vflip(gt)
-
-                if random_val < 0.3:
-                    C = gt.size(-3)
-                    angle = random.uniform(-5, 5)
-                    img = TF.rotate(
-                        img, angle, interpolation=TF.InterpolationMode.BILINEAR
-                    )
-                    class_indices = torch.argmax(gt, dim=-3)
-                    rotated_class_indices = (
-                        TF.rotate(
-                            class_indices.unsqueeze(0).float(),
-                            angle,
-                            interpolation=TF.InterpolationMode.NEAREST,
-                        )
-                        .squeeze(0)
-                        .long()
-                    )
-                    gt = torch.nn.functional.one_hot(
-                        rotated_class_indices, num_classes=C
-                    ).permute(-1, -3, -2)
-
-                elif random_val < 0.8:
-                    original_size = img.shape[-2:]
-
-                    # Custom cropping implementation
-                    crop_size = (int(img.size(-2) / 1.1), int(img.size(-1) / 1.1))
-                    i = random.randint(0, img.size(-2) - crop_size[0])
-                    j = random.randint(0, img.size(-1) - crop_size[1])
-                    img = img[:, i : i + crop_size[0], j : j + crop_size[1]]
-                    gt = gt[:, i : i + crop_size[0], j : j + crop_size[1]]
-
-                    # Bilinear interpolation to resize back to original size
-                    img = torch.as_tensor(
-                        F.interpolate(
-                            img.float().unsqueeze(0),
-                            size=original_size,
-                            mode="bilinear",
-                            align_corners=False,
-                        ).squeeze(0)
-                    )
-                    gt = torch.as_tensor(
-                        F.interpolate(
-                            gt.float().unsqueeze(0),
-                            size=original_size,
-                            mode="nearest",
-                        ).squeeze(0)
-                    ).long()
-
-                else:
-                    noise = torch.randn(img.size()) * 0.01
-                    img = img + noise
-                    img = torch.clamp(img, 0, 1)
-
+            print("Augmenting...")
+            target_patch_size = img.shape  # Assuming HxW image
+            augmentation_pipeline = AugmentationPipeline(target_patch_size)
+            batchgen = CTImageDataset(img, gt, 1, True)
+            augmented_data_generator = augmentation_pipeline.create_data_generator(batchgen)
+            augmented_batch = next(augmented_data_generator)
+            img = augmented_batch["data"][0]
+            gt = augmented_batch["seg"][0]
+            
         _, W, H = img.shape
         K, _, _ = gt.shape
         assert gt.shape == (K, W, H)
