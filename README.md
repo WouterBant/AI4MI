@@ -33,6 +33,19 @@ Activate this environment to run the code without dependency problems:
 conda activate ai4mi
 ```
 
+### Getting the augmentations
+First install batchaugmenters:
+```pip install --upgrade batchgenerators```
+
+To generate the augmentations with the same parameters and probabilities as nnUNet run:
+
+```python data_augmenter.py```
+
+This takes the images from ```data/SEGTHOR_MANUAL_SPLIT/train```, augments some of them and saves these again to this folder, resulting in all original images + augmented images.
+
+If you want to augment images from a different folder or same them to a different folder you can do that through the command line arguments.
+
+
 ### Getting the pretrained checkpoints
 It is possible to obtain the checkpoints of all models of which results are presented in the paper. [checkpoints/download_checkpoints.sh](checkpoints/download_checkpoints.sh) contains commands to download the various models. By default all commands are commented, uncomment the ones you are interested and run:
 
