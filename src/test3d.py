@@ -228,6 +228,7 @@ def run_test(args):
 
             for b in range(B):
                 patient_id = stems[b].split("_")[-2]
+                assert segmentation_prediction[b].shape == gt[b].shape
                 predictions[patient_id][cur_idx[patient_id]] = segmentation_prediction[b][1:]
                 ground_truths[patient_id][cur_idx[patient_id]] = gt[b][1:]
                 cur_idx[patient_id] += 1
@@ -244,10 +245,9 @@ def run_test(args):
         metrics = update_metrics_3D(metrics, pred, gt, patient_id, datasets_params[args.dataset]["names"][1:], metric_types)  # TODO implement this
     
     # Save the metrics in pickle format
-    save_directory = Path("here/")
+    save_directory = Path(f"results_metrics/{args.model}/3dmetrics/{args.from_checkpoint}")
     save_directory.mkdir(parents=True, exist_ok=True)
     metrics.to_csv(str(save_directory) + f"/{args.mode}_metrics.csv")
-
 
 def convert_to_dict(d):
     if isinstance(d, defaultdict):
