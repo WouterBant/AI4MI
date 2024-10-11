@@ -37,7 +37,7 @@ import numpy as np
 
 
 def make_dataset(root, subset) -> list[tuple[Path, Path]]:
-    assert subset in ["train", "val", "test"]
+    assert subset in ["train", "augmented_train", "val", "test"]
 
     root = Path(root)
 
