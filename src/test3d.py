@@ -247,7 +247,7 @@ def run_test(args):
     # Save the metrics in pickle format
     save_directory = Path(f"results_metrics/{args.model}/metrics3d/{args.from_checkpoint[:-3]}")
     save_directory.mkdir(parents=True, exist_ok=True)
-    metrics.to_csv(str(save_directory) + f"/{args.mode}_metrics.csv")
+    metrics.to_csv(str(save_directory) + f"/{mode}_metrics.csv")
 
 def convert_to_dict(d):
     if isinstance(d, defaultdict):

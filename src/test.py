@@ -216,10 +216,10 @@ def run_test(args):
         # Save the metrics in pickle format
         save_directory = Path(f"results_metrics/{args.model}/metrics2d/{args.from_checkpoint[:-3]}")
         save_directory.mkdir(parents=True, exist_ok=True)
-        metrics.to_csv(str(save_directory) + f"/{args.mode}_metrics.csv")
+        metrics.to_csv(str(save_directory) + f"/{mode}_metrics.csv")
             
         # Save the metrics to a csv file
-        metrics.to_csv(str(save_directory) + f"/{mode}_metrics.csv")
+        # metrics.to_csv(str(save_directory) + f"/{mode}_metrics.csv")
             
         # Print and store the metrics #TODO: Fix the print_store_metrics function
         #print_store_metrics(metrics, str(save_directory))
