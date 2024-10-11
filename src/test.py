@@ -28,7 +28,7 @@ from utils import (
     class2one_hot,
     probs2one_hot,
 )
-from metrics import calc_metrics_2D, print_store_metrics
+from metrics import update_metrics_2D, print_store_metrics
 from crf_model import apply_crf
 from collections import defaultdict
 import pandas as pd
@@ -179,13 +179,11 @@ def run_test(args):
 
     mode = "test"
     net.eval()
-    metrics = pd.dataframe()
-    metric_types = ["dice", "sensitivity", "specificity", "hausdorff", "iou", "precision", "volumetric", "VOE"]
-    metrics = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
-    # for metric_type in metric_types:
-    #     metrics[metric_type] = torch.zeros((len(loader.dataset), K))
     
-    data_count = 0
+    # Initialize dataframe for storing metric results
+    columns = ['patient_id', 'slice_name', 'class', 'metric_type', 'metric_value']
+    metrics = pd.DataFrame(columns=columns)
+    metric_types = ["dice", "sensitivity", "specificity", "hausdorff", "iou", "precision", "volumetric", "VOE"]
     
     # Loop over the dataset
     with torch.no_grad():
@@ -193,8 +191,6 @@ def run_test(args):
             img = data["images"].to(device)
             gt = data["gts"].to(device)
             stems = data["stems"]
-            patients = [stem.split("_")[1] for stem in stems]
-            slices = [stem.split("_")[2] for stem in stems]
             
             Batch_size, _, _, _ = img.shape
             
@@ -215,29 +211,14 @@ def run_test(args):
                 
             # Metrics
             segmentation_prediction = probs2one_hot(pred_probs)
-            metric = calc_metrics_2D(segmentation_prediction, gt, metric_types)
-            for i in range(Batch_size):
-                patient = patients[i]
-                slice_num = slices[i]
-                metrics[patient][slice_num] = metric[i]
+            metrics = update_metrics_2D(metrics, segmentation_prediction, gt, stems, datasets_params[args.dataset]["names"], metric_types)
             
         # Save the metrics in pickle format
         save_directory = args.dest / args.model
         save_directory.mkdir(parents=True, exist_ok=True)
-        metrics = convert_to_dict(metrics) # Convert the defaultdict to a dict
-        with open(str(save_directory) + f"/{mode}_metrics.pkl", "wb") as f:
-            pickle.dump(metrics, f)
             
-        # Also write in a txt file which metrics for which classes are stored. Call it toelichting metrics pkl. Create a new txt file
-        if (save_directory / f"{mode}_metrics_toelichting.txt").exists():
-            (save_directory / f"{mode}_metrics_toelichting.txt").unlink()
-        
-        with open(str(save_directory) + f"/{mode}_metrics_toelichting.txt", "w") as f:
-            f.write("Metrics are stored in a pickle file with the following structure:\n")
-            f.write("metrics[patient][slice_num][2D torch array]\n")
-            f.write(f"The columns are in order: {datasets_params[args.dataset]['names']}\n")
-            f.write(f"Where the metric types are in order of rows: {metric_types}\n")
-            f.write("The metrics are stored as a torch tensor\n")
+        # Save the metrics to a csv file
+        metrics.to_csv(str(save_directory) + f"/{mode}_metrics.csv")
             
         # Print and store the metrics #TODO: Fix the print_store_metrics function
         #print_store_metrics(metrics, str(save_directory))
@@ -306,9 +287,14 @@ def main():
         args.batch_size = datasets_params[args.dataset]["B"]
 
     if args.dest is None:
-        args.dest = Path(
-            f"results/{args.dataset}/{datetime.now().strftime("%Y-%m-%d")}"
-        )
+        try:
+            args.dest = Path(
+                f"results/{str(args.from_checkpoint).split("checkpoints/")[1].strip(".pt")}_{datetime.now().strftime("%Y-%m-%d")}"
+            )
+        except:
+            args.dest = Path(
+                f"results/{args.dataset}/{datetime.now().strftime("%Y-%m-%d")}"
+            )
 
     run_test(args)
 

@@ -39,46 +39,60 @@ def print_store_metrics(metrics, destination):
     # Save the DataFrame to a CSV file
     df.to_csv(str(destination) + "/results.csv")
 
-def calc_metrics_2D(pred: Tensor, gt: Tensor, metric_types: List) -> dict:
+def update_metrics_2D(metrics, pred: Tensor, gt: Tensor, stems, classes, metric_types) -> dict:
+    # Calculate the metrics for each class except the background
+    patients = [stem.split("_")[1] for stem in stems]
+    slices = [stem.split("_")[2] for stem in stems]
     
-    # Create an empty torch tensor to append the results
-    results = torch.zeros((pred.shape[0], len(metric_types), pred.shape[1]))
-    i = 0
+    # Get rid of the background class
+    classes = classes[1:]
+    pred = pred[:, 1:]
+    gt = gt[:, 1:]
     
 
     if "dice" in metric_types:
-        results[:, i, :] = dice_coef(pred, gt)
-        i += 1
+        metric_name = 'Dice'
+        results = dice_coef(pred, gt, skip_bg=True) # output is (patients, classes)
+        metrics = append_metrics(metrics, patients, slices, classes, metric_name, results)  
         
     if "sensitivity" in metric_types:
-        results[:, i, :] = Sensitivity_Specifity_metrics(pred, gt)[0]
-        i += 1
+        metric_name = 'Sensitivity'
+        results = Sensitivity_Specifity_metrics(pred, gt)[0]
+        metrics = append_metrics(metrics, patients, slices, classes, metric_name, results)
         
     if "specificity" in metric_types:
-        results[:, i, :] = Sensitivity_Specifity_metrics(pred, gt)[1]
-        i += 1
+        metric_name = 'Specificity'
+        results = Sensitivity_Specifity_metrics(pred, gt)[1]
+        metrics = append_metrics(metrics, patients, slices, classes, metric_name, results)
         
     if "hausdorff" in metric_types:
-        results[:, i, :] = total_hausdorff_distance(pred, gt)
-        i += 1
+        metric_name = 'Hausdorff'
+        results = total_hausdorff_distance(pred, gt)
+        metrics = append_metrics(metrics, patients, slices, classes, metric_name, results)
         
     if "iou" in metric_types:
-        results[:, i, :] = jaccard_index(pred, gt)
-        i += 1
+        metric_name = 'IoU'
+        results = jaccard_index(pred, gt)
+        metrics = append_metrics(metrics, patients, slices, classes, metric_name, results)
         
     if "precision" in metric_types:
-        results[:, i, :] = precision_metric(pred, gt)
-        i += 1
+        metric_name = 'Precision'
+        results = precision_metric(pred, gt)
+        metrics = append_metrics(metrics, patients, slices, classes, metric_name, results)
         
     if "volumetric" in metric_types:
-        results[:, i, :] = volumetric_similarity(pred, gt)
-        i += 1
+        metric_name = 'Volumetric'
+        results = volumetric_similarity(pred, gt)
+        metrics = append_metrics(metrics, patients, slices, classes, metric_name, results)
         
     if "VOE" in metric_types: # Volume Overlap Error
-        results[:, i, :] = 1 - jaccard_index(pred, gt)
-        i += 1
+        metric_name = 'VOE'
+        results = 1 - jaccard_index(pred, gt)
+        metrics = append_metrics(metrics, patients, slices, classes, metric_name, results)
+        
 
-    return results    
+
+    return metrics    
     #TODO maybe add average Averagey Symmetric Surface Distance (ASSD) however also slow and already have Hausdorff distance
     
     
@@ -202,3 +216,23 @@ def volumetric_similarity(pred, gt):
     return vs
 
 
+def append_metrics(old_metrics, patients, slices, classes, metric_name, results):
+    # First transform the results tensor to a numpy array
+    results = results.cpu().numpy()
+    
+    data = []
+    for i, patient in enumerate(patients):
+        for j, class_name in enumerate(classes):
+            
+            
+            data.append({
+                "patient_id": patient,
+                "slice_name": slices[i],
+                "class": class_name,
+                "metric_type": metric_name,
+                "metric_value": results[i, j]
+            })
+            
+    new_metrics = pd.concat([old_metrics, pd.DataFrame(data)], ignore_index=True)
+    
+    return new_metrics
