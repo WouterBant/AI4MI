@@ -245,7 +245,7 @@ def run_test(args):
         metrics = update_metrics_3D(metrics, pred, gt, patient_id, datasets_params[args.dataset]["names"][1:], metric_types)  # TODO implement this
     
     # Save the metrics in pickle format
-    save_directory = Path(f"results_metrics/{args.model}/metricsthreed/{args.from_checkpoint}")
+    save_directory = Path(f"results_metrics/{args.model}/metrics3d/{args.from_checkpoint[:-3]}")
     save_directory.mkdir(parents=True, exist_ok=True)
     metrics.to_csv(str(save_directory) + f"/{args.mode}_metrics.csv")
 
