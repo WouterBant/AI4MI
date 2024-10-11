@@ -28,7 +28,7 @@ from utils import (
     class2one_hot,
     probs2one_hot,
 )
-from metrics import update_metrics_2D, print_store_metrics
+from metrics3d import update_metrics_3D #, print_store_metrics
 from crf_model import apply_crf
 from collections import defaultdict
 import pandas as pd
@@ -187,11 +187,11 @@ def run_test(args):
 
     # Preallocate the tensors in a dictionary
     predictions = {
-        patient_id: torch.zeros((id2nfiles[patient_id], K - 1, 256, 256), dtype=torch.float32)  # K - 1 to skip the background class
+        patient_id: torch.zeros((id2nfiles[patient_id], K - 1, 256, 256), dtype=torch.uint8)  # K - 1 to skip the background class
         for patient_id in id2nfiles
     }
     ground_truths = {
-        patient_id: torch.zeros((id2nfiles[patient_id], K - 1, 256, 256), dtype=torch.int64)
+        patient_id: torch.zeros((id2nfiles[patient_id], K - 1, 256, 256), dtype=torch.uint8)
         for patient_id in id2nfiles
     }
     cur_idx = {patient_id: 0 for patient_id in id2nfiles}
@@ -241,10 +241,10 @@ def run_test(args):
     for patient_id in predictions:
         pred = predictions[patient_id]
         gt = ground_truths[patient_id]
-        metrics = update_metrics_3D(metrics, pred, gt, patient_id, metric_types)  # TODO implement this
+        metrics = update_metrics_3D(metrics, pred, gt, patient_id, datasets_params[args.dataset]["names"][1:], metric_types)  # TODO implement this
     
     # Save the metrics in pickle format
-    save_directory = args.dest / args.model
+    save_directory = Path("here/")
     save_directory.mkdir(parents=True, exist_ok=True)
     metrics.to_csv(str(save_directory) + f"/{args.mode}_metrics.csv")
 

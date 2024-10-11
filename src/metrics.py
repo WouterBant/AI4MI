@@ -1,4 +1,3 @@
-
 import torch
 from torch import Tensor
 from utils import dice_coef
@@ -90,7 +89,6 @@ def update_metrics_2D(metrics, pred: Tensor, gt: Tensor, stems, classes, metric_
         
     return metrics    
     #TODO maybe add average Averagey Symmetric Surface Distance (ASSD) however also slow and already have Hausdorff distance
-    
     
 #TODO: Check for the correct implementation of the Hausdorff metric maybe also use the scikit-image implementation. 
 #TODO: Make more efficient using: https://cs.stackexchange.com/questions/117989/hausdorff-distance-between-two-binary-images-according-to-distance-maps
@@ -213,7 +211,6 @@ def append_metrics(old_metrics, patients, slices, classes, metric_name, results)
     data = []
     for i, patient in enumerate(patients):
         for j, class_name in enumerate(classes):
-            
             
             data.append({
                 "patient_id": patient,
