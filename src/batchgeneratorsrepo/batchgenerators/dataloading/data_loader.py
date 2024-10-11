@@ -20,7 +20,7 @@ from collections import OrderedDict
 from warnings import warn
 import numpy as np
 
-from batchgenerators.dataloading.dataset import Dataset
+from .dataset import Dataset
 
 
 class DataLoaderBase(object):

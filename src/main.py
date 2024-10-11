@@ -201,6 +201,7 @@ def setup(
         gt_transform=gt_transform,
         debug=args.debug,
         augment=args.augment,
+        augment_nnunet=args.augment_nnunet,
         normalize=args.normalize,
     )
 
@@ -475,6 +476,11 @@ def main():
     )
     parser.add_argument(
         "--augment", action="store_true", help="Augment the training dataset"
+    )
+    parser.add_argument(
+        "--augment_nnunet",
+        action="store_true",
+        help="Augment the training dataset with nnUNet augmentations",
     )
     parser.add_argument(
         "--model",

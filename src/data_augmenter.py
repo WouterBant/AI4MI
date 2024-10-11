@@ -7,18 +7,18 @@ import matplotlib.pyplot as plt
 import argparse
 from skimage.io import imsave
 
-from batchgenerators.dataloading.data_loader import SlimDataLoaderBase
-from batchgenerators.dataloading.multi_threaded_augmenter import MultiThreadedAugmenter
-from batchgenerators.transforms.color_transforms import ContrastAugmentationTransform
-from batchgenerators.transforms.spatial_transforms import MirrorTransform
-from batchgenerators.transforms.abstract_transforms import Compose
-from batchgenerators.transforms.spatial_transforms import SpatialTransform
-from batchgenerators.transforms.abstract_transforms import RndTransform
-from batchgenerators.transforms.noise_transforms import GaussianNoiseTransform
-from batchgenerators.transforms.noise_transforms import GaussianBlurTransform
-from batchgenerators.transforms.color_transforms import BrightnessMultiplicativeTransform
-from batchgenerators.transforms.resample_transforms import SimulateLowResolutionTransform
-from batchgenerators.transforms.color_transforms import GammaTransform
+from batchgeneratorsrepo.batchgenerators.dataloading.data_loader import SlimDataLoaderBase
+from batchgeneratorsrepo.batchgenerators.dataloading.multi_threaded_augmenter import MultiThreadedAugmenter
+from batchgeneratorsrepo.batchgenerators.transforms.color_transforms import ContrastAugmentationTransform
+from batchgeneratorsrepo.batchgenerators.transforms.spatial_transforms import MirrorTransform
+from batchgeneratorsrepo.batchgenerators.transforms.abstract_transforms import Compose
+from batchgeneratorsrepo.batchgenerators.transforms.spatial_transforms import SpatialTransform
+from batchgeneratorsrepo.batchgenerators.transforms.abstract_transforms import RndTransform
+from batchgeneratorsrepo.batchgenerators.transforms.noise_transforms import GaussianNoiseTransform
+from batchgeneratorsrepo.batchgenerators.transforms.noise_transforms import GaussianBlurTransform
+from batchgeneratorsrepo.batchgenerators.transforms.color_transforms import BrightnessMultiplicativeTransform
+from batchgeneratorsrepo.batchgenerators.transforms.resample_transforms import SimulateLowResolutionTransform
+from batchgeneratorsrepo.batchgenerators.transforms.color_transforms import GammaTransform
 from tqdm import tqdm
 import warnings
 from skimage.transform import resize
@@ -165,7 +165,7 @@ class AugmentationPipeline:
             border_mode_data='constant',  # Handle borders by padding with constant values
             border_cval_data=0,  # Pad the image with 0 (black) outside its original boundaries
             order_data=1  # Linear interpolation for smooth rotation
-        ), prob=0.2)
+        ))
     
     def get_scale_transform(self):
         return RndTransform(SpatialTransform(
@@ -185,7 +185,7 @@ class AugmentationPipeline:
             border_mode_data='constant',  # Handle borders by padding with constant values
             border_cval_data=0,  # Pad the image with 0 (black) outside its original boundaries
             order_data=1  # Linear interpolation for smooth rotation
-        ), prob=0.2)
+        ))
 
 
     def get_noise_transform(self):
@@ -214,7 +214,6 @@ class AugmentationPipeline:
             p_per_sample=0.15
         )
 
-    # XXX
     def get_low_res_transform(self):
         return SimulateLowResolutionTransform(
             zoom_range=(1, 2),
