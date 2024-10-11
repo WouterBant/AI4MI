@@ -190,7 +190,7 @@ def precision_metric(pred, gt):
     predicted_positive = (pred == 1).sum(dim=(-2, -1)).float()
     
     # Handle division by zero (no positives predicted)
-    precision = true_positive / (predicted_positive + 1e-6)  # Adding small epsilon to prevent division by zero
+    precision = (true_positive + 1e-8) / (predicted_positive + 1e-8)  # Adding small epsilon to prevent division by zero
     return precision
 
 def volumetric_similarity(pred, gt):
