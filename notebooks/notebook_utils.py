@@ -74,6 +74,7 @@ def get_worst_predictions(
     device: torch.device,
     loss_fn: str,
     num_worst: int = 10,
+    filter_empty_preds: bool = False,
 ) -> List[WorstPrediction]:
     """
     Get the worst predictions from a model based on the highest loss values.
@@ -84,6 +85,7 @@ def get_worst_predictions(
     device (torch.device): The device to run the model on.
     loss_fn (Callable): Loss function that takes (y_pred, y) and returns a loss tensor.
     num_worst (int): Number of worst predictions to return.
+    filter_empty_preds (bool): Whether to filter out predictions with no positive pixels.
 
     Returns:
     List[Tuple[float, torch.Tensor, torch.Tensor, torch.Tensor]]:
@@ -100,7 +102,10 @@ def get_worst_predictions(
         match loss_fn:
             case "cross_entropy":
                 l = CrossEntropy(idk=[1, 2, 3, 4])
-                pred_logits = model(x)
+                if hasattr(model, "sam"):
+                    pred_logits = model(x, multimask_output=True, image_size=512)["masks"]
+                else:
+                    pred_logits = model(x)
                 y_pred = F.softmax(
                     1 * pred_logits, dim=1
                 )  # 1 is the temperature parameter
@@ -109,6 +114,8 @@ def get_worst_predictions(
                 raise ValueError(f"Unknown loss function: {loss_fn}")
 
         for i in range(len(x)):
+            if filter_empty_preds and y_pred[i].argmax(dim=0).sum() == 0:
+                continue
             loss_value = losses[i].item() if torch.is_tensor(losses[i]) else losses[i]
             item = (loss_value, _Tensor(x[i]), _Tensor(y[i]), _Tensor(y_pred[i]))
 
@@ -185,7 +192,7 @@ def visualize_worst_predictions(
 
 
 def get_dataloader(split: str = "train", batch_size: int = 1) -> DataLoader:
-    root_dir = "../" / Path("data") / "SEGTHOR"
+    root_dir = "../" / Path("data") / "SEGTHOR_MANUAL_SPLIT"
 
     K = 5  # Number of classes
 
