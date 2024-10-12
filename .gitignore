@@ -172,3 +172,11 @@ wandb/
 *.pth
 *.pt
 *.pkl
+
+data_copy/
+job_outputs/
+jobs/
+nnUNet/job_outputs/
+nnUNet/jobs/
+nnUNet/nnUNet_results/
+nnUNet/slurm-7935322.out
