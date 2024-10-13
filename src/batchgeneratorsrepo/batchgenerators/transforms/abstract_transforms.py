@@ -47,13 +47,13 @@ class RndTransform(AbstractTransform):
         therefore set the alternative_transform to an instance of RandomCropTransform of CenterCropTransform
     """
 
-    def __init__(self, transform, prob=0.5, alternative_transform=None):
+    def __init__(self, transform, expprob=0.5, alternative_transform=None):
         warn("This is deprecated. All applicable transfroms now have a p_per_sample argument which allows "
              "batchgenerators to do or not do an augmentation on a per-sample basis instead of the entire batch",
              DeprecationWarning)
         self.alternative_transform = alternative_transform
         self.transform = transform
-        self.prob = prob
+        self.prob = np.log(expprob)
 
     def __call__(self, **data_dict):
         rnd_val = np.random.uniform()

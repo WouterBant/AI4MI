@@ -13,13 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from batchgenerators.transforms.abstract_transforms import AbstractTransform
-from batchgenerators.augmentations.spatial_transformations import augment_spatial, augment_spatial_2, \
+from .abstract_transforms import AbstractTransform
+from ..augmentations.spatial_transformations import augment_spatial, augment_spatial_2, \
     augment_channel_translation, \
     augment_mirroring, augment_transpose_axes, augment_zoom, augment_resize, augment_rot90, \
     augment_anatomy_informed, augment_misalign
 import numpy as np
-from batchgenerators.augmentations.utils import get_organ_gradient_field
+from ..augmentations.utils import get_organ_gradient_field
 
 
 class Rot90Transform(AbstractTransform):

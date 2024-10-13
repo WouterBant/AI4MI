@@ -75,7 +75,7 @@ class CrossEntropy:
         print(f"Initialized {self.__class__.__name__} with {kwargs}")
 
     def __call__(self, pred_softmax, weak_target):
-        assert pred_softmax.shape == weak_target.shape
+        assert pred_softmax.shape == weak_target.shape, f"{pred_softmax.shape} != {weak_target.shape}"
         assert simplex(pred_softmax)
         assert sset(weak_target, [0, 1])
 
