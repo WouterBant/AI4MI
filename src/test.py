@@ -27,6 +27,8 @@ from ENet import ENet
 from utils import (
     class2one_hot,
     probs2one_hot,
+    save_images,
+    probs2class
 )
 from metrics import update_metrics_2D, print_store_metrics
 from crf_model import apply_crf
@@ -211,6 +213,15 @@ def run_test(args):
                 
             # Metrics
             segmentation_prediction = probs2one_hot(pred_probs)
+            
+            # Save the predictions as PNG if requested
+            if args.save_png:
+                pred_class = probs2class(pred_probs)
+                save_directory = Path(f"results_metrics/{args.model}/metrics2d/{str(args.from_checkpoint)[:-3]}")
+                save_directory.mkdir(parents=True, exist_ok=True)
+                mult: int = 63 if K == 5 else (255 / (K - 1))
+                save_images(pred_class * mult, stems, save_directory / "png_predictions")
+            
             metrics = update_metrics_2D(metrics, segmentation_prediction, gt, stems, datasets_params[args.dataset]["names"], metric_types)
             
         # Save the metrics in pickle format
@@ -280,6 +291,7 @@ def main():
     parser.add_argument(
         "--finetune_crf", action="store_true", help="Freeze the model and only train CRF and the last layer"
     )
+    parser.add_argument("--save_png", action="store_true", help="Save the predictions as PNG")
     args = parser.parse_args()
 
     pprint(args)
