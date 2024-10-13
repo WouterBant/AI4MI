@@ -43,7 +43,11 @@ from dataset import SliceDataset
 from ShallowNet import shallowCNN
 from scheduler import CosineWarmupScheduler
 from ENet import ENet
+<<<<<<< Updated upstream
 from sam2.sam2unet_model import SAM2UNet
+=======
+from sam2unet_model import SAM2UNet
+>>>>>>> Stashed changes
 from utils import (
     Dcm,
     class2one_hot,
@@ -121,7 +125,11 @@ def setup(
             pixel_mean=[0.0457, 0.0457, 0.0457],
             pixel_std=[0.0723, 0.0723, 0.0723],
         )
+<<<<<<< Updated upstream
         net = LoRA_Sam(sam, r=4)
+=======
+        net = LoRA_Sam(sam, r=args.r)
+>>>>>>> Stashed changes
     elif args.model == "SAM2UNet":
         device = torch.device("cuda")
         net = SAM2UNet(args.hiera_path)
@@ -308,7 +316,27 @@ def runTraining(args):
                         loss, loss_ce, loss_dice = calc_loss_sam(
                             pred_logits, gt, ce_loss, dice_loss, dice_weight=0.8
                         )
+<<<<<<< Updated upstream
                     
+=======
+
+                    elif args.model == "SAM2UNet":
+                        pred_logits, preds1, preds2 = net(img)
+                        pred_probs = F.softmax(
+                            1 * pred_logits, dim=1
+                        )  # 1 is the temperature parameter
+                        loss, loss_ce, loss_dice = calc_loss_sam(
+                            pred_logits, gt, ce_loss, dice_loss, dice_weight=0.8
+                        )
+                        
+                    else:
+                        pred_logits = net(img)
+                        pred_probs = F.softmax(
+                            1 * pred_logits, dim=1
+                        )  # 1 is the temperature parameter
+                        loss = loss_fn(pred_probs, gt)
+
+>>>>>>> Stashed changes
                     # Metrics computation, not used for training
                     pred_seg = probs2one_hot(pred_probs)
                     
