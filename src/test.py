@@ -33,6 +33,9 @@ from crf_model import apply_crf
 from collections import defaultdict
 import pandas as pd
 
+from EnsembleModel import ModelAccuracy, EnsembleSegmentationModel
+
+
 torch.set_float32_matmul_precision("high")
 
 datasets_params: dict[str, dict[str, Any]] = {}
@@ -88,6 +91,30 @@ def setup(args):
             image_size=512
         )
         net = LoRA_Sam(sam, r=args.r)
+    elif args.model == "ensemble":
+        from samed_fast.sam_lora import LoRA_Sam
+        from samed_fast.segment_anything import sam_model_registry
+        checkpoints = [
+            "bestweights_samed_512_r6_augment_no_normalize_no.pt",
+            "bestweights_samed_512_r6_augment_yes_normalize_no.pt",
+        ]
+        models = [
+            ModelAccuracy(
+                LoRA_Sam(sam_model_registry["vit_b"](
+                    checkpoint="src/samed/checkpoints/sam_vit_b_01ec64.pth",
+                    num_classes=K,
+                    pixel_mean=[0.0457, 0.0457, 0.0457],
+                    pixel_std=[1.0, 1.0, 1.0],
+                    image_size=512
+                )[0], r=6),
+                [0.2, 0.2, 0.2, 0.2, 0.2]
+            )
+            for _ in checkpoints
+        ]
+        for model, checkpoint in zip(models, checkpoints):
+            model.model.load_state_dict(torch.load(checkpoint, map_location=device), strict=True)
+        
+        net = EnsembleSegmentationModel(models)
     elif args.model == "ENet":
         net = datasets_params[args.dataset]["net"](1, K)
         net.init_weights()
@@ -243,7 +270,7 @@ def main():
     parser.add_argument(
         "--model",
         required=True,
-        choices=["samed", "samed_fast", "ENet", "nnUnet"],
+        choices=["samed", "samed_fast", "ENet", "nnUnet", "ensemble"],
         help="Model to use",
     )
     parser.add_argument(
