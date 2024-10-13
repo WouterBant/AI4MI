@@ -33,6 +33,9 @@ from crf_model import apply_crf
 from collections import defaultdict
 import pandas as pd
 
+from EnsembleModel import ModelAccuracy, EnsembleSegmentationModel
+
+
 torch.set_float32_matmul_precision("high")
 
 datasets_params: dict[str, dict[str, Any]] = {}
@@ -53,6 +56,13 @@ datasets_params["SEGTHOR"] = {
 datasets_params["SEGTHOR_MANUAL_SPLIT"] = {
     "K": 5,
     "net": ENet,
+    "B": 8,
+    "names": ["Background", "Esophagus", "Heart", "Trachea", "Aorta"],
+}
+
+datasets_params["/data/SEGTHOR_MANUAL_SPLIT"] = {
+    "K": 5,
+    "net": SAM2UNet,
     "B": 8,
     "names": ["Background", "Esophagus", "Heart", "Trachea", "Aorta"],
 }
@@ -88,9 +98,38 @@ def setup(args):
             image_size=512
         )
         net = LoRA_Sam(sam, r=args.r)
+    elif args.model == "ensemble":
+        from samed_fast.sam_lora import LoRA_Sam
+        from samed_fast.segment_anything import sam_model_registry
+        checkpoints = [
+            "bestweights_samed_512_r6_augment_no_normalize_no.pt",
+            "bestweights_samed_512_r6_augment_yes_normalize_no.pt",
+        ]
+        models = [
+            ModelAccuracy(
+                LoRA_Sam(sam_model_registry["vit_b"](
+                    checkpoint="src/samed/checkpoints/sam_vit_b_01ec64.pth",
+                    num_classes=K,
+                    pixel_mean=[0.0457, 0.0457, 0.0457],
+                    pixel_std=[1.0, 1.0, 1.0],
+                    image_size=512
+                )[0], r=6),
+                [0.2, 0.2, 0.2, 0.2, 0.2]
+            )
+            for _ in checkpoints
+        ]
+        for model, checkpoint in zip(models, checkpoints):
+            model.model.load_state_dict(torch.load(checkpoint, map_location=device), strict=True)
+        
+        net = EnsembleSegmentationModel(models)
     elif args.model == "ENet":
         net = datasets_params[args.dataset]["net"](1, K)
         net.init_weights()
+    elif args.model == "SAM2UNet":
+        device = torch.device("cuda")
+        # Load trained model
+        net = SAM2UNet('/home/scur2517/SAM2-UNet/ckpts/sam2_hiera_large.pt')
+        net.to(device)
 
     if args.crf:
         net = apply_crf(net, args)
@@ -201,6 +240,9 @@ def run_test(args):
                     pred_probs = F.softmax(
                         1 * pred_logits, dim=1
                     )  # 1 is the temperature parameter
+            elif args.model == "SAM2UNet":
+                pred_logits, _, _ = net(img)  # Get the primary output from the model
+                pred_probs = F.softmax(1 * pred_logits, dim=1)  # 1 is the temperature parameter
 
             # Other models
             else:
@@ -214,11 +256,12 @@ def run_test(args):
             metrics = update_metrics_2D(metrics, segmentation_prediction, gt, stems, datasets_params[args.dataset]["names"], metric_types)
             
         # Save the metrics in pickle format
-        save_directory = args.dest / args.model
+        save_directory = Path(f"results_metrics/{args.model}/metrics2d/{args.from_checkpoint[:-3]}")
         save_directory.mkdir(parents=True, exist_ok=True)
+        metrics.to_csv(str(save_directory) + f"/{mode}_metrics.csv")
             
         # Save the metrics to a csv file
-        metrics.to_csv(str(save_directory) + f"/{mode}_metrics.csv")
+        # metrics.to_csv(str(save_directory) + f"/{mode}_metrics.csv")
             
         # Print and store the metrics #TODO: Fix the print_store_metrics function
         #print_store_metrics(metrics, str(save_directory))
@@ -242,7 +285,7 @@ def main():
     parser.add_argument(
         "--model",
         required=True,
-        choices=["samed", "samed_fast", "ENet", "nnUnet"],
+        choices=["samed", "samed_fast", "ENet", "nnUnet", "ensemble", "SAM2UNet"],
         help="Model to use",
     )
     parser.add_argument(
