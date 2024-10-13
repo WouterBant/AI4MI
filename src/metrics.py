@@ -1,5 +1,3 @@
-
-from typing import Callable, Iterable, List, Set, Tuple, TypeVar, cast
 import torch
 from torch import Tensor
 from utils import dice_coef
@@ -7,8 +5,7 @@ from scipy.spatial.distance import directed_hausdorff
 from scipy.ndimage import distance_transform_edt
 import numpy as np
 import pandas as pd
-import os
-import time
+
 
 def print_store_metrics(metrics, destination):
     classes = ["Background", "Esophagus", "Heart", "Trachea", "Aorta"]
@@ -90,11 +87,8 @@ def update_metrics_2D(metrics, pred: Tensor, gt: Tensor, stems, classes, metric_
         results = 1 - jaccard_index(pred, gt)
         metrics = append_metrics(metrics, patients, slices, classes, metric_name, results)
         
-
-
     return metrics    
     #TODO maybe add average Averagey Symmetric Surface Distance (ASSD) however also slow and already have Hausdorff distance
-    
     
 #TODO: Check for the correct implementation of the Hausdorff metric maybe also use the scikit-image implementation. 
 #TODO: Make more efficient using: https://cs.stackexchange.com/questions/117989/hausdorff-distance-between-two-binary-images-according-to-distance-maps
@@ -124,7 +118,6 @@ def calculate_hausdorff_distance(ground_truth_tensor, prediction_tensor):
     hausdorff_distance = max(forward_hausdorff, backward_hausdorff)
     
     return hausdorff_distance
-
 
 def hausdorff_distance_fast(img1, img2):
     """
@@ -159,11 +152,7 @@ def hausdorff_distance_fast(img1, img2):
     
     return hausdorff_dist
 
-
-
 def Sensitivity_Specifity_metrics(pred_seg: Tensor, gt_seg: Tensor):
-    n_samples, n_classes, height, width = pred_seg.shape
-    
     # True positives
     true_positives = (pred_seg * gt_seg).sum(dim=(2, 3)) # Only sum over the height and width (pixel dimensions)
     
@@ -190,7 +179,7 @@ def jaccard_index(pred, gt):
     union = torch.logical_or(gt == 1, pred == 1).sum(dim=(-2, -1)).float()
     
     # Handle division by zero (no positives in ground truth and prediction)
-    iou = intersection / (union + 1e-6)  # Adding small epsilon to prevent division by zero
+    iou = (intersection + 1e-8) / (union + 1e-8)  # Adding small epsilon to prevent division by zero
     return iou
 
 def precision_metric(pred, gt):
@@ -199,7 +188,7 @@ def precision_metric(pred, gt):
     predicted_positive = (pred == 1).sum(dim=(-2, -1)).float()
     
     # Handle division by zero (no positives predicted)
-    precision = true_positive / (predicted_positive + 1e-6)  # Adding small epsilon to prevent division by zero
+    precision = (true_positive + 1e-8) / (predicted_positive + 1e-8)  # Adding small epsilon to prevent division by zero
     return precision
 
 def volumetric_similarity(pred, gt):
@@ -215,15 +204,13 @@ def volumetric_similarity(pred, gt):
     vs = 1 - abs_diff / (total_vol + 1e-6)  # Adding epsilon to avoid division by zero
     return vs
 
-
 def append_metrics(old_metrics, patients, slices, classes, metric_name, results):
     # First transform the results tensor to a numpy array
     results = results.cpu().numpy()
-    
+
     data = []
     for i, patient in enumerate(patients):
         for j, class_name in enumerate(classes):
-            
             
             data.append({
                 "patient_id": patient,
@@ -232,7 +219,7 @@ def append_metrics(old_metrics, patients, slices, classes, metric_name, results)
                 "metric_type": metric_name,
                 "metric_value": results[i, j]
             })
-            
+
     new_metrics = pd.concat([old_metrics, pd.DataFrame(data)], ignore_index=True)
-    
+
     return new_metrics

@@ -12,7 +12,7 @@
 </table>
 
 ## Introduction
-The code for reproducing our paper "". We experiment with different SAM based methods and more standard methods like Enet and nnUnet on the SEGHTOR dataset. Short description of our main findings. The obtained results can be found [here](results).
+The code for reproducing our paper "". We experiment with different SAM based methods and more standard methods like Enet and nnUnet on the SEGTHOR dataset. Short description of our main findings. The obtained results can be found [here](results).
 
 ## Quick Start
 

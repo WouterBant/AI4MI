@@ -69,7 +69,7 @@ class SliceDataset(Dataset):
 
         self.files = make_dataset(root_dir, subset)
         if debug:
-            self.files = self.files[:10]
+            self.files = self.files[:150]
 
         print(f">> Created {subset} dataset with {len(self)} images...")
 
