@@ -237,19 +237,22 @@ def run_test(args):
                 pred_probs = F.softmax(
                     1 * pred_logits, dim=1
                 )  # 1 is the temperature parameter
-                
-            # Metrics
-            segmentation_prediction = probs2one_hot(pred_probs)
-            
+               
+               
             # Save the predictions as PNG if requested
             if args.save_png:
                 pred_class = probs2class(pred_probs)
                 save_directory = Path(f"results_metrics/{args.model}/metrics2d/{str(args.from_checkpoint)[:-3]}")
                 save_directory.mkdir(parents=True, exist_ok=True)
                 mult: int = 63 if K == 5 else (255 / (K - 1))
-                save_images(pred_class * mult, stems, save_directory / "png_predictions")
+                save_images(pred_class * mult, stems, save_directory / "png_predictions") 
             
-            metrics = update_metrics_2D(metrics, segmentation_prediction, gt, stems, datasets_params[args.dataset]["names"], metric_types)
+            else:
+                # Only calculate metrics if we have the ground truth and don't save the predictions as PNG
+                segmentation_prediction = probs2one_hot(pred_probs)
+            
+                
+                metrics = update_metrics_2D(metrics, segmentation_prediction, gt, stems, datasets_params[args.dataset]["names"], metric_types)
             
         if args.save_png:
             print(f"Predictions saved in {save_directory}/png_predictions")
