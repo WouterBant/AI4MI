@@ -251,10 +251,14 @@ def run_test(args):
             
             metrics = update_metrics_2D(metrics, segmentation_prediction, gt, stems, datasets_params[args.dataset]["names"], metric_types)
             
-        # Save the metrics in pickle format
-        save_directory = Path(f"results_metrics/{args.model}/metrics2d/{args.from_checkpoint[:-3]}")
-        save_directory.mkdir(parents=True, exist_ok=True)
-        metrics.to_csv(str(save_directory) + f"/{mode}_metrics.csv")
+        if args.save_png:
+            print(f"Predictions saved in {save_directory}/png_predictions")
+            print("Metrics will not be stored as we might not have the ground truth for all the slices")
+        else:
+            # Save the metrics in pickle format
+            save_directory = Path(f"results_metrics/{args.model}/metrics2d/{args.from_checkpoint[:-3]}")
+            save_directory.mkdir(parents=True, exist_ok=True)
+            metrics.to_csv(str(save_directory) + f"/{mode}_metrics.csv")
             
         # Save the metrics to a csv file
         # metrics.to_csv(str(save_directory) + f"/{mode}_metrics.csv")
