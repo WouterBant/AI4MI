@@ -8,6 +8,7 @@ __pycache__/
 
 # Ignore the png files in the results_metrics folder
 /results_metrics/**/*.png
+results_metrics/samed_fast/metrics2d/bestweights_samed_512_r6_augment_yes_normalize_no/png_predictions/
 
 # Distribution / packaging
 .Python
