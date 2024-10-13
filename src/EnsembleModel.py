@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Dict
+from typing import List
 import torch
 import torch.nn as nn
 
@@ -22,6 +22,8 @@ class EnsembleSegmentationModel(nn.Module):
         """
         super(EnsembleSegmentationModel, self).__init__()
 
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
         # Extract models and create ModuleList
         self.models = nn.ModuleList([ma.model for ma in model_accuracies])
 
@@ -31,23 +33,24 @@ class EnsembleSegmentationModel(nn.Module):
         # Ensure all models have the same number of classes
         num_classes = len(self.class_accuracies[0])
         assert all(len(class_accuracy) == num_classes for class_accuracy in self.class_accuracies), "All models must have the same number of classes"
-        
+        self.num_classes = num_classes
+
         # Initialize normalized weights
         self.normalized_weights = self._get_weights()
     
-    @staticmethod
-    def _get_weights(models : List[nn.Module], class_accuracies: List[List[float]], num_classes: int) -> torch.Tensor:      
+    def _get_weights(self) -> torch.Tensor:      
         # Create a weight tensor based on class accuracies
-        accuracy_weights = torch.zeros(len(models), num_classes)
-        for i, accuracies in enumerate(class_accuracies):
-            for class_idx, accuracy in accuracies:
+        accuracy_weights = torch.zeros(len(self.models), self.num_classes)
+        for i, accuracies in enumerate(self.class_accuracies):
+            for class_idx, accuracy in enumerate(accuracies):
                 accuracy_weights[i, class_idx] = accuracy
         
         # Normalize weights
         normalized_weights = accuracy_weights / accuracy_weights.sum(dim=0, keepdim=True)
         
-        return normalized_weights
+        return normalized_weights.to(self.device)
         
+    @torch.no_grad()
     def forward(self, input_tensor: torch.Tensor) -> torch.Tensor:
         """
         Forward pass of the ensemble model.
@@ -56,7 +59,11 @@ class EnsembleSegmentationModel(nn.Module):
         :return: Combined prediction
         """
         # Get predictions from all models
-        model_predictions = [model(input_tensor) for model in self.models]
+        model_predictions = [
+            model(input_tensor, multimask_output=True, image_size=512)['masks'] if hasattr(model, "sam")
+            else model(input_tensor)
+            for model in self.models
+        ]
 
         # Stack predictions along a new dimension
         stacked_predictions = torch.stack(model_predictions, dim=0)
@@ -64,7 +71,7 @@ class EnsembleSegmentationModel(nn.Module):
         normalized_weights = self.normalized_weights.to(input_tensor.device)
         
         # Apply weights to predictions
-        weighted_predictions = stacked_predictions * normalized_weights.view(len(self.models), 1, 1, self.num_classes)
+        weighted_predictions = stacked_predictions * normalized_weights.view(len(self.models), -1, self.num_classes, 1, 1)
         
         # Sum weighted predictions
         combined_prediction = weighted_predictions.sum(dim=0)
