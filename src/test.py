@@ -27,6 +27,8 @@ from ENet import ENet
 from utils import (
     class2one_hot,
     probs2one_hot,
+    save_images,
+    probs2class
 )
 from metrics import update_metrics_2D, print_store_metrics
 from crf_model import apply_crf
@@ -235,15 +237,31 @@ def run_test(args):
                 pred_probs = F.softmax(
                     1 * pred_logits, dim=1
                 )  # 1 is the temperature parameter
-                
-            # Metrics
-            segmentation_prediction = probs2one_hot(pred_probs)
-            metrics = update_metrics_2D(metrics, segmentation_prediction, gt, stems, datasets_params[args.dataset]["names"], metric_types)
+               
+               
+            # Save the predictions as PNG if requested
+            if args.save_png:
+                pred_class = probs2class(pred_probs)
+                save_directory = Path(f"results_metrics/{args.model}/metrics2d/{str(args.from_checkpoint)[:-3]}")
+                save_directory.mkdir(parents=True, exist_ok=True)
+                mult: int = 63 if K == 5 else (255 / (K - 1))
+                save_images(pred_class * mult, stems, save_directory / "png_predictions") 
             
-        # Save the metrics in pickle format
-        save_directory = Path(f"results_metrics/{args.model}/metrics2d/{args.from_checkpoint[:-3]}")
-        save_directory.mkdir(parents=True, exist_ok=True)
-        metrics.to_csv(str(save_directory) + f"/{mode}_metrics.csv")
+            else:
+                # Only calculate metrics if we have the ground truth and don't save the predictions as PNG
+                segmentation_prediction = probs2one_hot(pred_probs)
+            
+                
+                metrics = update_metrics_2D(metrics, segmentation_prediction, gt, stems, datasets_params[args.dataset]["names"], metric_types)
+            
+        if args.save_png:
+            print(f"Predictions saved in {save_directory}/png_predictions")
+            print("Metrics will not be stored as we might not have the ground truth for all the slices")
+        else:
+            # Save the metrics in pickle format
+            save_directory = Path(f"results_metrics/{args.model}/metrics2d/{args.from_checkpoint[:-3]}")
+            save_directory.mkdir(parents=True, exist_ok=True)
+            metrics.to_csv(str(save_directory) + f"/{mode}_metrics.csv")
             
         # Save the metrics to a csv file
         # metrics.to_csv(str(save_directory) + f"/{mode}_metrics.csv")
@@ -307,6 +325,7 @@ def main():
     parser.add_argument(
         "--finetune_crf", action="store_true", help="Freeze the model and only train CRF and the last layer"
     )
+    parser.add_argument("--save_png", action="store_true", help="Save the predictions as PNG")
     args = parser.parse_args()
 
     pprint(args)

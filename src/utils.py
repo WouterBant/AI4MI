@@ -240,6 +240,21 @@ def save_images(segs: Tensor, names: Iterable[str], root: Path) -> None:
             np.save(str(save_path), seg.detach().cpu().numpy())
         else:
             raise ValueError(seg.shape)
+        
+# def save_images_pred(segs: Tensor, names: Iterable[str], root: Path) -> None:
+#     for seg, name in zip(segs, names):
+#         save_path = (root / name).with_suffix(".png")
+#         save_path.parent.mkdir(parents=True, exist_ok=True)
+
+#         assert len(seg.shape) == 3
+        
+#         # Now do the conversion accourding to the following mapping for the classes ["Background", "Esophagus", "Heart", "Trachea", "Aorta"]
+#         # mapping = [0, 63, 126, 189, 252]
+#         # For each of the onehot encoding classes, if the onehot encoding is 1, then the pixel value is the corresponding value in the mapping
+#         # For every class which is axis 0, at least one of the onehot encoding is 1, so we can just take the argmax of the axis 0
+#         seg = seg.argmax(dim=0) * 63
+#         Image.fromarray(seg.detach().cpu().numpy().astype(np.uint8)).save(save_path)
+        
 
 
 def log_sample_images_wandb(
