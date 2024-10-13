@@ -12,6 +12,9 @@ __pycache__/
 # For mac user the .DS_Store
 .DS_Store
 
+# Ignore the png files in the results_metrics folder
+/results_metrics/**/*.png
+
 # Distribution / packaging
 .Python
 build/
