@@ -22,6 +22,7 @@ from torchvision import transforms
 import numpy as np
 import matplotlib.pyplot as plt
 from skimage.segmentation import find_boundaries
+from matplotlib.colors import LinearSegmentedColormap
 
 
 class CrossEntropy:
@@ -129,67 +130,61 @@ def get_worst_predictions(
         for (a, b, c, d) in worst_predictions
     ]
 
-
 def visualize_worst_predictions(
     worst_predictions: List[WorstPrediction],
     show_segmentation_area: bool = True,
     show_segmentation_boundary: bool = True,
+    batch_size: int = 3
 ):
-    N = len(worst_predictions)
-    fig, ax = plt.subplots(N, 3, figsize=(9, N * 3))
-    plt.subplots_adjust(wspace=0.1, hspace=0.3)
+    # Custom colormap that leaves the background (class 0) transparent
+    colors = ['#00000000', '#377eb8', '#4daf4a', '#984ea3', '#ff7f00']
+    n_bins = len(colors)
+    cmap = LinearSegmentedColormap.from_list('custom', colors, N=n_bins)
 
-    for idx, bad_prediction in enumerate(worst_predictions):
-        loss, img, gt, pred = attrgetter("loss", "image", "gt", "prediction")(
-            bad_prediction
-        )
-        color_map = plt.get_cmap("viridis", 5)
-        gt_colored = color_map(gt.argmax(dim=0).cpu().numpy())
-        pred_colored = color_map(pred.argmax(dim=0).cpu().numpy())
-        gt_boundaries = find_boundaries(gt.argmax(dim=0).cpu().numpy())
-        pred_boundaries = find_boundaries(pred.argmax(dim=0).cpu().numpy())
+    # Process predictions in batches
+    for batch_start in range(0, len(worst_predictions), batch_size):
+        batch_end = min(batch_start + batch_size, len(worst_predictions))
+        batch = worst_predictions[batch_start:batch_end]
+        
+        fig, axes = plt.subplots(len(batch), 3, figsize=(12, 4 * len(batch)))
+        plt.subplots_adjust(wspace=0.05, hspace=0.2)
 
-        ax[idx, 0].annotate(
-            f"Loss: {loss:.4f}",
-            xy=(0, 1.1),
-            xycoords="axes fraction",
-            fontsize=12,
-            ha="left",
-            va="bottom",
-            color="black",
-        )
-        ax[idx, 0].imshow(img[0], cmap="gray")
+        for idx, bad_prediction in enumerate(batch):
+            loss, img, gt, pred = attrgetter("loss", "image", "gt", "prediction")(bad_prediction)
+            img = img.cpu().numpy().squeeze()
+            gt = gt.cpu().argmax(dim=0).numpy()
+            pred = pred.cpu().argmax(dim=0).numpy()
 
-        # Overlay the colored ground truth on the original image
-        ax[idx, 1].imshow(img[0], cmap="gray")
+            gt_colored = cmap(gt)
+            pred_colored = cmap(pred)
+            gt_boundaries = find_boundaries(gt)
+            pred_boundaries = find_boundaries(pred)
+
+            ax = axes[idx] if len(batch) > 1 else axes
+
+            for i in range(3):
+                ax[i].imshow(img, cmap='gray')
+                
+                if i > 0:
+                    if show_segmentation_area:
+                        ax[i].imshow(gt_colored if i == 1 else pred_colored, alpha=0.3)
+                    if show_segmentation_boundary:
+                        ax[i].imshow(gt_boundaries if i == 1 else pred_boundaries, cmap='inferno', alpha=0.3)
+
+                ax[i].axis('off')
+
+            # Add loss information as text above the first image
+            ax[0].text(0.5, 1.05, f"Loss: {loss:.4f}", transform=ax[0].transAxes,
+                       fontsize=10, ha='center', va='bottom')
+
+        fig.tight_layout(rect=[0, 0.03, 1, 0.95])
+
         if show_segmentation_area:
-            ax[idx, 1].imshow(gt_colored, alpha=0.5)
-        if show_segmentation_boundary:
-            ax[idx, 1].imshow(gt_boundaries, cmap="inferno", alpha=0.5)
+            legend_elements = [plt.Rectangle((0, 0), 1, 1, fc=cmap(i), ec='none') for i in range(1, n_bins)]
+            fig.legend(legend_elements, ['Esophagus', 'Heart', 'Trachea', 'Aorta'],
+                       loc='lower center', ncol=4, fontsize=10, frameon=False)
 
-        ax[idx, 2].imshow(img[0], cmap="gray")
-        if show_segmentation_area:
-            ax[idx, 2].imshow(pred_colored, alpha=0.5)
-        if show_segmentation_boundary:
-            ax[idx, 2].imshow(pred_boundaries, cmap="inferno", alpha=0.5)
-
-        for i in range(3):
-            ax[idx, i].axis("off")
-
-    fig.tight_layout(rect=[0, 0, 1, 0.95])
-
-    if show_segmentation_area:
-        legend_elements = [
-            plt.Rectangle((0, 0), 1, 1, color=color_map(i)) for i in range(5)
-        ]
-        fig.legend(
-            legend_elements,
-            ["Background", "Esophagus", "Heart", "Trachea", "Aorta"],
-            loc="lower center",
-            ncol=5,
-        )
-    plt.show()
-
+        plt.show()
 
 def get_dataloader(split: str = "train", batch_size: int = 1) -> DataLoader:
     root_dir = "../" / Path("data") / "SEGTHOR_MANUAL_SPLIT"
