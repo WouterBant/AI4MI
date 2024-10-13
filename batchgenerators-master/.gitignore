@@ -6,6 +6,9 @@ __pycache__/
 # C extensions
 *.so
 
+# Ignore the png files in the results_metrics folder
+results_metrics/*.png
+
 # Distribution / packaging
 .Python
 env/
