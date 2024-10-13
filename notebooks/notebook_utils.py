@@ -132,58 +132,69 @@ def get_worst_predictions(
 
 def visualize_worst_predictions(
     worst_predictions: List[WorstPrediction],
-    show_segmentation_area: bool = True,
-    show_segmentation_boundary: bool = True,
     batch_size: int = 3
 ):
-    # Custom colormap that leaves the background (class 0) transparent
-    colors = ['#00000000', '#377eb8', '#4daf4a', '#984ea3', '#ff7f00']
-    n_bins = len(colors)
-    cmap = LinearSegmentedColormap.from_list('custom', colors, N=n_bins)
+    # Define the colors for the classes (Esophagus, Heart, Trachea, Aorta)
+    colors = ['red', 'green', 'blue', 'yellow']
+    color_labels = [0, 1, 2, 3, 4]  # Class 0 (background) is excluded
+
+    def apply_color_overlay(img, mask, class_colors, labels):
+        colored_img = np.stack([img, img, img], axis=-1)  # Convert grayscale to RGB
+        for class_idx, color in enumerate(class_colors, start=1):
+            mask_class = mask == labels[class_idx]  # Mask for the class
+            rgba_color = plt.cm.colors.to_rgba(color, alpha=0.5)  # Apply alpha for color
+            colored_img[mask_class] = rgba_color[:3]  # Ignore alpha channel here
+        return colored_img
 
     # Process predictions in batches
     for batch_start in range(0, len(worst_predictions), batch_size):
         batch_end = min(batch_start + batch_size, len(worst_predictions))
         batch = worst_predictions[batch_start:batch_end]
         
-        fig, axes = plt.subplots(len(batch), 3, figsize=(12, 4 * len(batch)))
+        fig, axes = plt.subplots(len(batch), 3, figsize=(20, 5 * len(batch)))
         plt.subplots_adjust(wspace=0.05, hspace=0.2)
 
+        if len(batch) == 1:
+            axes = np.expand_dims(axes, axis=0)
+
         for idx, bad_prediction in enumerate(batch):
-            loss, img, gt, pred = attrgetter("loss", "image", "gt", "prediction")(bad_prediction)
+            loss, img, gt, pred = bad_prediction.loss, bad_prediction.image, bad_prediction.gt, bad_prediction.prediction
+            
             img = img.cpu().numpy().squeeze()
             gt = gt.cpu().argmax(dim=0).numpy()
             pred = pred.cpu().argmax(dim=0).numpy()
 
-            gt_colored = cmap(gt)
-            pred_colored = cmap(pred)
-            gt_boundaries = find_boundaries(gt)
-            pred_boundaries = find_boundaries(pred)
+            # Plot the original input image
+            axes[idx, 0].imshow(img, cmap='gray')
+            axes[idx, 0].axis('off')
 
-            ax = axes[idx] if len(batch) > 1 else axes
+            # Apply ground truth color overlay
+            gt_colored = apply_color_overlay(img, gt, colors, color_labels)
+            axes[idx, 1].imshow(img, cmap='gray')
+            axes[idx, 1].imshow(gt_colored, alpha=0.5)
+            axes[idx, 1].axis('off')
 
-            for i in range(3):
-                ax[i].imshow(img, cmap='gray')
-                
-                if i > 0:
-                    if show_segmentation_area:
-                        ax[i].imshow(gt_colored if i == 1 else pred_colored, alpha=0.3)
-                    if show_segmentation_boundary:
-                        ax[i].imshow(gt_boundaries if i == 1 else pred_boundaries, cmap='inferno', alpha=0.3)
-
-                ax[i].axis('off')
+            # Apply prediction color overlay
+            pred_colored = apply_color_overlay(img, pred, colors, color_labels)
+            axes[idx, 2].imshow(img, cmap='gray')
+            axes[idx, 2].imshow(pred_colored, alpha=0.5)
+            axes[idx, 2].axis('off')
 
             # Add loss information as text above the first image
-            ax[0].text(0.5, 1.05, f"Loss: {loss:.4f}", transform=ax[0].transAxes,
-                       fontsize=10, ha='center', va='bottom')
+            axes[idx, 0].text(0.5, 1.05, f"Loss: {loss:.4f}", transform=axes[idx, 0].transAxes,
+                              fontsize=20, ha='center', va='bottom')
 
-        fig.tight_layout(rect=[0, 0.03, 1, 0.95])
+        # Add a legend with color representation for each class
+        legend_elements = [
+            plt.Rectangle((0, 0), 1, 1, facecolor=color, alpha=0.5, label=label)
+            for color, label in zip(colors, ['Esophagus', 'Heart', 'Trachea', 'Aorta'])
+        ]
 
-        if show_segmentation_area:
-            legend_elements = [plt.Rectangle((0, 0), 1, 1, fc=cmap(i), ec='none') for i in range(1, n_bins)]
-            fig.legend(legend_elements, ['Esophagus', 'Heart', 'Trachea', 'Aorta'],
-                       loc='lower center', ncol=4, fontsize=10, frameon=False)
+        fig.legend(handles=legend_elements, loc="lower center", ncol=4, 
+                   fancybox=True, shadow=True, title="Predicted Segmentation Classes:", 
+                   fontsize=12, title_fontsize=12)
 
+        plt.tight_layout()
         plt.show()
 
 def get_dataloader(split: str = "train", batch_size: int = 1) -> DataLoader:
