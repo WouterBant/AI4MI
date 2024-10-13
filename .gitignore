@@ -172,6 +172,7 @@ wandb/
 *.pth
 *.pt
 *.pkl
+.conda
 
 data_copy/
 job_outputs/
