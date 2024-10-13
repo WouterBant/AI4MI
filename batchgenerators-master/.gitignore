@@ -7,7 +7,7 @@ __pycache__/
 *.so
 
 # Ignore the png files in the results_metrics folder
-results_metrics/**/*.png
+/results_metrics/**/*.png
 
 # Distribution / packaging
 .Python
