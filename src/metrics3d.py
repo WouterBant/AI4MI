@@ -1,11 +1,7 @@
 import torch
 from torch import Tensor
 from utils import our_dice_batch
-from scipy.spatial.distance import directed_hausdorff
-from scipy.ndimage import distance_transform_edt
-import numpy as np
 import pandas as pd
-import point_cloud_utils as pcu
 from medpy.metric.binary import hd
 
 
