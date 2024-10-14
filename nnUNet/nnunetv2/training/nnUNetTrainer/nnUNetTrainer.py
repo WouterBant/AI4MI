@@ -201,6 +201,8 @@ class nnUNetTrainer(object):
                                "Nature methods, 18(2), 203-211.\n"
                                "#######################################################################\n",
                                also_print_to_console=True, add_timestamp=False)
+        
+        self.early_stopping_patience = 25
 
     def initialize(self):
         if not self.was_initialized:
@@ -1360,7 +1362,8 @@ class nnUNetTrainer(object):
 
     def run_training(self):
         self.on_train_start()
-
+        previous_best_ema = 0
+        iterations_since_last_best = 0
         for epoch in range(self.current_epoch, self.num_epochs):
             self.on_epoch_start()
 
@@ -1378,5 +1381,14 @@ class nnUNetTrainer(object):
                 self.on_validation_epoch_end(val_outputs)
 
             self.on_epoch_end()
+
+            if self._best_ema > previous_best_ema:
+                previous_best_ema = self._best_ema
+            else:
+                iterations_since_last_best += 1
+            
+            if iterations_since_last_best >= self.early_stopping_patience:
+                self.print_to_log_file(f"Early stopping at epoch {epoch}")
+                break
 
         self.on_train_end()
