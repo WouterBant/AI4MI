@@ -94,7 +94,7 @@ def setup(args):
 
     if args.crf:
         net = apply_crf(net, args)
-    
+
     if args.from_checkpoint:
         print(args.from_checkpoint)
         # Load the checkpoint
@@ -179,26 +179,26 @@ def run_test(args):
     After these are filled the metrics are calculated and saved in a csv file, the metrics are calculated for each class.
     Tensors are not stored.
     """
-
-
     print(f">>> Setting up to testing on {args.dataset} with {args.mode}")
     net, device, loader, id2nfiles, K = setup(args)
     print("ids", id2nfiles)
 
+    start_idx = 0 if args.include_background else 1
+
     # Preallocate the tensors in a dictionary
     predictions = {
-        patient_id: torch.zeros((id2nfiles[patient_id], K - 1, 256, 256), dtype=torch.uint8)  # K - 1 to skip the background class
+        patient_id: torch.zeros((id2nfiles[patient_id], K - start_idx, 256, 256), dtype=torch.uint8)  # K - 1 to skip the background class
         for patient_id in id2nfiles
     }
     ground_truths = {
-        patient_id: torch.zeros((id2nfiles[patient_id], K - 1, 256, 256), dtype=torch.uint8)
+        patient_id: torch.zeros((id2nfiles[patient_id], K - start_idx, 256, 256), dtype=torch.uint8)
         for patient_id in id2nfiles
     }
     cur_idx = {patient_id: 0 for patient_id in id2nfiles}
     
     if args.mode=='partial':
         raise NotImplementedError("args.mode partial training should not be used")
-
+    
     net.eval()
     # Loop over the dataset to fill the tensors
     with torch.no_grad():
@@ -222,15 +222,15 @@ def run_test(args):
                 pred_probs = F.softmax(
                     1 * pred_logits, dim=1
                 )  # 1 is the temperature parameter
-                
+
             # Metrics
             segmentation_prediction = probs2one_hot(pred_probs)
 
             for b in range(B):
                 patient_id = stems[b].split("_")[-2]
                 assert segmentation_prediction[b].shape == gt[b].shape
-                predictions[patient_id][cur_idx[patient_id]] = segmentation_prediction[b][1:]
-                ground_truths[patient_id][cur_idx[patient_id]] = gt[b][1:]
+                predictions[patient_id][cur_idx[patient_id]] = segmentation_prediction[b][start_idx:]
+                ground_truths[patient_id][cur_idx[patient_id]] = gt[b][start_idx:]
                 cur_idx[patient_id] += 1
 
     # Initialize dataframe for storing metric results
@@ -242,7 +242,7 @@ def run_test(args):
     for patient_id in predictions:
         pred = predictions[patient_id]
         gt = ground_truths[patient_id]
-        metrics = update_metrics_3D(metrics, pred, gt, patient_id, datasets_params[args.dataset]["names"][1:], metric_types)  # TODO implement this
+        metrics = update_metrics_3D(metrics, pred, gt, patient_id, datasets_params[args.dataset]["names"][start_idx:], metric_types)
     
     # Save the metrics in pickle format
     save_directory = Path(f"results_metrics/{args.model}/metrics3d/{str(args.from_checkpoint)[:-3]}")
@@ -283,6 +283,11 @@ def main():
         type=int,
         default=6,
         help="The rank of the LoRa matrices.",
+    )
+    parser.add_argument(
+        "--include_background",
+        action="store_true",
+        help="Include the background class in the metrics",
     )
     parser.add_argument("--dataset", default="SEGTHOR_MANUAL_SPLIT", choices=datasets_params.keys())
     parser.add_argument("--mode", default="full", choices=["partial", "full"])
