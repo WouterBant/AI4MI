@@ -93,7 +93,7 @@ def setup(args):
     )
 
     test_set = SliceDataset(
-        "val",  # TODO change this
+        "test",  # TODO change this
         root_dir,
         img_transform=img_transform,
         gt_transform=gt_transform,
@@ -108,7 +108,6 @@ def setup(args):
     for f in test_set.files:
         patient_id = str(f).split("_")[-2]
         id2nfiles[patient_id] = id2nfiles.get(patient_id, 0) + 1
-    print(id2nfiles["02"])
     args.dest.mkdir(parents=True, exist_ok=True)
 
     return (device, test_loader, id2nfiles, K)
@@ -120,7 +119,6 @@ def run_test(args):
     After these are filled the metrics are calculated and saved in a csv file, the metrics are calculated for each class.
     Tensors are not stored.
     """
-
 
     print(f">>> Setting up to testing on {args.dataset} with {args.mode}")
     device, loader, id2nfiles, K = setup(args)
@@ -156,11 +154,14 @@ def run_test(args):
     
     for file_path in args.folder.iterdir():
         if file_path.is_file():
+            print("loading", file_path)
             data = np.load(file_path)
             array = data["probabilities"]
+            print(array.shape)
             file_name = str(file_path).split("/")[-1]
             id_ = file_name.split("_")[-1].split(".")[0]
             predictions[id_] = probs2one_hot(F.interpolate(torch.from_numpy(array), size=(256, 256), mode='nearest').permute(1,0,3,2))
+            print(predictions[id_].shape)
 
     # Initialize dataframe for storing metric results
     columns = ['patient_id', 'slice_name', 'class', 'metric_type', 'metric_value']
