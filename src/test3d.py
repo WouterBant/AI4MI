@@ -91,6 +91,10 @@ def setup(args):
     elif args.model == "ENet":
         net = datasets_params[args.dataset]["net"](1, K)
         net.init_weights()
+    elif args.model == "SAM2UNet":
+        from sam2unet.sam2unet_model import SAM2UNet
+        datasets_params[args.dataset]["net"] = SAM2UNet
+        net = datasets_params[args.dataset]["net"](args.hiera_path)
 
     if args.crf:
         net = apply_crf(net, args)
@@ -215,6 +219,9 @@ def run_test(args):
                     pred_probs = F.softmax(
                         1 * pred_logits, dim=1
                     )  # 1 is the temperature parameter
+            elif args.model == "SAM2UNet":
+                pred_logits, _, _ = net(img)  # Get the primary output from the model
+                pred_probs = F.softmax(1 * pred_logits, dim=1)  # 1 is the temperature parameter
 
             # Other models
             else:
@@ -271,6 +278,9 @@ def main():
         required=True,
         choices=["samed", "samed_fast", "ENet", "nnUnet"],
         help="Model to use",
+    )
+    parser.add_argument("--hiera_path", type=str, required=False, 
+        help="path to the sam2 pretrained hiera"
     )
     parser.add_argument(
         "--dest",
