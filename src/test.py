@@ -12,14 +12,12 @@ from pprint import pprint
 from operator import itemgetter
 from datetime import datetime
 import tqdm
-import pickle
 
 import torch
 import numpy as np
 import torch.nn.functional as F
 from torchvision import transforms
 from torch.utils.data import DataLoader
-import torch.nn as nn
 
 from dataset import SliceDataset
 from ShallowNet import shallowCNN
@@ -30,7 +28,7 @@ from utils import (
     save_images,
     probs2class
 )
-from metrics import update_metrics_2D, print_store_metrics
+from metrics import update_metrics_2D
 from crf_model import apply_crf
 from collections import defaultdict
 import pandas as pd

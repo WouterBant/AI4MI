@@ -12,7 +12,6 @@ from pprint import pprint
 from operator import itemgetter
 from datetime import datetime
 import tqdm
-import pickle
 
 import torch
 import numpy as np

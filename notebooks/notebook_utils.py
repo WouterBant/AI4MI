@@ -234,4 +234,4 @@ def get_dataloader(split: str = "train", batch_size: int = 1) -> DataLoader:
         gt_transform=gt_transform,
         debug=False,
     )
-    return DataLoader(_set, batch_size=batch_size, num_workers=4, shuffle=False)
+    return DataLoader(_set, batch_size=batch_size, num_workers=0, shuffle=False)
