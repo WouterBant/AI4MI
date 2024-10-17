@@ -57,6 +57,8 @@ For future reference: when training a model with `torch.compile` save models wit
 
 ### Running the code
 
+> Note that for running the SAM based models you also need the checkpoints released by Meta. These download commands can also be found in [checkpoints/download_checkpoints.sh](checkpoints/download_checkpoints.sh).
+
 Run training with:
 ```bash
 python src/main.py
