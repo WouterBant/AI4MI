@@ -173,7 +173,7 @@ class CRF(nn.Module):
         kernel : torch.tensor
             Tensor of shape ``(filter_size,)``.
         """
-        distances = spacing * torch.arange(-(filter_size // 2), filter_size // 2 + 1).to(inverse_theta)
+        distances = spacing * torch.arange(int(-(filter_size // 2)), int(filter_size // 2 + 1)).to(inverse_theta)
         kernel = torch.exp(-(distances * inverse_theta) ** 2 / 2)
         zero_center = torch.ones(filter_size).to(kernel)
         zero_center[filter_size // 2] = 0

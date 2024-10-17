@@ -12,14 +12,12 @@ from pprint import pprint
 from operator import itemgetter
 from datetime import datetime
 import tqdm
-import pickle
 
 import torch
 import numpy as np
 import torch.nn.functional as F
 from torchvision import transforms
 from torch.utils.data import DataLoader
-import torch.nn as nn
 
 from dataset import SliceDataset
 from ShallowNet import shallowCNN
@@ -27,11 +25,16 @@ from ENet import ENet
 from utils import (
     class2one_hot,
     probs2one_hot,
+    save_images,
+    probs2class
 )
-from metrics import update_metrics_2D, print_store_metrics
+from metrics import update_metrics_2D
 from crf_model import apply_crf
 from collections import defaultdict
 import pandas as pd
+
+from EnsembleModel import ModelAccuracy, EnsembleSegmentationModel
+
 
 torch.set_float32_matmul_precision("high")
 
@@ -88,6 +91,30 @@ def setup(args):
             image_size=512
         )
         net = LoRA_Sam(sam, r=args.r)
+    elif args.model == "ensemble":
+        from samed_fast.sam_lora import LoRA_Sam
+        from samed_fast.segment_anything import sam_model_registry
+        checkpoints = [
+            "bestweights_samed_512_r6_augment_no_normalize_no.pt",
+            "bestweights_samed_512_r6_augment_yes_normalize_no.pt",
+        ]
+        models = [
+            ModelAccuracy(
+                LoRA_Sam(sam_model_registry["vit_b"](
+                    checkpoint="src/samed/checkpoints/sam_vit_b_01ec64.pth",
+                    num_classes=K,
+                    pixel_mean=[0.0457, 0.0457, 0.0457],
+                    pixel_std=[1.0, 1.0, 1.0],
+                    image_size=512
+                )[0], r=6),
+                [0.2, 0.2, 0.2, 0.2, 0.2]
+            )
+            for _ in checkpoints
+        ]
+        for model, checkpoint in zip(models, checkpoints):
+            model.model.load_state_dict(torch.load(checkpoint, map_location=device), strict=True)
+        
+        net = EnsembleSegmentationModel(models)
     elif args.model == "ENet":
         net = datasets_params[args.dataset]["net"](1, K)
         net.init_weights()
@@ -208,17 +235,34 @@ def run_test(args):
                 pred_probs = F.softmax(
                     1 * pred_logits, dim=1
                 )  # 1 is the temperature parameter
-                
-            # Metrics
-            segmentation_prediction = probs2one_hot(pred_probs)
-            metrics = update_metrics_2D(metrics, segmentation_prediction, gt, stems, datasets_params[args.dataset]["names"], metric_types)
+               
+               
+            # Save the predictions as PNG if requested
+            if args.save_png:
+                pred_class = probs2class(pred_probs)
+                save_directory = Path(f"results_metrics/{args.model}/metrics2d/{str(args.from_checkpoint)[:-3]}")
+                save_directory.mkdir(parents=True, exist_ok=True)
+                mult: int = 63 if K == 5 else (255 / (K - 1))
+                save_images(pred_class * mult, stems, save_directory / "png_predictions") 
             
-        # Save the metrics in pickle format
-        save_directory = args.dest / args.model
-        save_directory.mkdir(parents=True, exist_ok=True)
+            else:
+                # Only calculate metrics if we have the ground truth and don't save the predictions as PNG
+                segmentation_prediction = probs2one_hot(pred_probs)
+            
+                
+                metrics = update_metrics_2D(metrics, segmentation_prediction, gt, stems, datasets_params[args.dataset]["names"], metric_types)
+            
+        if args.save_png:
+            print(f"Predictions saved in {save_directory}/png_predictions")
+            print("Metrics will not be stored as we might not have the ground truth for all the slices")
+        else:
+            # Save the metrics in pickle format
+            save_directory = Path(f"results_metrics/{args.model}/metrics2d/{args.from_checkpoint[:-3]}")
+            save_directory.mkdir(parents=True, exist_ok=True)
+            metrics.to_csv(str(save_directory) + f"/{mode}_metrics.csv")
             
         # Save the metrics to a csv file
-        metrics.to_csv(str(save_directory) + f"/{mode}_metrics.csv")
+        # metrics.to_csv(str(save_directory) + f"/{mode}_metrics.csv")
             
         # Print and store the metrics #TODO: Fix the print_store_metrics function
         #print_store_metrics(metrics, str(save_directory))
@@ -242,7 +286,7 @@ def main():
     parser.add_argument(
         "--model",
         required=True,
-        choices=["samed", "samed_fast", "ENet", "nnUnet"],
+        choices=["samed", "samed_fast", "ENet", "nnUnet", "ensemble"],
         help="Model to use",
     )
     parser.add_argument(
@@ -279,6 +323,7 @@ def main():
     parser.add_argument(
         "--finetune_crf", action="store_true", help="Freeze the model and only train CRF and the last layer"
     )
+    parser.add_argument("--save_png", action="store_true", help="Save the predictions as PNG")
     args = parser.parse_args()
 
     pprint(args)

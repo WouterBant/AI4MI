@@ -12,6 +12,9 @@ __pycache__/
 # For mac user the .DS_Store
 .DS_Store
 
+# Ignore the png files in the results_metrics folder
+/results_metrics/**/*.png
+
 # Distribution / packaging
 .Python
 build/
@@ -173,3 +176,11 @@ wandb/
 *.pt
 *.pkl
 .conda
+
+data_copy/
+job_outputs/
+jobs/
+nnUNet/job_outputs/
+nnUNet/jobs/
+nnUNet/nnUNet_results/
+nnUNet/slurm-7935322.out

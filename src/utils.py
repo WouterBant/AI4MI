@@ -154,9 +154,9 @@ def meta_dice(
     sum_str: str, label: Tensor, pred: Tensor, smooth: float = 1e-8, skip_bg: bool = False
 ) -> Tensor:
     assert label.shape == pred.shape
-    if not skip_bg:
-        assert one_hot(label)
-        assert one_hot(pred)
+    # if not skip_bg:
+    #     assert one_hot(label)
+    #     assert one_hot(pred)
 
     inter_size: Tensor = einsum(sum_str, [intersection(label, pred)]).type(
         torch.float32
@@ -172,6 +172,7 @@ def meta_dice(
 
 dice_coef = partial(meta_dice, "bk...->bk")
 dice_batch = partial(meta_dice, "bk...->k")  # used for 3d dice
+our_dice_batch  = partial(meta_dice, "k... ->k")
 
 
 def intersection(a: Tensor, b: Tensor) -> Tensor:
@@ -239,7 +240,6 @@ def save_images(segs: Tensor, names: Iterable[str], root: Path) -> None:
             np.save(str(save_path), seg.detach().cpu().numpy())
         else:
             raise ValueError(seg.shape)
-
 
 def log_sample_images_wandb(
     img: Tensor,

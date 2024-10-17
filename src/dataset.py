@@ -136,7 +136,7 @@ class SliceDataset(Dataset):
 
         self.files = make_dataset(root_dir, subset)
         if debug:
-            self.files = self.files[:10]
+            self.files = self.files[:150]
 
         if self.augmentation_nnunet:
             self.augmentation_pipeline = AugmentationPipeline((256,256))
