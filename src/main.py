@@ -122,6 +122,12 @@ def setup(
             image_size=512
         )
         net = LoRA_Sam(sam, r=args.r)
+
+    elif args.model == "SAM2UNet":
+        from sam2unet_model import SAM2UNet
+        device = torch.device("cuda")
+        net = SAM2UNet(args.hiera_path)
+    
     else:
         net = datasets_params[args.dataset]["net"](1, K)
         net.init_weights()
@@ -249,6 +255,15 @@ def calc_loss_samed(
     return loss, loss_ce, loss_dice
 
 
+def calc_loss_sam2unet(
+    outputs, low_res_label_batch, ce_loss, dice_loss, dice_weight: float = 0.8
+):
+    outputs = outputs
+    loss_ce = ce_loss(outputs, low_res_label_batch[:].float())
+    loss_dice = dice_loss(outputs, low_res_label_batch, softmax=True)
+    loss = (1 - dice_weight) * loss_ce + dice_weight * loss_dice
+    return loss, loss_ce, loss_dice
+
 def runTraining(args):
     print(f">>> Setting up to train on {args.dataset} with {args.mode}")
     net, optimizer, device, train_loader, val_loader, K, scheduler, sampler = setup(args)
@@ -323,6 +338,14 @@ def runTraining(args):
                         )  # 1 is the temperature parameter
                         loss, loss_ce, loss_dice = calc_loss_samed(
                             preds, gt, ce_loss, dice_loss, dice_weight=0.8
+                        )
+                    elif args.model == "SAM2UNet":
+                        pred_logits, preds1, preds2 = net(img)
+                        pred_probs = F.softmax(
+                            1 * pred_logits, dim=1
+                        )  # 1 is the temperature parameter
+                        loss, loss_ce, loss_dice = calc_loss_sam2unet(
+                            pred_logits, gt, ce_loss, dice_loss, dice_weight=0.8
                         )
                     else:
                         pred_logits = net(img)
@@ -487,6 +510,9 @@ def main():
         default='enet',
         help="Model to use",
     )
+    parser.add_argument("--hiera_path", type=str, required=False, 
+        help="path to the sam2 pretrained hiera"
+    )
     parser.add_argument(
         "--optimizer",
         default="adamw",
@@ -554,7 +580,7 @@ def main():
 
     if args.dest is None:
         args.dest = Path(
-            f"results/{args.dataset}/{datetime.now().strftime("%Y-%m-%d")}"
+            f"results/{args.dataset}/{datetime.now().strftime('%Y-%m-%d')}"
         )
 
     runTraining(args)
