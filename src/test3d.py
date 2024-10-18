@@ -276,7 +276,7 @@ def main():
     parser.add_argument(
         "--model",
         required=True,
-        choices=["samed", "samed_fast", "ENet", "nnUnet"],
+        choices=["samed", "samed_fast", "ENet", "nnUnet", "SAM2UNet"],
         help="Model to use",
     )
     parser.add_argument("--hiera_path", type=str, required=False, 
