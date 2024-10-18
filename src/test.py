@@ -119,7 +119,7 @@ def setup(args):
         net = datasets_params[args.dataset]["net"](1, K)
         net.init_weights()
     elif args.model == "SAM2UNet":
-        from sam2unet.sam2unet_model import SAM2UNet
+        from sam2unet_model import SAM2UNet
         device = torch.device("cuda")
         # Load trained model
         net = SAM2UNet(args.hiera_path)

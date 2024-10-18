@@ -92,7 +92,7 @@ def setup(args):
         net = datasets_params[args.dataset]["net"](1, K)
         net.init_weights()
     elif args.model == "SAM2UNet":
-        from sam2unet.sam2unet_model import SAM2UNet
+        from sam2unet_model import SAM2UNet
         datasets_params[args.dataset]["net"] = SAM2UNet
         net = datasets_params[args.dataset]["net"](args.hiera_path)
 

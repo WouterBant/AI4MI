@@ -124,7 +124,7 @@ def setup(
         net = LoRA_Sam(sam, r=args.r)
 
     elif args.model == "SAM2UNet":
-        from sam2unet.sam2unet_model import SAM2UNet
+        from sam2unet_model import SAM2UNet
         device = torch.device("cuda")
         net = SAM2UNet(args.hiera_path)
     
@@ -580,7 +580,7 @@ def main():
 
     if args.dest is None:
         args.dest = Path(
-            f"results/{args.dataset}/{datetime.now().strftime("%Y-%m-%d")}"
+            f"results/{args.dataset}/{datetime.now().strftime('%Y-%m-%d')}"
         )
 
     runTraining(args)
