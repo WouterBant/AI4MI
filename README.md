@@ -12,7 +12,7 @@
 </table>
 
 ## Introduction
-The code for reproducing our paper "". We experiment with different SAM based methods and more standard methods like Enet and nnUnet on the SEGTHOR dataset. Short description of our main findings. The obtained results can be found [here](results) and can be converted to human unreadable npy files with [csv2npy.py](results_metrics/csv2npy.py).
+The code for reproducing our paper "Thoracic Organ-at-Risk Segmentation: A Case Study with SAM, ENet, and nnU-Net Models". We experiment with different SAM based methods and more standard methods like Enet and nnUnet on the SEGTHOR dataset. We find that SAM based models can outperform ENet models but nnU-Net was superior across various settings. The obtained results can be found [here](results) and can be converted to npy files with [csv2npy.py](results_metrics/csv2npy.py).
 
 ## Quick Start
 
@@ -33,21 +33,8 @@ Activate this environment to run the code without dependency problems:
 conda activate ai4mi
 ```
 
-### Getting the augmentations
-First install batchaugmenters:
-```pip install --upgrade batchgenerators```
-
-To generate the augmentations with the same parameters and probabilities as nnUNet run:
-
-```python data_augmenter.py```
-
-This takes the images from ```data/SEGTHOR_MANUAL_SPLIT/train```, augments some of them and saves these again to this folder, resulting in all original images + augmented images.
-
-If you want to augment images from a different folder or same them to a different folder you can do that through the command line arguments.
-
-
 ### Getting the pretrained checkpoints
-It is possible to obtain the checkpoints of all models of which results are presented in the paper. [checkpoints/download_checkpoints.sh](checkpoints/download_checkpoints.sh) contains commands to download the various models. By default all commands are commented, uncomment the ones you are interested and run:
+It is possible to obtain the checkpoints of all SAMed models. [checkpoints/download_checkpoints.sh](checkpoints/download_checkpoints.sh) contains commands to download the various models. By default all commands are commented, uncomment the ones you are interested and run:
 
 ```bash
 bash checkpoints/download_checkpoints.sh
@@ -57,7 +44,7 @@ For future reference: when training a model with `torch.compile` save models wit
 
 ### Running the code
 
-> Note that for running the SAM based models you also need the checkpoints released by Meta. These download commands can also be found in [checkpoints/download_checkpoints.sh](checkpoints/download_checkpoints.sh).
+> **Note that for running the SAM based models you also need the checkpoints released by Meta**. These download commands can also be found in [checkpoints/download_checkpoints.sh](checkpoints/download_checkpoints.sh).
 
 Run training with:
 ```bash
@@ -73,9 +60,8 @@ export WANDB_API_KEY="Your key here"
 <details> <summary>Click to expand full usage </summary>
 
 ```bash
-usage: main.py [-h] [--epochs EPOCHS] [--lr LR] [--weight_decay WEIGHT_DECAY] [--batch_size BATCH_SIZE] [--gradient_accumulation_steps GRADIENT_ACCUMULATION_STEPS] [--use_scheduler] [--use_sampler] [--augment] [--model MODEL] [--optimizer {adam,sgd,adamw,sgd-wd}]
-               [--dataset {TOY2,SEGTHOR,SEGTHOR_MANUAL_SPLIT}] [--mode {partial,full}] [--loss {ce,dice_monai,gdl,dce}] [--ce_lambda CE_LAMBDA] [--dest DEST] [--r R] [--from_checkpoint FROM_CHECKPOINT] [--gpu] [--num_workers NUM_WORKERS] [--debug] [--normalize] [--deterministic]
-               [--use_wandb] [--clip_grad] [--crf] [--finetune_crf]
+usage: main.py [-h] [--epochs EPOCHS] [--lr LR] [--weight_decay WEIGHT_DECAY] [--batch_size BATCH_SIZE] [--gradient_accumulation_steps GRADIENT_ACCUMULATION_STEPS] [--use_scheduler] [--use_sampler] [--augment] [--augment_nnunet] [--model MODEL] [--hiera_path HIERA_PATH] [--optimizer {adam,sgd,adamw,sgd-wd}]
+               [--dataset {TOY2,SEGTHOR,SEGTHOR_MANUAL_SPLIT}] [--mode {partial,full}] [--loss {ce,dice_monai,gdl,dce}] [--ce_lambda CE_LAMBDA] [--dest DEST] [--r R] [--from_checkpoint FROM_CHECKPOINT] [--gpu] [--num_workers NUM_WORKERS] [--debug] [--normalize] [--deterministic] [--use_wandb] [--clip_grad] [--crf] [--finetune_crf]
 
 options:
   -h, --help            show this help message and exit
@@ -90,7 +76,10 @@ options:
   --use_scheduler       Use CosineWarmupScheduler
   --use_sampler         Use AdaptiveSampler
   --augment             Augment the training dataset
+  --augment_nnunet      Augment the training dataset with nnUNet augmentations
   --model MODEL         Model to use
+  --hiera_path HIERA_PATH
+                        path to the sam2 pretrained hiera
   --optimizer {adam,sgd,adamw,sgd-wd}
                         Optimizer to use
   --dataset {TOY2,SEGTHOR,SEGTHOR_MANUAL_SPLIT}
@@ -114,13 +103,13 @@ options:
 
 <br>
 
-And evaluation with:
+And evaluation on 2D metrics with:
 
 ```bash
 python src/test.py --from_checkpoint [your_checkpoint]
 ```
 
-Or easier (uncomment the lines of models you want to test and make sure to download the corresponding checkpoint first):
+Or easier (uncomment the lines of SAMed models you want to test and make sure to download the corresponding checkpoint first):
 ```bash
 bash test.sh
 ```
@@ -129,16 +118,18 @@ bash test.sh
 
 <br>
 
-Note that for the compiled models a GPU is required to run inference as the model needs to be comiled again.
-
 ```bash
-usage: test.py [-h] [--batch_size BATCH_SIZE] [--model MODEL] [--dest DEST] [--r R] [--dataset {TOY2,SEGTHOR,SEGTHOR_MANUAL_SPLIT}] [--mode {partial,full}] [--from_checkpoint FROM_CHECKPOINT] [--gpu] [--num_workers NUM_WORKERS] [--debug] [--normalize]
+usage: test.py [-h] [--batch_size BATCH_SIZE] --model {samed,samed_fast,ENet,ensemble,SAM2UNet} [--hiera_path HIERA_PATH] [--dest DEST] [--r R] [--dataset {TOY2,SEGTHOR,SEGTHOR_MANUAL_SPLIT}] [--mode {partial,full}] [--from_checkpoint FROM_CHECKPOINT] [--gpu] [--num_workers NUM_WORKERS] [--debug] [--normalize] [--crf] [--finetune_crf]
+               [--save_png]
 
 options:
   -h, --help            show this help message and exit
   --batch_size BATCH_SIZE
                         Batch size
-  --model MODEL         Model to use
+  --model {samed,samed_fast,ENet,ensemble,SAM2UNet}
+                        Model to use
+  --hiera_path HIERA_PATH
+                        path to the sam2 pretrained hiera
   --dest DEST           Destination directory to save the results (predictions and weights).
   --r R                 The rank of the LoRa matrices.
   --dataset {TOY2,SEGTHOR,SEGTHOR_MANUAL_SPLIT}
@@ -148,9 +139,56 @@ options:
   --num_workers NUM_WORKERS
   --debug               Keep only a fraction (10 samples) of the datasets, to test the logic around epochs and logging easily.
   --normalize           Normalize the input images
+  --crf                 Apply CRF on the output
+  --finetune_crf        Freeze the model and only train CRF and the last layer
+  --save_png            Save the predictions as PNG
 ```
 </details>
 
+<br> 
+Evaluate with 3D metrics with:
+
+```bash
+python src/test3d.py
+```
+
+<details> <summary>Click to expand full usage </summary>
+
+<br>
+
+```bash
+usage: test3d.py [-h] [--batch_size BATCH_SIZE] --model {samed,samed_fast,ENet,SAM2UNet} [--hiera_path HIERA_PATH] [--dest DEST] [--r R] [--include_background] [--dataset {TOY2,SEGTHOR,SEGTHOR_MANUAL_SPLIT}] [--mode {partial,full}] [--from_checkpoint FROM_CHECKPOINT] [--gpu] [--num_workers NUM_WORKERS] [--debug] [--normalize] [--crf]
+                 [--finetune_crf]
+
+options:
+  -h, --help            show this help message and exit
+  --batch_size BATCH_SIZE
+                        Batch size
+  --model {samed,samed_fast,ENet,SAM2UNet}
+                        Model to use
+  --hiera_path HIERA_PATH
+                        path to the sam2 pretrained hiera
+  --dest DEST           Destination directory to save the results (predictions and weights).
+  --r R                 The rank of the LoRa matrices.
+  --include_background  Include the background class in the metrics
+  --dataset {TOY2,SEGTHOR,SEGTHOR_MANUAL_SPLIT}
+  --mode {partial,full}
+  --from_checkpoint FROM_CHECKPOINT
+  --gpu
+  --num_workers NUM_WORKERS
+  --debug               Keep only a fraction (10 samples) of the datasets, to test the logic around epochs and logging easily.
+  --normalize           Normalize the input images
+  --crf                 Apply CRF on the output
+  --finetune_crf        Freeze the model and only train CRF and the last layer
+```
+</details>
+
+<br>
+
+We found it easier to evaluate nnU-Net with the predicted logits rather than loading the model in our scripts. 3D evaluation is done with:
+```bash
+python src/test3dnnunet.py
+```
 
 ## Our contributions
 - Notebook showing how we were able to fix the data (with and without the provided transformation matrix) and are able to work with nifti files: [notebooks/heart_transform](notebooks/heart_transform.ipynb), this is incorporated in [src/slice_seghtor.py](src/slice_segthor.py).
@@ -170,5 +208,7 @@ This was part of a project for the course AI for Medical Imaging (2024) at the U
 - SAM: https://github.com/facebookresearch/segment-an
 - Implementation for LoRA for SAM: https://github.com/JamesQFreeman/Sam_LoRA
 - We further adopted parts of the code of samed who also fine-tuned SAM for medical image segmentation: https://github.com/hitachinsk/SAMed
-
-We started of from https://github.com/JamesQFreeman/Sam_LoRA and committed changes from there on. Note that some of these changes come directly from https://github.com/hitachinsk/SAMed.
+- nnU-Net: https://github.com/MIC-DKFZ/nnUNet
+- Batchgenerators: https://github.com/MIC-DKFZ/batchgenerators
+- SAM2-UNet: https://github.com/WZH0120/SAM2-UNet
+- CRF: https://github.com/mishgon/crfseg

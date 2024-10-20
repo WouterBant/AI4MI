@@ -14,3 +14,4 @@ seaborn==0.13.2
 multiprocess
 threadpoolctl
 batchgenerators
+medpy

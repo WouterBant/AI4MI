@@ -25,7 +25,6 @@ def update_metrics_3D(metrics, pred: Tensor, gt: Tensor, patient_id: str, classe
 
     for metric_type in metric_types:
         if metric_type in metric_functions:
-            print(metric_type)
             metric_name, func = metric_functions[metric_type]
             results = func(pred, gt)
             assert results.shape == (K, ), f"shape is {results.shape}"
@@ -40,7 +39,6 @@ def hausdorf3d(pred: Tensor, gt: Tensor):
     for k in range(len(pred)):
         i = pred[k]
         g = gt[k]
-        print(i.sum(), g.sum())
         res[k] = hd(i, g)
     return res
 
@@ -89,8 +87,6 @@ def jaccard_index(pred, gt):
     intersection = torch.logical_and(gt == 1, pred == 1).sum(dim=(-3, -2, -1)).float()
     union = torch.logical_or(gt == 1, pred == 1).sum(dim=(-3, -2, -1)).float()
 
-    print(intersection.shape, union.shape)
-    
     # Handle division by zero (no positives in ground truth and prediction)
     iou = (intersection + 1e-8) / (union + 1e-8)  # Adding small epsilon to prevent division by zero
     return iou
@@ -108,7 +104,6 @@ def volumetric_similarity(pred, gt):
     # Calculate the volumes (number of foreground pixels)
     vol_gt = (gt == 1).sum(dim=(-3, -2, -1)).float()
     vol_pred = (pred == 1).sum(dim=(-3, -2, -1)).float()
-    print(vol_gt, vol_pred)
 
     # Compute the absolute difference and the total volume
     abs_diff = torch.abs(vol_gt - vol_pred)

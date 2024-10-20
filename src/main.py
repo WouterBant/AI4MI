@@ -215,7 +215,7 @@ def setup(
     if args.use_sampler:
         sampler = AdaptiveSampler(train_set, B, args.epochs)
         train_loader = DataLoader(
-            train_set, batch_size=B, num_workers=args.num_workers, sampler=sampler
+            train_set, batch_size=B, num_workers=0, sampler=sampler
         )
     else:
         train_loader = DataLoader(
