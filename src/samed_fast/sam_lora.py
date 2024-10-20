@@ -17,12 +17,12 @@ class _LoRA_qkv(nn.Module):
     """
 
     def __init__(
-            self,
-            qkv: nn.Module,
-            linear_a_q: nn.Module,
-            linear_b_q: nn.Module,
-            linear_a_v: nn.Module,
-            linear_b_v: nn.Module,
+        self,
+        qkv: nn.Module,
+        linear_a_q: nn.Module,
+        linear_b_q: nn.Module,
+        linear_a_v: nn.Module,
+        linear_b_v: nn.Module,
     ):
         super().__init__()
         self.qkv = qkv
@@ -38,7 +38,7 @@ class _LoRA_qkv(nn.Module):
         new_q = self.linear_b_q(self.linear_a_q(x))
         new_v = self.linear_b_v(self.linear_a_v(x))
         qkv[:, :, :, : self.dim] += new_q
-        qkv[:, :, :, -self.dim:] += new_v
+        qkv[:, :, :, -self.dim :] += new_v
         return qkv
 
 
@@ -80,8 +80,7 @@ class LoRA_Sam(nn.Module):
         if lora_layer:
             self.lora_layer = lora_layer
         else:
-            self.lora_layer = list(
-                range(len(sam_model.image_encoder.blocks)))
+            self.lora_layer = list(range(len(sam_model.image_encoder.blocks)))
         # create for storage, then we can init them or load weights
         self.w_As = []  # These are linear layers
         self.w_Bs = []
@@ -136,8 +135,12 @@ class LoRA_Sam(nn.Module):
             self.self_attn_Bs.append(w_b_linear_q_self_attn)
             self.self_attn_As.append(w_a_linear_v_self_attn)
             self.self_attn_Bs.append(w_b_linear_v_self_attn)
-            blk.self_attn.q_proj = _LoRA_qkv_proj(self_attn_q_proj, w_a_linear_q_self_attn, w_b_linear_q_self_attn)
-            blk.self_attn.v_proj = _LoRA_qkv_proj(self_attn_v_proj, w_a_linear_v_self_attn, w_b_linear_v_self_attn)
+            blk.self_attn.q_proj = _LoRA_qkv_proj(
+                self_attn_q_proj, w_a_linear_q_self_attn, w_b_linear_q_self_attn
+            )
+            blk.self_attn.v_proj = _LoRA_qkv_proj(
+                self_attn_v_proj, w_a_linear_v_self_attn, w_b_linear_v_self_attn
+            )
 
             cross_attn_ti_q_proj = blk.cross_attn_token_to_image.q_proj
             cross_attn_ti_v_proj = blk.cross_attn_token_to_image.v_proj
@@ -151,10 +154,16 @@ class LoRA_Sam(nn.Module):
             self.cross_attn_ti_Bs.append(w_b_linear_q_cross_attn_ti)
             self.cross_attn_ti_As.append(w_a_linear_v_cross_attn_ti)
             self.cross_attn_ti_Bs.append(w_b_linear_v_cross_attn_ti)
-            blk.cross_attn_token_to_image.q_proj = _LoRA_qkv_proj(cross_attn_ti_q_proj, w_a_linear_q_cross_attn_ti,
-                                                                  w_b_linear_q_cross_attn_ti)
-            blk.cross_attn_token_to_image.v_proj = _LoRA_qkv_proj(cross_attn_ti_v_proj, w_a_linear_v_cross_attn_ti,
-                                                                  w_b_linear_v_cross_attn_ti)
+            blk.cross_attn_token_to_image.q_proj = _LoRA_qkv_proj(
+                cross_attn_ti_q_proj,
+                w_a_linear_q_cross_attn_ti,
+                w_b_linear_q_cross_attn_ti,
+            )
+            blk.cross_attn_token_to_image.v_proj = _LoRA_qkv_proj(
+                cross_attn_ti_v_proj,
+                w_a_linear_v_cross_attn_ti,
+                w_b_linear_v_cross_attn_ti,
+            )
 
             cross_attn_it_q_proj = blk.cross_attn_image_to_token.q_proj
             cross_attn_it_v_proj = blk.cross_attn_image_to_token.v_proj
@@ -168,10 +177,16 @@ class LoRA_Sam(nn.Module):
             self.cross_attn_it_Bs.append(w_b_linear_q_cross_attn_it)
             self.cross_attn_it_As.append(w_a_linear_v_cross_attn_it)
             self.cross_attn_it_Bs.append(w_b_linear_v_cross_attn_it)
-            blk.cross_attn_image_to_token.q_proj = _LoRA_qkv_proj(cross_attn_it_q_proj, w_a_linear_q_cross_attn_it,
-                                                                  w_b_linear_q_cross_attn_it)
-            blk.cross_attn_image_to_token.v_proj = _LoRA_qkv_proj(cross_attn_it_v_proj, w_a_linear_v_cross_attn_it,
-                                                                  w_b_linear_v_cross_attn_it)
+            blk.cross_attn_image_to_token.q_proj = _LoRA_qkv_proj(
+                cross_attn_it_q_proj,
+                w_a_linear_q_cross_attn_it,
+                w_b_linear_q_cross_attn_it,
+            )
+            blk.cross_attn_image_to_token.v_proj = _LoRA_qkv_proj(
+                cross_attn_it_v_proj,
+                w_a_linear_v_cross_attn_it,
+                w_b_linear_v_cross_attn_it,
+            )
 
         # final attention token to image
         block = decoder_transformer.final_attn_token_to_image
@@ -182,8 +197,12 @@ class LoRA_Sam(nn.Module):
         self.fa_ti_q_proj_B = nn.Linear(r, out_dim, bias=False)
         self.fa_ti_v_proj_A = nn.Linear(in_dim, r, bias=False)
         self.fa_ti_v_proj_B = nn.Linear(r, out_dim, bias=False)
-        block.q_proj = _LoRA_qkv_proj(fa_ti_q_proj, self.fa_ti_q_proj_A, self.fa_ti_q_proj_B)
-        block.v_proj = _LoRA_qkv_proj(fa_ti_v_proj, self.fa_ti_v_proj_A, self.fa_ti_v_proj_B)
+        block.q_proj = _LoRA_qkv_proj(
+            fa_ti_q_proj, self.fa_ti_q_proj_A, self.fa_ti_q_proj_B
+        )
+        block.v_proj = _LoRA_qkv_proj(
+            fa_ti_v_proj, self.fa_ti_v_proj_A, self.fa_ti_v_proj_B
+        )
 
         self.reset_parameters()
         self.sam = sam_model
@@ -196,38 +215,70 @@ class LoRA_Sam(nn.Module):
         save both lora and fc parameters.
         """
 
-        assert filename.endswith(".pt") or filename.endswith('.pth')
+        assert filename.endswith(".pt") or filename.endswith(".pth")
 
         num_layer = len(self.w_As)  # actually, it is half
         a_tensors = {f"w_a_{i:03d}": self.w_As[i].weight for i in range(num_layer)}
         b_tensors = {f"w_b_{i:03d}": self.w_Bs[i].weight for i in range(num_layer)}
-        sa_a_tensors = {f"sa_a_{i:03d}": self.self_attn_As[i].weight for i in range(len(self.self_attn_As))}
-        sa_b_tensors = {f"sa_b_{i:03d}": self.self_attn_Bs[i].weight for i in range(len(self.self_attn_Bs))}
-        cti_a_tensors = {f"cti_a_{i:03d}": self.cross_attn_ti_As[i].weight for i in range(len(self.cross_attn_ti_As))}
-        cti_b_tensors = {f"cti_b_{i:03d}": self.cross_attn_ti_Bs[i].weight for i in range(len(self.cross_attn_ti_Bs))}
-        cit_a_tensors = {f"cit_a_{i:03d}": self.cross_attn_it_As[i].weight for i in range(len(self.cross_attn_it_As))}
-        cit_b_tensors = {f"cit_b_{i:03d}": self.cross_attn_it_Bs[i].weight for i in range(len(self.cross_attn_it_Bs))}
-        fa_ti_tensors = {'fati_qa': self.fa_ti_q_proj_A.weight, 'fati_qb': self.fa_ti_q_proj_B.weight,
-                         'fati_va': self.fa_ti_v_proj_A.weight,
-                         'fati_vb': self.fa_ti_v_proj_B.weight}
+        sa_a_tensors = {
+            f"sa_a_{i:03d}": self.self_attn_As[i].weight
+            for i in range(len(self.self_attn_As))
+        }
+        sa_b_tensors = {
+            f"sa_b_{i:03d}": self.self_attn_Bs[i].weight
+            for i in range(len(self.self_attn_Bs))
+        }
+        cti_a_tensors = {
+            f"cti_a_{i:03d}": self.cross_attn_ti_As[i].weight
+            for i in range(len(self.cross_attn_ti_As))
+        }
+        cti_b_tensors = {
+            f"cti_b_{i:03d}": self.cross_attn_ti_Bs[i].weight
+            for i in range(len(self.cross_attn_ti_Bs))
+        }
+        cit_a_tensors = {
+            f"cit_a_{i:03d}": self.cross_attn_it_As[i].weight
+            for i in range(len(self.cross_attn_it_As))
+        }
+        cit_b_tensors = {
+            f"cit_b_{i:03d}": self.cross_attn_it_Bs[i].weight
+            for i in range(len(self.cross_attn_it_Bs))
+        }
+        fa_ti_tensors = {
+            "fati_qa": self.fa_ti_q_proj_A.weight,
+            "fati_qb": self.fa_ti_q_proj_B.weight,
+            "fati_va": self.fa_ti_v_proj_A.weight,
+            "fati_vb": self.fa_ti_v_proj_B.weight,
+        }
         prompt_encoder_tensors = {}
         mask_decoder_tensors = {}
 
         # save prompt encoder, only `state_dict`, the `named_parameter` is not permitted
-        if isinstance(self.sam, torch.nn.DataParallel) or isinstance(self.sam,
-                                                                     torch.nn.parallel.DistributedDataParallel):
+        if isinstance(self.sam, torch.nn.DataParallel) or isinstance(
+            self.sam, torch.nn.parallel.DistributedDataParallel
+        ):
             state_dict = self.sam.module.state_dict()
         else:
             state_dict = self.sam.state_dict()
         for key, value in state_dict.items():
-            if 'prompt_encoder' in key:
+            if "prompt_encoder" in key:
                 prompt_encoder_tensors[key] = value
-            if 'mask_decoder' in key and 'transformer' not in key:
+            if "mask_decoder" in key and "transformer" not in key:
                 mask_decoder_tensors[key] = value
 
-        merged_dict = {**a_tensors, **b_tensors, **sa_a_tensors, **sa_b_tensors, **cti_a_tensors, **cti_b_tensors,
-                       **cit_a_tensors, **cit_b_tensors, **prompt_encoder_tensors, **mask_decoder_tensors,
-                       **fa_ti_tensors}
+        merged_dict = {
+            **a_tensors,
+            **b_tensors,
+            **sa_a_tensors,
+            **sa_b_tensors,
+            **cti_a_tensors,
+            **cti_b_tensors,
+            **cit_a_tensors,
+            **cit_b_tensors,
+            **prompt_encoder_tensors,
+            **mask_decoder_tensors,
+            **fa_ti_tensors,
+        }
         torch.save(merged_dict, filename)
 
     def load_lora_parameters(self, filename: str) -> None:
@@ -238,7 +289,7 @@ class LoRA_Sam(nn.Module):
         load both lora and fc parameters.
         """
 
-        assert filename.endswith(".pt") or filename.endswith('.pth')
+        assert filename.endswith(".pt") or filename.endswith(".pth")
 
         state_dict = torch.load(filename)
 
@@ -291,15 +342,21 @@ class LoRA_Sam(nn.Module):
         sam_keys = sam_dict.keys()
 
         # load prompt encoder
-        prompt_encoder_keys = [k for k in sam_keys if 'prompt_encoder' in k]
+        prompt_encoder_keys = [k for k in sam_keys if "prompt_encoder" in k]
         prompt_encoder_values = [state_dict[k] for k in prompt_encoder_keys]
-        prompt_encoder_new_state_dict = {k: v for k, v in zip(prompt_encoder_keys, prompt_encoder_values)}
+        prompt_encoder_new_state_dict = {
+            k: v for k, v in zip(prompt_encoder_keys, prompt_encoder_values)
+        }
         sam_dict.update(prompt_encoder_new_state_dict)
 
         # load mask decoder
-        mask_decoder_keys = [k for k in sam_keys if 'mask_decoder' in k and 'transformer' not in k]
+        mask_decoder_keys = [
+            k for k in sam_keys if "mask_decoder" in k and "transformer" not in k
+        ]
         mask_decoder_values = [state_dict[k] for k in mask_decoder_keys]
-        mask_decoder_new_state_dict = {k: v for k, v in zip(mask_decoder_keys, mask_decoder_values)}
+        mask_decoder_new_state_dict = {
+            k: v for k, v in zip(mask_decoder_keys, mask_decoder_values)
+        }
         sam_dict.update(mask_decoder_new_state_dict)
         self.sam.load_state_dict(sam_dict)
 

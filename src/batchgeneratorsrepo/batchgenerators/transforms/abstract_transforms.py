@@ -27,8 +27,12 @@ class AbstractTransform(object):
         raise NotImplementedError("Abstract, so implement")
 
     def __repr__(self):
-        ret_str = str(type(self).__name__) + "( " + ", ".join(
-            [key + " = " + repr(val) for key, val in self.__dict__.items()]) + " )"
+        ret_str = (
+            str(type(self).__name__)
+            + "( "
+            + ", ".join([key + " = " + repr(val) for key, val in self.__dict__.items()])
+            + " )"
+        )
         return ret_str
 
 
@@ -48,9 +52,11 @@ class RndTransform(AbstractTransform):
     """
 
     def __init__(self, transform, expprob=0.5, alternative_transform=None):
-        warn("This is deprecated. All applicable transfroms now have a p_per_sample argument which allows "
-             "batchgenerators to do or not do an augmentation on a per-sample basis instead of the entire batch",
-             DeprecationWarning)
+        warn(
+            "This is deprecated. All applicable transfroms now have a p_per_sample argument which allows "
+            "batchgenerators to do or not do an augmentation on a per-sample basis instead of the entire batch",
+            DeprecationWarning,
+        )
         self.alternative_transform = alternative_transform
         self.transform = transform
         self.prob = np.log(expprob)

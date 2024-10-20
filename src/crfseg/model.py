@@ -31,8 +31,16 @@ class CRF(nn.Module):
         If it is a sequence its length must be equal to ``n_spatial_dims``.
     """
 
-    def __init__(self, n_spatial_dims, filter_size=11, n_iter=5, requires_grad=True,
-                 returns='logits', smoothness_weight=1, smoothness_theta=1):
+    def __init__(
+        self,
+        n_spatial_dims,
+        filter_size=11,
+        n_iter=5,
+        requires_grad=True,
+        returns="logits",
+        smoothness_weight=1,
+        smoothness_theta=1,
+    ):
         super().__init__()
         self.n_spatial_dims = n_spatial_dims
         self.n_iter = n_iter
@@ -40,11 +48,22 @@ class CRF(nn.Module):
         self.returns = returns
         self.requires_grad = requires_grad
 
-        self._set_param('smoothness_weight', smoothness_weight)
-        self._set_param('inv_smoothness_theta', 1 / np.broadcast_to(smoothness_theta, n_spatial_dims))
+        self._set_param("smoothness_weight", smoothness_weight)
+        self._set_param(
+            "inv_smoothness_theta",
+            1 / np.broadcast_to(smoothness_theta, n_spatial_dims),
+        )
 
     def _set_param(self, name, init_value):
-        setattr(self, name, nn.Parameter(torch.tensor(init_value, dtype=torch.float, requires_grad=self.requires_grad)))
+        setattr(
+            self,
+            name,
+            nn.Parameter(
+                torch.tensor(
+                    init_value, dtype=torch.float, requires_grad=self.requires_grad
+                )
+            ),
+        )
 
     def forward(self, x, spatial_spacings=None, verbose=False):
         """
@@ -89,17 +108,23 @@ class CRF(nn.Module):
             # adding unary potentials
             x = negative_unary - x
 
-        if self.returns == 'logits':
+        if self.returns == "logits":
             output = x
-        elif self.returns == 'proba':
+        elif self.returns == "proba":
             output = F.softmax(x, dim=1)
-        elif self.returns == 'log-proba':
+        elif self.returns == "log-proba":
             output = F.log_softmax(x, dim=1)
         else:
-            raise ValueError("Attribute ``returns`` must be 'logits', 'proba' or 'log-proba'.")
+            raise ValueError(
+                "Attribute ``returns`` must be 'logits', 'proba' or 'log-proba'."
+            )
 
         if n_classes == 1:
-            output = output[:, 0] - output[:, 1] if self.returns == 'logits' else output[:, 0]
+            output = (
+                output[:, 0] - output[:, 1]
+                if self.returns == "logits"
+                else output[:, 0]
+            )
             output.unsqueeze_(1)
 
         return output
@@ -118,7 +143,12 @@ class CRF(nn.Module):
         output : torch.tensor
             Tensor of shape ``(batch_size, n_classes, *spatial)``.
         """
-        return torch.stack([self._single_smoothing_filter(x[i], spatial_spacings[i]) for i in range(x.shape[0])])
+        return torch.stack(
+            [
+                self._single_smoothing_filter(x[i], spatial_spacings[i])
+                for i in range(x.shape[0])
+            ]
+        )
 
     @staticmethod
     def _pad(x, filter_size):
@@ -149,8 +179,15 @@ class CRF(nn.Module):
             x = x.flatten(0, -2).unsqueeze(1)
 
             # 1d gaussian filtering
-            kernel = self._create_gaussian_kernel1d(self.inv_smoothness_theta[i], spatial_spacing[i],
-                                                   self.filter_size[i]).view(1, 1, -1).to(x)
+            kernel = (
+                self._create_gaussian_kernel1d(
+                    self.inv_smoothness_theta[i],
+                    spatial_spacing[i],
+                    self.filter_size[i],
+                )
+                .view(1, 1, -1)
+                .to(x)
+            )
             x = F.conv1d(x, kernel)
 
             # reshape back to (n, *spatial)
@@ -173,8 +210,10 @@ class CRF(nn.Module):
         kernel : torch.tensor
             Tensor of shape ``(filter_size,)``.
         """
-        distances = spacing * torch.arange(int(-(filter_size // 2)), int(filter_size // 2 + 1)).to(inverse_theta)
-        kernel = torch.exp(-(distances * inverse_theta) ** 2 / 2)
+        distances = spacing * torch.arange(
+            int(-(filter_size // 2)), int(filter_size // 2 + 1)
+        ).to(inverse_theta)
+        kernel = torch.exp(-((distances * inverse_theta) ** 2) / 2)
         zero_center = torch.ones(filter_size).to(kernel)
         zero_center[filter_size // 2] = 0
         return kernel * zero_center
@@ -190,8 +229,10 @@ class CRF(nn.Module):
         output : torch.tensor of shape ``(batch_size, n_classes, *spatial)``.
         """
         labels = torch.arange(x.shape[1])
-        compatibility_matrix = self._compatibility_function(labels, labels.unsqueeze(1)).to(x)
-        return torch.einsum('ij..., jk -> ik...', x, compatibility_matrix)
+        compatibility_matrix = self._compatibility_function(
+            labels, labels.unsqueeze(1)
+        ).to(x)
+        return torch.einsum("ij..., jk -> ik...", x, compatibility_matrix)
 
     @staticmethod
     def _compatibility_function(label1, label2):

@@ -35,8 +35,15 @@ except ImportError:
     torch = None
 
 
-def producer(queue: Queue, data_loader, transform, thread_id: int, seed,
-             abort_event: Event, wait_time: float = 0.02):
+def producer(
+    queue: Queue,
+    data_loader,
+    transform,
+    thread_id: int,
+    seed,
+    abort_event: Event,
+    wait_time: float = 0.02,
+):
     # the producer will set the abort event if something happens
     with threadpool_limits(1, None):
         np.random.seed(seed)
@@ -45,7 +52,6 @@ def producer(queue: Queue, data_loader, transform, thread_id: int, seed,
 
         try:
             while True:
-
                 if abort_event.is_set():
                     return
                 else:
@@ -81,13 +87,24 @@ def pin_memory_of_all_eligible_items_in_dict(result_dict):
     return result_dict
 
 
-def results_loop(in_queue: Queue, out_queue: thrQueue, abort_event: Event,
-                 pin_memory: bool, worker_list: List[Process],
-                 gpu: Union[int, None] = None, wait_time: float = 0.02):
-    do_pin_memory = torch is not None and pin_memory and gpu is not None and torch.cuda.is_available()
+def results_loop(
+    in_queue: Queue,
+    out_queue: thrQueue,
+    abort_event: Event,
+    pin_memory: bool,
+    worker_list: List[Process],
+    gpu: Union[int, None] = None,
+    wait_time: float = 0.02,
+):
+    do_pin_memory = (
+        torch is not None
+        and pin_memory
+        and gpu is not None
+        and torch.cuda.is_available()
+    )
 
     if do_pin_memory:
-        print('using pin_memory on device', gpu)
+        print("using pin_memory on device", gpu)
         torch.cuda.set_device(gpu)
 
     item = None
@@ -100,8 +117,10 @@ def results_loop(in_queue: Queue, out_queue: thrQueue, abort_event: Event,
             # check if all workers are still alive
             if not all([i.is_alive() for i in worker_list]):
                 abort_event.set()
-                raise RuntimeError("One or more background workers are no longer alive. Exiting. Please check the "
-                                   "print statements above for the actual error message")
+                raise RuntimeError(
+                    "One or more background workers are no longer alive. Exiting. Please check the "
+                    "print statements above for the actual error message"
+                )
 
             if item is None:
                 if not in_queue.empty():
@@ -138,14 +157,24 @@ class NonDetMultiThreadedAugmenter(object):
     Seeding this is not recommended :-)
     """
 
-    def __init__(self, data_loader, transform, num_processes, num_cached=2, seeds=None, pin_memory=False,
-                 wait_time=0.02):
+    def __init__(
+        self,
+        data_loader,
+        transform,
+        num_processes,
+        num_cached=2,
+        seeds=None,
+        pin_memory=False,
+        wait_time=0.02,
+    ):
         self.pin_memory = pin_memory
         self.transform = transform
         self.num_cached = num_cached
 
-        if isinstance(data_loader, DataLoader): assert data_loader.infinite, "Only use DataLoader instances that" \
-                                                                             " have infinite=True"
+        if isinstance(data_loader, DataLoader):
+            assert data_loader.infinite, (
+                "Only use DataLoader instances that" " have infinite=True"
+            )
         self.generator = data_loader
         self.num_processes = num_processes
 
@@ -178,8 +207,10 @@ class NonDetMultiThreadedAugmenter(object):
             if self.abort_event.is_set():
                 # self.communication_thread handles checking for dead workers and will set the abort event if necessary
                 self._finish()
-                raise RuntimeError("One or more background workers are no longer alive. Exiting. Please check the "
-                                   "print statements above for the actual error message")
+                raise RuntimeError(
+                    "One or more background workers are no longer alive. Exiting. Please check the "
+                    "print statements above for the actual error message"
+                )
 
             if not self.results_loop_queue.empty():
                 item = self.results_loop_queue.get()
@@ -213,9 +244,20 @@ class NonDetMultiThreadedAugmenter(object):
                 torch.set_num_threads(1)
             with threadpool_limits(limits=1, user_api=None):
                 for i in range(self.num_processes):
-                    self._processes.append(Process(target=producer, args=(
-                        self._queue, self.generator, self.transform, i, self.seeds[i], self.abort_event, self.wait_time
-                    )))
+                    self._processes.append(
+                        Process(
+                            target=producer,
+                            args=(
+                                self._queue,
+                                self.generator,
+                                self.transform,
+                                i,
+                                self.seeds[i],
+                                self.abort_event,
+                                self.wait_time,
+                            ),
+                        )
+                    )
                     self._processes[-1].daemon = True
                 _ = [i.start() for i in self._processes]
             if torch is not None:
@@ -228,16 +270,26 @@ class NonDetMultiThreadedAugmenter(object):
 
             # in_queue: Queue, out_queue: thrQueue, abort_event: Event, pin_memory: bool, worker_list: List[Process],
             # gpu: Union[int, None] = None, wait_time: float = 0.02
-            self.results_loop_thread = threading.Thread(target=results_loop, args=(
-                self._queue, self.results_loop_queue, self.abort_event, self.pin_memory, self._processes, gpu,
-                self.wait_time)
-                                                        )
+            self.results_loop_thread = threading.Thread(
+                target=results_loop,
+                args=(
+                    self._queue,
+                    self.results_loop_queue,
+                    self.abort_event,
+                    self.pin_memory,
+                    self._processes,
+                    gpu,
+                    self.wait_time,
+                ),
+            )
             self.results_loop_thread.daemon = True
             self.results_loop_thread.start()
 
             self.initialized = True
         else:
-            logging.debug("MultiThreadedGenerator Warning: start() has been called but workers are already running")
+            logging.debug(
+                "MultiThreadedGenerator Warning: start() has been called but workers are already running"
+            )
 
     def _finish(self):
         if self.initialized:
@@ -245,8 +297,19 @@ class NonDetMultiThreadedAugmenter(object):
             sleep(self.wait_time)
             [i.terminate() for i in self._processes if i.is_alive()]
 
-        del self._queue, self.results_loop_queue, self.results_loop_thread, self.abort_event, self._processes
-        self._queue, self.results_loop_queue, self.results_loop_thread, self.abort_event = None, None, None, None
+        del (
+            self._queue,
+            self.results_loop_queue,
+            self.results_loop_thread,
+            self.abort_event,
+            self._processes,
+        )
+        (
+            self._queue,
+            self.results_loop_queue,
+            self.results_loop_thread,
+            self.abort_event,
+        ) = None, None, None, None
         self._processes = []
         self.initialized = False
 
@@ -259,11 +322,18 @@ class NonDetMultiThreadedAugmenter(object):
         self._finish()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     from tests.test_DataLoader import DummyDataLoader
-    dl = DummyDataLoader(deepcopy(list(range(1234))), 2, 3, None,
-                         return_incomplete=False, shuffle=True,
-                         infinite=True)
+
+    dl = DummyDataLoader(
+        deepcopy(list(range(1234))),
+        2,
+        3,
+        None,
+        return_incomplete=False,
+        shuffle=True,
+        infinite=True,
+    )
 
     mt = NonDetMultiThreadedAugmenter(dl, None, 3, 2, None, False, 0.02)
     mt._start()

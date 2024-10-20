@@ -23,10 +23,11 @@ from scipy.ndimage import gaussian_filter
 
 
 class LocalTransform(ABC):
-    def __init__(self,
-                 scale: ScalarType,
-                 loc: ScalarType = (-1, 2),
-                 ):
+    def __init__(
+        self,
+        scale: ScalarType,
+        loc: ScalarType = (-1, 2),
+    ):
         """
         Places a Gaussian in the image. This can be used to apply a variety of effects through creating a modified
         copy of the image (for example a smoothed copy) and then linearly interpolating between original and modified
@@ -65,7 +66,9 @@ class LocalTransform(ABC):
         kernel_image = kernel_image / max(1e-8, kernel_image.max())
         return kernel_image
 
-    def _generate_multiple_kernel_image(self, img_shp: Tuple[int, ...], num_kernels: int) -> np.ndarray:
+    def _generate_multiple_kernel_image(
+        self, img_shp: Tuple[int, ...], num_kernels: int
+    ) -> np.ndarray:
         kernel_image = np.zeros(img_shp, dtype=np.float32)
         for n in range(num_kernels):
             kernel_image += self._generate_kernel(img_shp)
@@ -82,7 +85,9 @@ class LocalTransform(ABC):
         return 1 - kernel_image
 
     @staticmethod
-    def run_interpolation(original_image: np.ndarray, modified_image: np.ndarray, kernel_image: np.ndarray) -> np.ndarray:
+    def run_interpolation(
+        original_image: np.ndarray, modified_image: np.ndarray, kernel_image: np.ndarray
+    ) -> np.ndarray:
         """
         this function assumes that the kernel image is still in the range of [0, 1]!
         Low values in kernel image mean original image is kept, high values mean that modified image is kept
@@ -91,16 +96,18 @@ class LocalTransform(ABC):
 
 
 class BrightnessGradientAdditiveTransform(LocalTransform):
-    def __init__(self,
-                 scale: ScalarType,
-                 loc: ScalarType = (-1, 2),
-                 max_strength: ScalarType = 1.,
-                 same_for_all_channels: bool = True,
-                 mean_centered: bool = True,
-                 p_per_sample: float = 1.,
-                 p_per_channel: float = 1.,
-                 clip_intensities: bool = False,
-                 data_key: str = "data"):
+    def __init__(
+        self,
+        scale: ScalarType,
+        loc: ScalarType = (-1, 2),
+        max_strength: ScalarType = 1.0,
+        same_for_all_channels: bool = True,
+        mean_centered: bool = True,
+        p_per_sample: float = 1.0,
+        p_per_channel: float = 1.0,
+        clip_intensities: bool = False,
+        data_key: str = "data",
+    ):
         """
         Applies an additive intensity gradient to the image. The intensity gradient is zero-centered (sum(add) = 0;
         will not shift the global mean of the image. Some pixels will be brighter, some darker after application)
@@ -165,8 +172,11 @@ class BrightnessGradientAdditiveTransform(LocalTransform):
                     for ci in range(c):
                         if np.random.uniform() < self.p_per_channel:
                             # now rescale so that the maximum value of the kernel is max_strength
-                            strength = sample_scalar(self.max_strength, data[bi, ci], kernel) if callable(
-                                self.max_strength) else strength
+                            strength = (
+                                sample_scalar(self.max_strength, data[bi, ci], kernel)
+                                if callable(self.max_strength)
+                                else strength
+                            )
                             kernel_scaled = np.copy(kernel) / mx * strength
                             data[bi, ci] += kernel_scaled
                 else:
@@ -176,21 +186,25 @@ class BrightnessGradientAdditiveTransform(LocalTransform):
                             if self.mean_centered:
                                 kernel -= kernel.mean()
                             mx = max(np.max(np.abs(kernel)), 1e-8)
-                            strength = sample_scalar(self.max_strength, data[bi, ci], kernel)
+                            strength = sample_scalar(
+                                self.max_strength, data[bi, ci], kernel
+                            )
                             kernel = kernel / mx * strength
                             data[bi, ci] += kernel
         return data_dict
 
 
 class LocalGammaTransform(LocalTransform):
-    def __init__(self,
-                 scale: ScalarType,
-                 loc: ScalarType = (-1, 2),
-                 gamma: ScalarType = (0.5, 1),
-                 same_for_all_channels: bool = True,
-                 p_per_sample: float = 1.,
-                 p_per_channel: float = 1.,
-                 data_key: str = "data"):
+    def __init__(
+        self,
+        scale: ScalarType,
+        loc: ScalarType = (-1, 2),
+        gamma: ScalarType = (0.5, 1),
+        same_for_all_channels: bool = True,
+        p_per_sample: float = 1.0,
+        p_per_channel: float = 1.0,
+        data_key: str = "data",
+    ):
         """
         This transform is weird and definitely experimental. Use at your own risk
 
@@ -244,12 +258,16 @@ class LocalGammaTransform(LocalTransform):
 
                     for ci in range(c):
                         if np.random.uniform() < self.p_per_channel:
-                            data[bi, ci] = self._apply_gamma_gradient(data[bi, ci], kernel)
+                            data[bi, ci] = self._apply_gamma_gradient(
+                                data[bi, ci], kernel
+                            )
                 else:
                     for ci in range(c):
                         if np.random.uniform() < self.p_per_channel:
                             kernel = self._generate_kernel(img_shape)
-                            data[bi, ci] = self._apply_gamma_gradient(data[bi, ci], kernel)
+                            data[bi, ci] = self._apply_gamma_gradient(
+                                data[bi, ci], kernel
+                            )
         return data_dict
 
     def _apply_gamma_gradient(self, img: np.ndarray, kernel: np.ndarray) -> np.ndarray:
@@ -266,15 +284,17 @@ class LocalGammaTransform(LocalTransform):
 
 
 class LocalSmoothingTransform(LocalTransform):
-    def __init__(self,
-                 scale: ScalarType,
-                 loc: ScalarType = (-1, 2),
-                 smoothing_strength: ScalarType = (0.5, 1),
-                 kernel_size: ScalarType = (0.5, 1),
-                 same_for_all_channels: bool = True,
-                 p_per_sample: float = 1.,
-                 p_per_channel: float = 1.,
-                 data_key: str = "data"):
+    def __init__(
+        self,
+        scale: ScalarType,
+        loc: ScalarType = (-1, 2),
+        smoothing_strength: ScalarType = (0.5, 1),
+        kernel_size: ScalarType = (0.5, 1),
+        same_for_all_channels: bool = True,
+        p_per_sample: float = 1.0,
+        p_per_channel: float = 1.0,
+        data_key: str = "data",
+    ):
         """
         Creates a local blurring of the image. This is achieved by creating a blurred copy of the image and then
         linearly interpolating between the original and smoothed images:
@@ -310,12 +330,16 @@ class LocalSmoothingTransform(LocalTransform):
 
                     for ci in range(c):
                         if np.random.uniform() < self.p_per_channel:
-                            data[bi, ci] = self._apply_local_smoothing(data[bi, ci], kernel)
+                            data[bi, ci] = self._apply_local_smoothing(
+                                data[bi, ci], kernel
+                            )
                 else:
                     for ci in range(c):
                         if np.random.uniform() < self.p_per_channel:
                             kernel = self._generate_kernel(img_shape)
-                            data[bi, ci] = self._apply_local_smoothing(data[bi, ci], kernel)
+                            data[bi, ci] = self._apply_local_smoothing(
+                                data[bi, ci], kernel
+                            )
         return data_dict
 
     def _apply_local_smoothing(self, img: np.ndarray, kernel: np.ndarray) -> np.ndarray:
@@ -323,7 +347,9 @@ class LocalSmoothingTransform(LocalTransform):
         kernel = np.copy(kernel)
 
         smoothing = sample_scalar(self.smoothing_strength)
-        assert 0 <= smoothing <= 1, 'smoothing_strength must be between 0 and 1, is %f' % smoothing
+        assert 0 <= smoothing <= 1, (
+            "smoothing_strength must be between 0 and 1, is %f" % smoothing
+        )
 
         # prepare kernel by rescaling it to gamma_range
         # kernel is already [0, 1]
@@ -336,14 +362,16 @@ class LocalSmoothingTransform(LocalTransform):
 
 
 class LocalContrastTransform(LocalTransform):
-    def __init__(self,
-                 scale: ScalarType,
-                 loc: ScalarType = (-1, 2),
-                 new_contrast: ScalarType = (0.5, 1),
-                 same_for_all_channels: bool = True,
-                 p_per_sample: float = 1.,
-                 p_per_channel: float = 1.,
-                 data_key: str = "data"):
+    def __init__(
+        self,
+        scale: ScalarType,
+        loc: ScalarType = (-1, 2),
+        new_contrast: ScalarType = (0.5, 1),
+        same_for_all_channels: bool = True,
+        p_per_sample: float = 1.0,
+        p_per_channel: float = 1.0,
+        data_key: str = "data",
+    ):
         super().__init__(scale, loc)
         self.new_contrast = new_contrast
         self.same_for_all_channels = same_for_all_channels
@@ -362,12 +390,16 @@ class LocalContrastTransform(LocalTransform):
 
                     for ci in range(c):
                         if np.random.uniform() < self.p_per_channel:
-                            data[bi, ci] = self._apply_local_smoothing(data[bi, ci], kernel)
+                            data[bi, ci] = self._apply_local_smoothing(
+                                data[bi, ci], kernel
+                            )
                 else:
                     for ci in range(c):
                         if np.random.uniform() < self.p_per_channel:
                             kernel = self._generate_kernel(img_shape)
-                            data[bi, ci] = self._apply_local_smoothing(data[bi, ci], kernel)
+                            data[bi, ci] = self._apply_local_smoothing(
+                                data[bi, ci], kernel
+                            )
         return data_dict
 
     def _apply_local_smoothing(self, img: np.ndarray, kernel: np.ndarray) -> np.ndarray:
@@ -383,7 +415,7 @@ class LocalContrastTransform(LocalTransform):
         return self.run_interpolation(img, img_modified, kernel)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     from copy import deepcopy
     from skimage.data import camera
     from batchviewer import view_batch  # https://github.com/FabianIsensee/BatchViewer
@@ -405,7 +437,6 @@ if __name__ == '__main__':
     [print(i[10,10]) for i in diff]
     view_batch(*data['data'][0], *transformed[0], *[i - j for i, j in zip(data['data'][0], transformed[0])])"""
 
-
     """
     data = {'data': np.vstack((camera()[None], camera()[None], camera()[None], camera()[None]))[None].astype(np.float32)}
 
@@ -425,7 +456,11 @@ if __name__ == '__main__':
     view_batch(*data['data'][0], *transformed[0], *[i - j for i, j in zip(data['data'][0], transformed[0])])
     """
 
-    data = {'data': np.vstack((camera()[None], camera()[None], camera()[None], camera()[None]))[None].astype(np.float32)}
+    data = {
+        "data": np.vstack(
+            (camera()[None], camera()[None], camera()[None], camera()[None])
+        )[None].astype(np.float32)
+    }
 
     tr = LocalContrastTransform(
         lambda x, y: np.random.uniform(x[y] // 6, x[y] // 2),
@@ -433,17 +468,24 @@ if __name__ == '__main__':
         (0, 0.1),
         False,
         1,
-        1
+        1,
     )
-    transformed = tr(**deepcopy(data))['data']
-    data['data'][0][:, 0:2, 0] = np.array((0, 255))
+    transformed = tr(**deepcopy(data))["data"]
+    data["data"][0][:, 0:2, 0] = np.array((0, 255))
     transformed[0][:, 0:2, 0] = np.array((0, 255))
-    diff = [i - j for i, j in zip(data['data'][0], transformed[0])]
-    [print(i[10,10]) for i in diff]
-    view_batch(*data['data'][0], *transformed[0], *[i - j for i, j in zip(data['data'][0], transformed[0])])
+    diff = [i - j for i, j in zip(data["data"][0], transformed[0])]
+    [print(i[10, 10]) for i in diff]
+    view_batch(
+        *data["data"][0],
+        *transformed[0],
+        *[i - j for i, j in zip(data["data"][0], transformed[0])],
+    )
 
-
-    data = {'data': np.vstack((camera()[None], camera()[None], camera()[None], camera()[None]))[None].astype(np.float32)}
+    data = {
+        "data": np.vstack(
+            (camera()[None], camera()[None], camera()[None], camera()[None])
+        )[None].astype(np.float32)
+    }
 
     tr = BrightnessGradientAdditiveTransform(
         lambda x, y: np.random.uniform(x[y] // 6, x[y] // 2),
@@ -451,13 +493,15 @@ if __name__ == '__main__':
         (-128, 128),
         False,
         1,
-        1
+        1,
     )
-    transformed = tr(**deepcopy(data))['data']
-    data['data'][0][:, 0:2, 0] = np.array((0, 255))
+    transformed = tr(**deepcopy(data))["data"]
+    data["data"][0][:, 0:2, 0] = np.array((0, 255))
     transformed[0][:, 0:2, 0] = np.array((0, 255))
-    diff = [i - j for i, j in zip(data['data'][0], transformed[0])]
-    [print(i[10,10]) for i in diff]
-    view_batch(*data['data'][0], *transformed[0], *[i - j for i, j in zip(data['data'][0], transformed[0])])
-
-
+    diff = [i - j for i, j in zip(data["data"][0], transformed[0])]
+    [print(i[10, 10]) for i in diff]
+    view_batch(
+        *data["data"][0],
+        *transformed[0],
+        *[i - j for i, j in zip(data["data"][0], transformed[0])],
+    )

@@ -1,6 +1,9 @@
 import numpy as np
-from batchgenerators.examples.brats2017.config import brats_preprocessed_folder, \
-    brats_folder_with_downloaded_train_data, num_threads_for_brats_example
+from batchgenerators.examples.brats2017.config import (
+    brats_preprocessed_folder,
+    brats_folder_with_downloaded_train_data,
+    num_threads_for_brats_example,
+)
 from batchgenerators.utilities.file_and_folder_operations import *
 
 try:
@@ -21,7 +24,7 @@ def get_list_of_files(base_dir):
     :return:
     """
     list_of_lists = []
-    for glioma_type in ['HGG', 'LGG']:
+    for glioma_type in ["HGG", "LGG"]:
         current_directory = join(base_dir, glioma_type)
         patients = subfolders(current_directory, join=False)
         for p in patients:
@@ -32,8 +35,10 @@ def get_list_of_files(base_dir):
             flair_file = join(patient_directory, p + "_flair.nii.gz")
             seg_file = join(patient_directory, p + "_seg.nii.gz")
             this_case = [t1_file, t1c_file, t2_file, flair_file, seg_file]
-            assert all((isfile(i) for i in this_case)), "some file is missing for patient %s; make sure the following " \
-                                                        "files are there: %s" % (p, str(this_case))
+            assert all((isfile(i) for i in this_case)), (
+                "some file is missing for patient %s; make sure the following "
+                "files are there: %s" % (p, str(this_case))
+            )
             list_of_lists.append(this_case)
     print("Found %d patients" % len(list_of_lists))
     return list_of_lists
@@ -78,15 +83,18 @@ def load_and_preprocess(case, patient_name, output_folder):
     # now find the nonzero region and crop to that
     nonzero = [np.array(np.where(i != 0)) for i in imgs_npy]
     nonzero = [[np.min(i, 1), np.max(i, 1)] for i in nonzero]
-    nonzero = np.array([np.min([i[0] for i in nonzero], 0), np.max([i[1] for i in nonzero], 0)]).T
+    nonzero = np.array(
+        [np.min([i[0] for i in nonzero], 0), np.max([i[1] for i in nonzero], 0)]
+    ).T
     # nonzero now has shape 3, 2. It contains the (min, max) coordinate of nonzero voxels for each axis
 
     # now crop to nonzero
-    imgs_npy = imgs_npy[:,
-               nonzero[0, 0] : nonzero[0, 1] + 1,
-               nonzero[1, 0]: nonzero[1, 1] + 1,
-               nonzero[2, 0]: nonzero[2, 1] + 1,
-               ]
+    imgs_npy = imgs_npy[
+        :,
+        nonzero[0, 0] : nonzero[0, 1] + 1,
+        nonzero[1, 0] : nonzero[1, 1] + 1,
+        nonzero[2, 0] : nonzero[2, 1] + 1,
+    ]
 
     # now we create a brain mask that we use for normalization
     nonzero_masks = [i != 0 for i in imgs_npy[:-1]]
@@ -109,28 +117,30 @@ def load_and_preprocess(case, patient_name, output_folder):
     np.save(join(output_folder, patient_name + ".npy"), imgs_npy)
 
     metadata = {
-        'spacing': spacing,
-        'direction': direction,
-        'origin': origin,
-        'original_shape': original_shape,
-        'nonzero_region': nonzero
+        "spacing": spacing,
+        "direction": direction,
+        "origin": origin,
+        "original_shape": original_shape,
+        "nonzero_region": nonzero,
     }
 
     save_pickle(metadata, join(output_folder, patient_name + ".pkl"))
 
 
 def save_segmentation_as_nifti(segmentation, metadata, output_file):
-    original_shape = metadata['original_shape']
+    original_shape = metadata["original_shape"]
     seg_original_shape = np.zeros(original_shape, dtype=np.uint8)
-    nonzero = metadata['nonzero_region']
-    seg_original_shape[nonzero[0, 0] : nonzero[0, 1] + 1,
-               nonzero[1, 0]: nonzero[1, 1] + 1,
-               nonzero[2, 0]: nonzero[2, 1] + 1] = segmentation
+    nonzero = metadata["nonzero_region"]
+    seg_original_shape[
+        nonzero[0, 0] : nonzero[0, 1] + 1,
+        nonzero[1, 0] : nonzero[1, 1] + 1,
+        nonzero[2, 0] : nonzero[2, 1] + 1,
+    ] = segmentation
     sitk_image = sitk.GetImageFromArray(seg_original_shape)
-    sitk_image.SetDirection(metadata['direction'])
-    sitk_image.SetOrigin(metadata['origin'])
+    sitk_image.SetDirection(metadata["direction"])
+    sitk_image.SetOrigin(metadata["origin"])
     # remember to revert spacing back to sitk order again
-    sitk_image.SetSpacing(tuple(metadata['spacing'][[2, 1, 0]]))
+    sitk_image.SetSpacing(tuple(metadata["spacing"][[2, 1, 0]]))
     sitk.WriteImage(sitk_image, output_file)
 
 
@@ -162,7 +172,14 @@ if __name__ == "__main__":
     patient_names = [i[0].split("/")[-2] for i in list_of_lists]
 
     p = Pool(processes=num_threads_for_brats_example)
-    p.starmap(load_and_preprocess, zip(list_of_lists, patient_names, [brats_preprocessed_folder] * len(list_of_lists)))
+    p.starmap(
+        load_and_preprocess,
+        zip(
+            list_of_lists,
+            patient_names,
+            [brats_preprocessed_folder] * len(list_of_lists),
+        ),
+    )
     p.close()
     p.join()
 
@@ -176,4 +193,6 @@ if __name__ == "__main__":
     # remember that we changed the segmentation labels from 0, 1, 2, 4 to 0, 1, 2, 3. We need to change that back to
     # get the correct format
     img[-1][img[-1] == 3] = 4
-    save_segmentation_as_nifti(img[-1], metadata, join(brats_preprocessed_folder, "delete_me.nii.gz"))
+    save_segmentation_as_nifti(
+        img[-1], metadata, join(brats_preprocessed_folder, "delete_me.nii.gz")
+    )

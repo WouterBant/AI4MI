@@ -1,4 +1,4 @@
-# Some command to generate the scripts for some models watch out, if trained with CRF, enable CRF flat 
+# Some command to generate the scripts for some models watch out, if trained with CRF, enable CRF flat
 # ALWAYS CHANGE THE CHECKPOINT PATH AND THE MODEL NAME
 # src/test.py --dataset SEGTHOR --mode full --dest results/SEGTHOR --batch_size 5 --model ENet --num_workers 4 --crf --finetune_crf --from_checkpoint src/samed/checkpoints/sam_vit_b_01ec64.pth
 
@@ -28,7 +28,7 @@ from utils import (
     class2one_hot,
     probs2one_hot,
 )
-from metrics3d import update_metrics_3D #, print_store_metrics
+from metrics3d import update_metrics_3D  # , print_store_metrics
 from crf_model import apply_crf
 from collections import defaultdict
 import pandas as pd
@@ -56,6 +56,7 @@ datasets_params["SEGTHOR_MANUAL_SPLIT"] = {
     "B": 8,
     "names": ["Background", "Esophagus", "Heart", "Trachea", "Aorta"],
 }
+
 
 def setup(args):
     # Networks and scheduler
@@ -85,7 +86,7 @@ def setup(args):
             num_classes=K,
             pixel_mean=[0.0457, 0.0457, 0.0457],
             pixel_std=[1.0, 1.0, 1.0],
-            image_size=512
+            image_size=512,
         )
         net = LoRA_Sam(sam, r=args.r)
     elif args.model == "ENet":
@@ -93,6 +94,7 @@ def setup(args):
         net.init_weights()
     elif args.model == "SAM2UNet":
         from sam2unet_model import SAM2UNet
+
         datasets_params[args.dataset]["net"] = SAM2UNet
         net = datasets_params[args.dataset]["net"](args.hiera_path)
 
@@ -105,18 +107,24 @@ def setup(args):
         checkpoint = torch.load(args.from_checkpoint, map_location=device)
 
         # If the checkpoint contains 'state_dict', use it, otherwise use the checkpoint directly
-        state_dict = checkpoint.get('state_dict', checkpoint)
+        state_dict = checkpoint.get("state_dict", checkpoint)
 
         # Get the model's current state_dict
         model_dict = net.state_dict()
 
         # Filter out keys with mismatched shapes
-        filtered_dict = {k: v for k, v in state_dict.items() if k in model_dict and v.shape == model_dict[k].shape}
+        filtered_dict = {
+            k: v
+            for k, v in state_dict.items()
+            if k in model_dict and v.shape == model_dict[k].shape
+        }
 
         # Display the parameters that are skipped
         skipped_params = [k for k in state_dict if k not in filtered_dict]
         if skipped_params:
-            print(f"Skipped loading parameters with mismatched shapes: {skipped_params}")
+            print(
+                f"Skipped loading parameters with mismatched shapes: {skipped_params}"
+            )
 
         # Update the model's state_dict with the filtered parameters
         model_dict.update(filtered_dict)
@@ -191,18 +199,22 @@ def run_test(args):
 
     # Preallocate the tensors in a dictionary
     predictions = {
-        patient_id: torch.zeros((id2nfiles[patient_id], K - start_idx, 256, 256), dtype=torch.uint8)  # K - 1 to skip the background class
+        patient_id: torch.zeros(
+            (id2nfiles[patient_id], K - start_idx, 256, 256), dtype=torch.uint8
+        )  # K - 1 to skip the background class
         for patient_id in id2nfiles
     }
     ground_truths = {
-        patient_id: torch.zeros((id2nfiles[patient_id], K - start_idx, 256, 256), dtype=torch.uint8)
+        patient_id: torch.zeros(
+            (id2nfiles[patient_id], K - start_idx, 256, 256), dtype=torch.uint8
+        )
         for patient_id in id2nfiles
     }
     cur_idx = {patient_id: 0 for patient_id in id2nfiles}
-    
-    if args.mode=='partial':
+
+    if args.mode == "partial":
         raise NotImplementedError("args.mode partial training should not be used")
-    
+
     net.eval()
     # Loop over the dataset to fill the tensors
     with torch.no_grad():
@@ -211,17 +223,19 @@ def run_test(args):
             gt = data["gts"].to(device)
             stems = data["stems"]
             B = img.shape[0]
-            
+
             # Samed model
             if args.model == "samed" or args.model == "samed_fast":
-                    preds = net(img, multimask_output=True, image_size=512)
-                    pred_logits = preds["masks"]
-                    pred_probs = F.softmax(
-                        1 * pred_logits, dim=1
-                    )  # 1 is the temperature parameter
+                preds = net(img, multimask_output=True, image_size=512)
+                pred_logits = preds["masks"]
+                pred_probs = F.softmax(
+                    1 * pred_logits, dim=1
+                )  # 1 is the temperature parameter
             elif args.model == "SAM2UNet":
                 pred_logits, _, _ = net(img)  # Get the primary output from the model
-                pred_probs = F.softmax(1 * pred_logits, dim=1)  # 1 is the temperature parameter
+                pred_probs = F.softmax(
+                    1 * pred_logits, dim=1
+                )  # 1 is the temperature parameter
 
             # Other models
             else:
@@ -236,34 +250,56 @@ def run_test(args):
             for b in range(B):
                 patient_id = stems[b].split("_")[-2]
                 assert segmentation_prediction[b].shape == gt[b].shape
-                predictions[patient_id][cur_idx[patient_id]] = segmentation_prediction[b][start_idx:]
+                predictions[patient_id][cur_idx[patient_id]] = segmentation_prediction[
+                    b
+                ][start_idx:]
                 ground_truths[patient_id][cur_idx[patient_id]] = gt[b][start_idx:]
                 cur_idx[patient_id] += 1
 
     # Initialize dataframe for storing metric results
-    columns = ['patient_id', 'slice_name', 'class', 'metric_type', 'metric_value']
+    columns = ["patient_id", "slice_name", "class", "metric_type", "metric_value"]
     metrics = pd.DataFrame(columns=columns)
-    metric_types = ["dice", "sensitivity", "specificity", "hausdorff", "iou", "precision", "volumetric", "VOE"]
+    metric_types = [
+        "dice",
+        "sensitivity",
+        "specificity",
+        "hausdorff",
+        "iou",
+        "precision",
+        "volumetric",
+        "VOE",
+    ]
 
     # now compute the metrics for each patient
     for patient_id in predictions:
         pred = predictions[patient_id]
         gt = ground_truths[patient_id]
-        metrics = update_metrics_3D(metrics, pred, gt, patient_id, datasets_params[args.dataset]["names"][start_idx:], metric_types)
-    
+        metrics = update_metrics_3D(
+            metrics,
+            pred,
+            gt,
+            patient_id,
+            datasets_params[args.dataset]["names"][start_idx:],
+            metric_types,
+        )
+
     # Save the metrics in pickle format
-    save_directory = Path(f"results_metrics/{args.model}/metrics3d/{str(args.from_checkpoint)[:-3]}")
+    save_directory = Path(
+        f"results_metrics/{args.model}/metrics3d/{str(args.from_checkpoint)[:-3]}"
+    )
 
     save_directory.mkdir(parents=True, exist_ok=True)
     metrics.to_csv(str(save_directory) + f"/{args.model}_metrics.csv")
+
 
 def convert_to_dict(d):
     if isinstance(d, defaultdict):
         # Recursively convert any nested defaultdicts
         return {k: convert_to_dict(v) for k, v in d.items()}
     else:
-        return d      
-                
+        return d
+
+
 def main():
     parser = argparse.ArgumentParser()
 
@@ -279,8 +315,11 @@ def main():
         choices=["samed", "samed_fast", "ENet", "SAM2UNet"],
         help="Model to use",
     )
-    parser.add_argument("--hiera_path", type=str, required=False, 
-        help="path to the sam2 pretrained hiera"
+    parser.add_argument(
+        "--hiera_path",
+        type=str,
+        required=False,
+        help="path to the sam2 pretrained hiera",
     )
     parser.add_argument(
         "--dest",
@@ -299,7 +338,9 @@ def main():
         action="store_true",
         help="Include the background class in the metrics",
     )
-    parser.add_argument("--dataset", default="SEGTHOR_MANUAL_SPLIT", choices=datasets_params.keys())
+    parser.add_argument(
+        "--dataset", default="SEGTHOR_MANUAL_SPLIT", choices=datasets_params.keys()
+    )
     parser.add_argument("--mode", default="full", choices=["partial", "full"])
     parser.add_argument("--from_checkpoint", type=Path, default=None)
     parser.add_argument("--gpu", action="store_true")
@@ -315,11 +356,11 @@ def main():
         action="store_true",
         help="Normalize the input images",
     )
+    parser.add_argument("--crf", action="store_true", help="Apply CRF on the output")
     parser.add_argument(
-        "--crf", action="store_true", help="Apply CRF on the output"
-    )
-    parser.add_argument(
-        "--finetune_crf", action="store_true", help="Freeze the model and only train CRF and the last layer"
+        "--finetune_crf",
+        action="store_true",
+        help="Freeze the model and only train CRF and the last layer",
     )
     args = parser.parse_args()
 

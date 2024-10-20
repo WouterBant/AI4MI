@@ -14,16 +14,31 @@
 # limitations under the License.
 
 from .abstract_transforms import AbstractTransform
-from ..augmentations.spatial_transformations import augment_spatial, augment_spatial_2, \
-    augment_channel_translation, \
-    augment_mirroring, augment_transpose_axes, augment_zoom, augment_resize, augment_rot90, \
-    augment_anatomy_informed, augment_misalign
+from ..augmentations.spatial_transformations import (
+    augment_spatial,
+    augment_spatial_2,
+    augment_channel_translation,
+    augment_mirroring,
+    augment_transpose_axes,
+    augment_zoom,
+    augment_resize,
+    augment_rot90,
+    augment_anatomy_informed,
+    augment_misalign,
+)
 import numpy as np
 from ..augmentations.utils import get_organ_gradient_field
 
 
 class Rot90Transform(AbstractTransform):
-    def __init__(self, num_rot=(1, 2, 3), axes=(0, 1, 2), data_key="data", label_key="seg", p_per_sample=0.3):
+    def __init__(
+        self,
+        num_rot=(1, 2, 3),
+        axes=(0, 1, 2),
+        data_key="data",
+        label_key="seg",
+        p_per_sample=0.3,
+    ):
         """
         :param num_rot: rotate by 90 degrees how often? must be tuple -> nom rot randomly chosen from that tuple
         :param axes: around which axes will the rotation take place? two axes are chosen randomly from axes.
@@ -60,8 +75,15 @@ class Rot90Transform(AbstractTransform):
 
 
 class ZoomTransform(AbstractTransform):
-    def __init__(self, zoom_factors=1, order=3, order_seg=1, concatenate_list=False, data_key="data",
-                 label_key="seg"):
+    def __init__(
+        self,
+        zoom_factors=1,
+        order=3,
+        order_seg=1,
+        concatenate_list=False,
+        data_key="data",
+        label_key="seg",
+    ):
         """
         Zooms 'data' (and 'seg') by zoom_factors
         :param zoom_factors: int or list/tuple of int
@@ -105,7 +127,9 @@ class ZoomTransform(AbstractTransform):
             sample_seg = None
             if seg is not None:
                 sample_seg = seg[b]
-            res_data, res_seg = augment_zoom(data[b], sample_seg, self.zoom_factors, self.order, self.order_seg)
+            res_data, res_seg = augment_zoom(
+                data[b], sample_seg, self.zoom_factors, self.order, self.order_seg
+            )
             results.append((res_data, res_seg))
 
         if concatenate:
@@ -121,9 +145,15 @@ class ZoomTransform(AbstractTransform):
 
 
 class ResizeTransform(AbstractTransform):
-
-    def __init__(self, target_size, order=3, order_seg=1, concatenate_list=False, data_key="data",
-                 label_key="seg"):
+    def __init__(
+        self,
+        target_size,
+        order=3,
+        order_seg=1,
+        concatenate_list=False,
+        data_key="data",
+        label_key="seg",
+    ):
         """
         Reshapes 'data' (and 'seg') to target_size
         :param target_size: int or list/tuple of int
@@ -167,7 +197,9 @@ class ResizeTransform(AbstractTransform):
             sample_seg = None
             if seg is not None:
                 sample_seg = seg[b]
-            res_data, res_seg = augment_resize(data[b], sample_seg, self.target_size, self.order, self.order_seg)
+            res_data, res_seg = augment_resize(
+                data[b], sample_seg, self.target_size, self.order, self.order_seg
+            )
             results.append((res_data, res_seg))
 
         if concatenate:
@@ -183,7 +215,7 @@ class ResizeTransform(AbstractTransform):
 
 
 class MirrorTransform(AbstractTransform):
-    """ Randomly mirrors data along specified axes. Mirroring is evenly distributed. Probability of mirroring along
+    """Randomly mirrors data along specified axes. Mirroring is evenly distributed. Probability of mirroring along
     each axis is 0.5
 
     Args:
@@ -191,15 +223,19 @@ class MirrorTransform(AbstractTransform):
 
     """
 
-    def __init__(self, axes=(0, 1, 2), data_key="data", label_key="seg", p_per_sample=1):
+    def __init__(
+        self, axes=(0, 1, 2), data_key="data", label_key="seg", p_per_sample=1
+    ):
         self.p_per_sample = p_per_sample
         self.data_key = data_key
         self.label_key = label_key
         self.axes = axes
         if max(axes) > 2:
-            raise ValueError("MirrorTransform now takes the axes as the spatial dimensions. What previously was "
-                             "axes=(2, 3, 4) to mirror along all spatial dimensions of a 5d tensor (b, c, x, y, z) "
-                             "is now axes=(0, 1, 2). Please adapt your scripts accordingly.")
+            raise ValueError(
+                "MirrorTransform now takes the axes as the spatial dimensions. What previously was "
+                "axes=(2, 3, 4) to mirror along all spatial dimensions of a 5d tensor (b, c, x, y, z) "
+                "is now axes=(0, 1, 2). Please adapt your scripts accordingly."
+            )
 
     def __call__(self, **data_dict):
         data = data_dict.get(self.data_key)
@@ -232,7 +268,9 @@ class ChannelTranslation(AbstractTransform):
 
     """
 
-    def __init__(self, const_channel=0, max_shifts=None, data_key="data", label_key="seg"):
+    def __init__(
+        self, const_channel=0, max_shifts=None, data_key="data", label_key="seg"
+    ):
         self.data_key = data_key
         self.label_key = label_key
         self.max_shift = max_shifts
@@ -241,7 +279,9 @@ class ChannelTranslation(AbstractTransform):
     def __call__(self, **data_dict):
         data = data_dict.get(self.data_key)
 
-        ret_val = augment_channel_translation(data=data, const_channel=self.const_channel, max_shifts=self.max_shift)
+        ret_val = augment_channel_translation(
+            data=data, const_channel=self.const_channel, max_shifts=self.max_shift
+        )
 
         data_dict[self.data_key] = ret_val[0]
 
@@ -297,13 +337,35 @@ class SpatialTransform(AbstractTransform):
         independent_scale_for_each_axis: If True, a scale factor will be chosen independently for each axis.
     """
 
-    def __init__(self, patch_size, patch_center_dist_from_border=30,
-                 do_elastic_deform=True, alpha=(0., 1000.), sigma=(10., 13.),
-                 do_rotation=True, angle_x=(0, 2 * np.pi), angle_y=(0, 2 * np.pi), angle_z=(0, 2 * np.pi),
-                 do_scale=True, scale=(0.75, 1.25), border_mode_data='nearest', border_cval_data=0, order_data=3,
-                 border_mode_seg='constant', border_cval_seg=0, order_seg=0, random_crop=True, data_key="data",
-                 label_key="seg", p_el_per_sample=1, p_scale_per_sample=1, p_rot_per_sample=1,
-                 independent_scale_for_each_axis=False, p_rot_per_axis:float=1, p_independent_scale_per_axis: int=1):
+    def __init__(
+        self,
+        patch_size,
+        patch_center_dist_from_border=30,
+        do_elastic_deform=True,
+        alpha=(0.0, 1000.0),
+        sigma=(10.0, 13.0),
+        do_rotation=True,
+        angle_x=(0, 2 * np.pi),
+        angle_y=(0, 2 * np.pi),
+        angle_z=(0, 2 * np.pi),
+        do_scale=True,
+        scale=(0.75, 1.25),
+        border_mode_data="nearest",
+        border_cval_data=0,
+        order_data=3,
+        border_mode_seg="constant",
+        border_cval_seg=0,
+        order_seg=0,
+        random_crop=True,
+        data_key="data",
+        label_key="seg",
+        p_el_per_sample=1,
+        p_scale_per_sample=1,
+        p_rot_per_sample=1,
+        independent_scale_for_each_axis=False,
+        p_rot_per_axis: float = 1,
+        p_independent_scale_per_axis: int = 1,
+    ):
         self.independent_scale_for_each_axis = independent_scale_for_each_axis
         self.p_rot_per_sample = p_rot_per_sample
         self.p_scale_per_sample = p_scale_per_sample
@@ -345,20 +407,34 @@ class SpatialTransform(AbstractTransform):
         else:
             patch_size = self.patch_size
 
-        ret_val = augment_spatial(data, seg, patch_size=patch_size,
-                                  patch_center_dist_from_border=self.patch_center_dist_from_border,
-                                  do_elastic_deform=self.do_elastic_deform, alpha=self.alpha, sigma=self.sigma,
-                                  do_rotation=self.do_rotation, angle_x=self.angle_x, angle_y=self.angle_y,
-                                  angle_z=self.angle_z, do_scale=self.do_scale, scale=self.scale,
-                                  border_mode_data=self.border_mode_data,
-                                  border_cval_data=self.border_cval_data, order_data=self.order_data,
-                                  border_mode_seg=self.border_mode_seg, border_cval_seg=self.border_cval_seg,
-                                  order_seg=self.order_seg, random_crop=self.random_crop,
-                                  p_el_per_sample=self.p_el_per_sample, p_scale_per_sample=self.p_scale_per_sample,
-                                  p_rot_per_sample=self.p_rot_per_sample,
-                                  independent_scale_for_each_axis=self.independent_scale_for_each_axis,
-                                  p_rot_per_axis=self.p_rot_per_axis, 
-                                  p_independent_scale_per_axis=self.p_independent_scale_per_axis)
+        ret_val = augment_spatial(
+            data,
+            seg,
+            patch_size=patch_size,
+            patch_center_dist_from_border=self.patch_center_dist_from_border,
+            do_elastic_deform=self.do_elastic_deform,
+            alpha=self.alpha,
+            sigma=self.sigma,
+            do_rotation=self.do_rotation,
+            angle_x=self.angle_x,
+            angle_y=self.angle_y,
+            angle_z=self.angle_z,
+            do_scale=self.do_scale,
+            scale=self.scale,
+            border_mode_data=self.border_mode_data,
+            border_cval_data=self.border_cval_data,
+            order_data=self.order_data,
+            border_mode_seg=self.border_mode_seg,
+            border_cval_seg=self.border_cval_seg,
+            order_seg=self.order_seg,
+            random_crop=self.random_crop,
+            p_el_per_sample=self.p_el_per_sample,
+            p_scale_per_sample=self.p_scale_per_sample,
+            p_rot_per_sample=self.p_rot_per_sample,
+            independent_scale_for_each_axis=self.independent_scale_for_each_axis,
+            p_rot_per_axis=self.p_rot_per_axis,
+            p_independent_scale_per_axis=self.p_independent_scale_per_axis,
+        )
         data_dict[self.data_key] = ret_val[0]
         if seg is not None:
             data_dict[self.label_key] = ret_val[1]
@@ -413,13 +489,34 @@ class SpatialTransform_2(AbstractTransform):
         patch_center_dist_from_border. False: do a center crop of size patch_size
     """
 
-    def __init__(self, patch_size, patch_center_dist_from_border=30,
-                 do_elastic_deform=True, deformation_scale=(0, 0.25),
-                 do_rotation=True, angle_x=(0, 2 * np.pi), angle_y=(0, 2 * np.pi), angle_z=(0, 2 * np.pi),
-                 do_scale=True, scale=(0.75, 1.25), border_mode_data='nearest', border_cval_data=0, order_data=3,
-                 border_mode_seg='constant', border_cval_seg=0, order_seg=0, random_crop=True, data_key="data",
-                 label_key="seg", p_el_per_sample=1, p_scale_per_sample=1, p_rot_per_sample=1,
-                 independent_scale_for_each_axis=False, p_rot_per_axis:float=1, p_independent_scale_per_axis: float=1):
+    def __init__(
+        self,
+        patch_size,
+        patch_center_dist_from_border=30,
+        do_elastic_deform=True,
+        deformation_scale=(0, 0.25),
+        do_rotation=True,
+        angle_x=(0, 2 * np.pi),
+        angle_y=(0, 2 * np.pi),
+        angle_z=(0, 2 * np.pi),
+        do_scale=True,
+        scale=(0.75, 1.25),
+        border_mode_data="nearest",
+        border_cval_data=0,
+        order_data=3,
+        border_mode_seg="constant",
+        border_cval_seg=0,
+        order_seg=0,
+        random_crop=True,
+        data_key="data",
+        label_key="seg",
+        p_el_per_sample=1,
+        p_scale_per_sample=1,
+        p_rot_per_sample=1,
+        independent_scale_for_each_axis=False,
+        p_rot_per_axis: float = 1,
+        p_independent_scale_per_axis: float = 1,
+    ):
         self.p_rot_per_sample = p_rot_per_sample
         self.p_scale_per_sample = p_scale_per_sample
         self.p_el_per_sample = p_el_per_sample
@@ -460,20 +557,33 @@ class SpatialTransform_2(AbstractTransform):
         else:
             patch_size = self.patch_size
 
-        ret_val = augment_spatial_2(data, seg, patch_size=patch_size,
-                                    patch_center_dist_from_border=self.patch_center_dist_from_border,
-                                    do_elastic_deform=self.do_elastic_deform, deformation_scale=self.deformation_scale,
-                                    do_rotation=self.do_rotation, angle_x=self.angle_x, angle_y=self.angle_y,
-                                    angle_z=self.angle_z, do_scale=self.do_scale, scale=self.scale,
-                                    border_mode_data=self.border_mode_data,
-                                    border_cval_data=self.border_cval_data, order_data=self.order_data,
-                                    border_mode_seg=self.border_mode_seg, border_cval_seg=self.border_cval_seg,
-                                    order_seg=self.order_seg, random_crop=self.random_crop,
-                                    p_el_per_sample=self.p_el_per_sample, p_scale_per_sample=self.p_scale_per_sample,
-                                    p_rot_per_sample=self.p_rot_per_sample,
-                                  independent_scale_for_each_axis=self.independent_scale_for_each_axis,
-                                  p_rot_per_axis=self.p_rot_per_axis,
-                                  p_independent_scale_per_axis=self.p_independent_scale_per_axis)
+        ret_val = augment_spatial_2(
+            data,
+            seg,
+            patch_size=patch_size,
+            patch_center_dist_from_border=self.patch_center_dist_from_border,
+            do_elastic_deform=self.do_elastic_deform,
+            deformation_scale=self.deformation_scale,
+            do_rotation=self.do_rotation,
+            angle_x=self.angle_x,
+            angle_y=self.angle_y,
+            angle_z=self.angle_z,
+            do_scale=self.do_scale,
+            scale=self.scale,
+            border_mode_data=self.border_mode_data,
+            border_cval_data=self.border_cval_data,
+            order_data=self.order_data,
+            border_mode_seg=self.border_mode_seg,
+            border_cval_seg=self.border_cval_seg,
+            order_seg=self.order_seg,
+            random_crop=self.random_crop,
+            p_el_per_sample=self.p_el_per_sample,
+            p_scale_per_sample=self.p_scale_per_sample,
+            p_rot_per_sample=self.p_rot_per_sample,
+            independent_scale_for_each_axis=self.independent_scale_for_each_axis,
+            p_rot_per_axis=self.p_rot_per_axis,
+            p_independent_scale_per_axis=self.p_independent_scale_per_axis,
+        )
 
         data_dict[self.data_key] = ret_val[0]
         if seg is not None:
@@ -483,8 +593,14 @@ class SpatialTransform_2(AbstractTransform):
 
 
 class TransposeAxesTransform(AbstractTransform):
-    def __init__(self, transpose_any_of_these=(0, 1, 2), data_key="data", label_key="seg", p_per_sample=1):
-        '''
+    def __init__(
+        self,
+        transpose_any_of_these=(0, 1, 2),
+        data_key="data",
+        label_key="seg",
+        p_per_sample=1,
+    ):
+        """
         This transform will randomly shuffle the axes of transpose_any_of_these.
         Requires your patch size to have the same dimension in all axes specified in transpose_any_of_these. So if
         transpose_any_of_these=(0, 1, 2) the shape must be (128x128x128) and cannotbe, for example (128x128x96)
@@ -492,19 +608,24 @@ class TransposeAxesTransform(AbstractTransform):
         :param transpose_any_of_these: spatial dimensions to transpose, 0=x, 1=y, 2=z. Must be a tuple/list of len>=2
         :param data_key:
         :param label_key:
-        '''
+        """
         self.p_per_sample = p_per_sample
         self.data_key = data_key
         self.label_key = label_key
         self.transpose_any_of_these = transpose_any_of_these
         if max(transpose_any_of_these) > 2:
-            raise ValueError("TransposeAxesTransform now takes the axes as the spatial dimensions. What previously was "
-                             "axes=(2, 3, 4) to mirror along all spatial dimensions of a 5d tensor (b, c, x, y, z) "
-                             "is now axes=(0, 1, 2). Please adapt your scripts accordingly.")
-        assert isinstance(transpose_any_of_these, (list, tuple)), "transpose_any_of_these must be either list or tuple"
-        assert len(
-            transpose_any_of_these) >= 2, "len(transpose_any_of_these) must be >=2 -> we need at least 2 axes we " \
-                                          "can transpose"
+            raise ValueError(
+                "TransposeAxesTransform now takes the axes as the spatial dimensions. What previously was "
+                "axes=(2, 3, 4) to mirror along all spatial dimensions of a 5d tensor (b, c, x, y, z) "
+                "is now axes=(0, 1, 2). Please adapt your scripts accordingly."
+            )
+        assert isinstance(
+            transpose_any_of_these, (list, tuple)
+        ), "transpose_any_of_these must be either list or tuple"
+        assert len(transpose_any_of_these) >= 2, (
+            "len(transpose_any_of_these) must be >=2 -> we need at least 2 axes we "
+            "can transpose"
+        )
 
     def __call__(self, **data_dict):
         data = data_dict.get(self.data_key)
@@ -516,7 +637,9 @@ class TransposeAxesTransform(AbstractTransform):
                     s = seg[b]
                 else:
                     s = None
-                ret_val = augment_transpose_axes(data[b], s, self.transpose_any_of_these)
+                ret_val = augment_transpose_axes(
+                    data[b], s, self.transpose_any_of_these
+                )
                 data[b] = ret_val[0]
                 if seg is not None:
                     seg[b] = ret_val[1]
@@ -525,6 +648,7 @@ class TransposeAxesTransform(AbstractTransform):
         if seg is not None:
             data_dict[self.label_key] = seg
         return data_dict
+
 
 class AnatomyInformedTransform(AbstractTransform):
     """
@@ -545,9 +669,19 @@ class AnatomyInformedTransform(AbstractTransform):
         `max_annotation_value`: the value that should be still relevant for the main task
         `replace_value`: segmentation values larger than the `max_annotation_value` will be replaced with
     """
-    def __init__(self, dil_ranges, modalities, directions_of_trans, p_per_sample,
-                 spacing_ratio=0.3125/3.0, blur=32, anisotropy_safety= True,
-                 max_annotation_value=1, replace_value=0):
+
+    def __init__(
+        self,
+        dil_ranges,
+        modalities,
+        directions_of_trans,
+        p_per_sample,
+        spacing_ratio=0.3125 / 3.0,
+        blur=32,
+        anisotropy_safety=True,
+        max_annotation_value=1,
+        replace_value=0,
+    ):
         self.dil_ranges = dil_ranges
         self.modalities = modalities
 
@@ -563,8 +697,7 @@ class AnatomyInformedTransform(AbstractTransform):
         self.dim = 3
 
     def __call__(self, **data_dict):
-
-        data_shape = data_dict['data'].shape
+        data_shape = data_dict["data"].shape
         if len(data_shape) == 5:
             self.dim = 3
 
@@ -576,17 +709,21 @@ class AnatomyInformedTransform(AbstractTransform):
                 active_organs.append(0)
 
         for b in range(data_shape[0]):
-            data_dict['data'][b, :, :, :, :], data_dict['seg'][b, 0, :, :, :] = augment_anatomy_informed(data=data_dict['data'][b, :, :, :, :],
-                                                                                                         seg=data_dict['seg'][b, 0, :, :, :],
-                                                                                                         active_organs=active_organs,
-                                                                                                         dilation_ranges=self.dil_ranges,
-                                                                                                         directions_of_trans=self.directions_of_trans,
-                                                                                                         modalities=self.modalities,
-                                                                                                         spacing_ratio=self.spacing_ratio,
-                                                                                                         blur=self.blur,
-                                                                                                         anisotropy_safety=self.anisotropy_safety,
-                                                                                                         max_annotation_value=self.max_annotation_value,
-                                                                                                         replace_value=self.replace_value)
+            data_dict["data"][b, :, :, :, :], data_dict["seg"][b, 0, :, :, :] = (
+                augment_anatomy_informed(
+                    data=data_dict["data"][b, :, :, :, :],
+                    seg=data_dict["seg"][b, 0, :, :, :],
+                    active_organs=active_organs,
+                    dilation_ranges=self.dil_ranges,
+                    directions_of_trans=self.directions_of_trans,
+                    modalities=self.modalities,
+                    spacing_ratio=self.spacing_ratio,
+                    blur=self.blur,
+                    anisotropy_safety=self.anisotropy_safety,
+                    max_annotation_value=self.max_annotation_value,
+                    replace_value=self.replace_value,
+                )
+            )
         return data_dict
 
 
@@ -620,21 +757,41 @@ class MisalignTransform(AbstractTransform):
         `p_transl_per_dir`: probability of the transformation per direction
     """
 
-    def __init__(self, data_key="data", label_key="seg",
-                 im_channels_2_misalign=[0, ], label_channels_2_misalign=[0, ],
-                 do_squeeze=True, sq_x=[1.0, 1.0], sq_y=[0.9, 1.1], sq_z=[1.0, 1.0],
-                 p_sq_per_sample=0.1, p_sq_per_dir=1.0,
-                 do_rotation=True,
-                 angle_x=(-0 / 360. * 2 * np.pi, 0 / 360. * 2 * np.pi),
-                 angle_y=(-0 / 360. * 2 * np.pi, 0 / 360. * 2 * np.pi),
-                 angle_z=(-15 / 360. * 2 * np.pi, 15 / 360. * 2 * np.pi),
-                 p_rot_per_sample=0.1, p_rot_per_axis=1.0,
-                 do_transl=True, tr_x=[-32, 32], tr_y=[-32, 32], tr_z=[-2, 2],
-                 p_transl_per_sample=0.1, p_transl_per_dir=1.0,
-                 border_mode_data='constant', border_cval_data=0,
-                 border_mode_seg='constant', border_cval_seg=0,
-                 order_data=3, order_seg=0):
-
+    def __init__(
+        self,
+        data_key="data",
+        label_key="seg",
+        im_channels_2_misalign=[
+            0,
+        ],
+        label_channels_2_misalign=[
+            0,
+        ],
+        do_squeeze=True,
+        sq_x=[1.0, 1.0],
+        sq_y=[0.9, 1.1],
+        sq_z=[1.0, 1.0],
+        p_sq_per_sample=0.1,
+        p_sq_per_dir=1.0,
+        do_rotation=True,
+        angle_x=(-0 / 360.0 * 2 * np.pi, 0 / 360.0 * 2 * np.pi),
+        angle_y=(-0 / 360.0 * 2 * np.pi, 0 / 360.0 * 2 * np.pi),
+        angle_z=(-15 / 360.0 * 2 * np.pi, 15 / 360.0 * 2 * np.pi),
+        p_rot_per_sample=0.1,
+        p_rot_per_axis=1.0,
+        do_transl=True,
+        tr_x=[-32, 32],
+        tr_y=[-32, 32],
+        tr_z=[-2, 2],
+        p_transl_per_sample=0.1,
+        p_transl_per_dir=1.0,
+        border_mode_data="constant",
+        border_cval_data=0,
+        border_mode_seg="constant",
+        border_cval_seg=0,
+        order_data=3,
+        order_seg=0,
+    ):
         self.data_key = data_key
         self.label_key = label_key
 
@@ -683,33 +840,37 @@ class MisalignTransform(AbstractTransform):
             else:
                 raise ValueError("only support 2D/3D batch data.")
 
-        ret_val = augment_misalign(data, seg, data_size=data_size,
-                                   im_channels_2_misalign=self.im_channels_2_misalign,
-                                   label_channels_2_misalign=self.label_channels_2_misalign,
-                                   do_squeeze=self.do_squeeze,
-                                   sq_x=self.sq_x,
-                                   sq_y=self.sq_y,
-                                   sq_z=self.sq_z,
-                                   p_sq_per_sample=self.p_sq_per_sample,
-                                   p_sq_per_dir=self.p_sq_per_dir,
-                                   do_rotation=self.do_rotation,
-                                   angle_x=self.angle_x,
-                                   angle_y=self.angle_y,
-                                   angle_z=self.angle_z,
-                                   p_rot_per_sample=self.p_rot_per_sample,
-                                   p_rot_per_axis=self.p_rot_per_axis,
-                                   do_transl=self.do_transl,
-                                   tr_x=self.tr_x,
-                                   tr_y=self.tr_y,
-                                   tr_z=self.tr_z,
-                                   p_transl_per_sample=self.p_transl_per_sample,
-                                   p_transl_per_dir=self.p_transl_per_dir,
-                                   order_data=self.order_data,
-                                   border_mode_data=self.border_mode_data,
-                                   border_cval_data=self.border_cval_data,
-                                   order_seg=self.order_seg,
-                                   border_mode_seg=self.border_mode_seg,
-                                   border_cval_seg=self.border_cval_seg)
+        ret_val = augment_misalign(
+            data,
+            seg,
+            data_size=data_size,
+            im_channels_2_misalign=self.im_channels_2_misalign,
+            label_channels_2_misalign=self.label_channels_2_misalign,
+            do_squeeze=self.do_squeeze,
+            sq_x=self.sq_x,
+            sq_y=self.sq_y,
+            sq_z=self.sq_z,
+            p_sq_per_sample=self.p_sq_per_sample,
+            p_sq_per_dir=self.p_sq_per_dir,
+            do_rotation=self.do_rotation,
+            angle_x=self.angle_x,
+            angle_y=self.angle_y,
+            angle_z=self.angle_z,
+            p_rot_per_sample=self.p_rot_per_sample,
+            p_rot_per_axis=self.p_rot_per_axis,
+            do_transl=self.do_transl,
+            tr_x=self.tr_x,
+            tr_y=self.tr_y,
+            tr_z=self.tr_z,
+            p_transl_per_sample=self.p_transl_per_sample,
+            p_transl_per_dir=self.p_transl_per_dir,
+            order_data=self.order_data,
+            border_mode_data=self.border_mode_data,
+            border_cval_data=self.border_cval_data,
+            order_seg=self.order_seg,
+            border_mode_seg=self.border_mode_seg,
+            border_cval_seg=self.border_cval_seg,
+        )
 
         data_dict[self.data_key] = ret_val[0]
         if seg is not None:

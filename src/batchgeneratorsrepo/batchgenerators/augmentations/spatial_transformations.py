@@ -17,11 +17,19 @@ from builtins import range
 
 import numpy as np
 from scipy.ndimage import map_coordinates
-from .utils import create_zero_centered_coordinate_mesh, elastic_deform_coordinates, \
-    interpolate_img, \
-    rotate_coords_2d, rotate_coords_3d, scale_coords, resize_segmentation, resize_multichannel_image, \
-    elastic_deform_coordinates_2, \
-    get_organ_gradient_field, ignore_anatomy
+from .utils import (
+    create_zero_centered_coordinate_mesh,
+    elastic_deform_coordinates,
+    interpolate_img,
+    rotate_coords_2d,
+    rotate_coords_3d,
+    scale_coords,
+    resize_segmentation,
+    resize_multichannel_image,
+    elastic_deform_coordinates_2,
+    get_organ_gradient_field,
+    ignore_anatomy,
+)
 from .crop_and_pad_augmentations import random_crop as random_crop_aug
 from .crop_and_pad_augmentations import center_crop as center_crop_aug
 
@@ -62,8 +70,10 @@ def augment_resize(sample_data, sample_seg, target_size, order=3, order_seg=1):
     if not isinstance(target_size, (list, tuple)):
         target_size_here = [target_size] * dimensionality
     else:
-        assert len(target_size) == dimensionality, "If you give a tuple/list as target size, make sure it has " \
-                                                   "the same dimensionality as data!"
+        assert len(target_size) == dimensionality, (
+            "If you give a tuple/list as target size, make sure it has "
+            "the same dimensionality as data!"
+        )
         target_size_here = list(target_size)
 
     sample_data = resize_multichannel_image(sample_data, target_size_here, order)
@@ -71,7 +81,9 @@ def augment_resize(sample_data, sample_seg, target_size, order=3, order_seg=1):
     if sample_seg is not None:
         target_seg = np.ones([sample_seg.shape[0]] + target_size_here)
         for c in range(sample_seg.shape[0]):
-            target_seg[c] = resize_segmentation(sample_seg[c], target_size_here, order_seg)
+            target_seg[c] = resize_segmentation(
+                sample_seg[c], target_size_here, order_seg
+            )
     else:
         target_seg = None
 
@@ -97,8 +109,10 @@ def augment_zoom(sample_data, sample_seg, zoom_factors, order=3, order_seg=1):
     if not isinstance(zoom_factors, (list, tuple)):
         zoom_factors_here = np.array([zoom_factors] * dimensionality)
     else:
-        assert len(zoom_factors) == dimensionality, "If you give a tuple/list as target size, make sure it has " \
-                                                    "the same dimensionality as data!"
+        assert len(zoom_factors) == dimensionality, (
+            "If you give a tuple/list as target size, make sure it has "
+            "the same dimensionality as data!"
+        )
         zoom_factors_here = np.array(zoom_factors)
     target_shape_here = list(np.round(shape * zoom_factors_here).astype(int))
 
@@ -107,7 +121,9 @@ def augment_zoom(sample_data, sample_seg, zoom_factors, order=3, order_seg=1):
     if sample_seg is not None:
         target_seg = np.ones([sample_seg.shape[0]] + target_shape_here)
         for c in range(sample_seg.shape[0]):
-            target_seg[c] = resize_segmentation(sample_seg[c], target_shape_here, order_seg)
+            target_seg[c] = resize_segmentation(
+                sample_seg[c], target_shape_here, order_seg
+            )
     else:
         target_seg = None
 
@@ -118,7 +134,8 @@ def augment_mirroring(sample_data, sample_seg=None, axes=(0, 1, 2)):
     if (len(sample_data.shape) != 3) and (len(sample_data.shape) != 4):
         raise Exception(
             "Invalid dimension for sample_data and sample_seg. sample_data and sample_seg should be either "
-            "[channels, x, y] or [channels, x, y, z]")
+            "[channels, x, y] or [channels, x, y, z]"
+        )
     if 0 in axes and np.random.uniform() < 0.5:
         sample_data[:, :] = sample_data[:, ::-1]
         if sample_seg is not None:
@@ -137,7 +154,7 @@ def augment_mirroring(sample_data, sample_seg=None, axes=(0, 1, 2)):
 
 def augment_channel_translation(data, const_channel=0, max_shifts=None):
     if max_shifts is None:
-        max_shifts = {'z': 2, 'y': 2, 'x': 2}
+        max_shifts = {"z": 2, "y": 2, "x": 2}
 
     shape = data.shape
 
@@ -146,39 +163,60 @@ def augment_channel_translation(data, const_channel=0, max_shifts=None):
 
     # iterate the batch dimension
     for j in range(shape[0]):
-
         slice = trans_data[j]
 
         ixs = {}
         pad = {}
 
         if len(shape) == 5:
-            dims = ['z', 'y', 'x']
+            dims = ["z", "y", "x"]
         else:
-            dims = ['y', 'x']
+            dims = ["y", "x"]
 
         # iterate the image dimensions, randomly draw shifts/translations
         for i, v in enumerate(dims):
             rand_shift = np.random.choice(list(range(-max_shifts[v], max_shifts[v], 1)))
 
             if rand_shift > 0:
-                ixs[v] = {'lo': 0, 'hi': -rand_shift}
-                pad[v] = {'lo': rand_shift, 'hi': 0}
+                ixs[v] = {"lo": 0, "hi": -rand_shift}
+                pad[v] = {"lo": rand_shift, "hi": 0}
             else:
-                ixs[v] = {'lo': abs(rand_shift), 'hi': shape[2 + i]}
-                pad[v] = {'lo': 0, 'hi': abs(rand_shift)}
+                ixs[v] = {"lo": abs(rand_shift), "hi": shape[2 + i]}
+                pad[v] = {"lo": 0, "hi": abs(rand_shift)}
 
         # shift and pad so as to retain the original image shape
         if len(shape) == 5:
-            slice = slice[:, ixs['z']['lo']:ixs['z']['hi'], ixs['y']['lo']:ixs['y']['hi'],
-                    ixs['x']['lo']:ixs['x']['hi']]
-            slice = np.pad(slice, ((0, 0), (pad['z']['lo'], pad['z']['hi']), (pad['y']['lo'], pad['y']['hi']),
-                                   (pad['x']['lo'], pad['x']['hi'])),
-                           mode='constant', constant_values=(0, 0))
+            slice = slice[
+                :,
+                ixs["z"]["lo"] : ixs["z"]["hi"],
+                ixs["y"]["lo"] : ixs["y"]["hi"],
+                ixs["x"]["lo"] : ixs["x"]["hi"],
+            ]
+            slice = np.pad(
+                slice,
+                (
+                    (0, 0),
+                    (pad["z"]["lo"], pad["z"]["hi"]),
+                    (pad["y"]["lo"], pad["y"]["hi"]),
+                    (pad["x"]["lo"], pad["x"]["hi"]),
+                ),
+                mode="constant",
+                constant_values=(0, 0),
+            )
         if len(shape) == 4:
-            slice = slice[:, ixs['y']['lo']:ixs['y']['hi'], ixs['x']['lo']:ixs['x']['hi']]
-            slice = np.pad(slice, ((0, 0), (pad['y']['lo'], pad['y']['hi']), (pad['x']['lo'], pad['x']['hi'])),
-                           mode='constant', constant_values=(0, 0))
+            slice = slice[
+                :, ixs["y"]["lo"] : ixs["y"]["hi"], ixs["x"]["lo"] : ixs["x"]["hi"]
+            ]
+            slice = np.pad(
+                slice,
+                (
+                    (0, 0),
+                    (pad["y"]["lo"], pad["y"]["hi"]),
+                    (pad["x"]["lo"], pad["x"]["hi"]),
+                ),
+                mode="constant",
+                constant_values=(0, 0),
+            )
 
         trans_data[j] = slice
 
@@ -186,27 +224,64 @@ def augment_channel_translation(data, const_channel=0, max_shifts=None):
     return data_return
 
 
-def augment_spatial(data, seg, patch_size, patch_center_dist_from_border=30,
-                    do_elastic_deform=True, alpha=(0., 1000.), sigma=(10., 13.),
-                    do_rotation=True, angle_x=(0, 2 * np.pi), angle_y=(0, 2 * np.pi), angle_z=(0, 2 * np.pi),
-                    do_scale=True, scale=(0.75, 1.25), border_mode_data='nearest', border_cval_data=0, order_data=3,
-                    border_mode_seg='constant', border_cval_seg=0, order_seg=0, random_crop=True, p_el_per_sample=1,
-                    p_scale_per_sample=1, p_rot_per_sample=1, independent_scale_for_each_axis=False,
-                    p_rot_per_axis: float = 1, p_independent_scale_per_axis: int = 1):
+def augment_spatial(
+    data,
+    seg,
+    patch_size,
+    patch_center_dist_from_border=30,
+    do_elastic_deform=True,
+    alpha=(0.0, 1000.0),
+    sigma=(10.0, 13.0),
+    do_rotation=True,
+    angle_x=(0, 2 * np.pi),
+    angle_y=(0, 2 * np.pi),
+    angle_z=(0, 2 * np.pi),
+    do_scale=True,
+    scale=(0.75, 1.25),
+    border_mode_data="nearest",
+    border_cval_data=0,
+    order_data=3,
+    border_mode_seg="constant",
+    border_cval_seg=0,
+    order_seg=0,
+    random_crop=True,
+    p_el_per_sample=1,
+    p_scale_per_sample=1,
+    p_rot_per_sample=1,
+    independent_scale_for_each_axis=False,
+    p_rot_per_axis: float = 1,
+    p_independent_scale_per_axis: int = 1,
+):
     dim = len(patch_size)
     seg_result = None
     if seg is not None:
         if dim == 2:
-            seg_result = np.zeros((seg.shape[0], seg.shape[1], patch_size[0], patch_size[1]), dtype=np.float32)
+            seg_result = np.zeros(
+                (seg.shape[0], seg.shape[1], patch_size[0], patch_size[1]),
+                dtype=np.float32,
+            )
         else:
-            seg_result = np.zeros((seg.shape[0], seg.shape[1], patch_size[0], patch_size[1], patch_size[2]),
-                                  dtype=np.float32)
+            seg_result = np.zeros(
+                (
+                    seg.shape[0],
+                    seg.shape[1],
+                    patch_size[0],
+                    patch_size[1],
+                    patch_size[2],
+                ),
+                dtype=np.float32,
+            )
 
     if dim == 2:
-        data_result = np.zeros((data.shape[0], data.shape[1], patch_size[0], patch_size[1]), dtype=np.float32)
+        data_result = np.zeros(
+            (data.shape[0], data.shape[1], patch_size[0], patch_size[1]),
+            dtype=np.float32,
+        )
     else:
-        data_result = np.zeros((data.shape[0], data.shape[1], patch_size[0], patch_size[1], patch_size[2]),
-                               dtype=np.float32)
+        data_result = np.zeros(
+            (data.shape[0], data.shape[1], patch_size[0], patch_size[1], patch_size[2]),
+            dtype=np.float32,
+        )
 
     if not isinstance(patch_center_dist_from_border, (list, tuple, np.ndarray)):
         patch_center_dist_from_border = dim * [patch_center_dist_from_border]
@@ -222,7 +297,6 @@ def augment_spatial(data, seg, patch_size, patch_center_dist_from_border=30,
             modified_coords = True
 
         if do_rotation and np.random.uniform() < p_rot_per_sample:
-
             if np.random.uniform() <= p_rot_per_axis:
                 a_x = np.random.uniform(angle_x[0], angle_x[1])
             else:
@@ -245,7 +319,10 @@ def augment_spatial(data, seg, patch_size, patch_center_dist_from_border=30,
             modified_coords = True
 
         if do_scale and np.random.uniform() < p_scale_per_sample:
-            if independent_scale_for_each_axis and np.random.uniform() < p_independent_scale_per_axis:
+            if (
+                independent_scale_for_each_axis
+                and np.random.uniform() < p_independent_scale_per_axis
+            ):
                 sc = []
                 for _ in range(dim):
                     if np.random.random() < 0.5 and scale[0] < 1:
@@ -261,46 +338,83 @@ def augment_spatial(data, seg, patch_size, patch_center_dist_from_border=30,
             coords = scale_coords(coords, sc)
             modified_coords = True
 
-        # now find a nice center location 
+        # now find a nice center location
         if modified_coords:
             for d in range(dim):
                 if random_crop:
-                    ctr = np.random.uniform(patch_center_dist_from_border[d],
-                                            data.shape[d + 2] - patch_center_dist_from_border[d])
+                    ctr = np.random.uniform(
+                        patch_center_dist_from_border[d],
+                        data.shape[d + 2] - patch_center_dist_from_border[d],
+                    )
                 else:
-                    ctr = data.shape[d + 2] / 2. - 0.5
+                    ctr = data.shape[d + 2] / 2.0 - 0.5
                 coords[d] += ctr
             for channel_id in range(data.shape[1]):
-                data_result[sample_id, channel_id] = interpolate_img(data[sample_id, channel_id], coords, order_data,
-                                                                     border_mode_data, cval=border_cval_data)
+                data_result[sample_id, channel_id] = interpolate_img(
+                    data[sample_id, channel_id],
+                    coords,
+                    order_data,
+                    border_mode_data,
+                    cval=border_cval_data,
+                )
             if seg is not None:
                 for channel_id in range(seg.shape[1]):
-                    seg_result[sample_id, channel_id] = interpolate_img(seg[sample_id, channel_id], coords, order_seg,
-                                                                        border_mode_seg, cval=border_cval_seg,
-                                                                        is_seg=True)
+                    seg_result[sample_id, channel_id] = interpolate_img(
+                        seg[sample_id, channel_id],
+                        coords,
+                        order_seg,
+                        border_mode_seg,
+                        cval=border_cval_seg,
+                        is_seg=True,
+                    )
         else:
             if seg is None:
                 s = None
             else:
-                s = seg[sample_id:sample_id + 1]
+                s = seg[sample_id : sample_id + 1]
             if random_crop:
-                margin = [patch_center_dist_from_border[d] - patch_size[d] // 2 for d in range(dim)]
-                d, s = random_crop_aug(data[sample_id:sample_id + 1], s, patch_size, margin)
+                margin = [
+                    patch_center_dist_from_border[d] - patch_size[d] // 2
+                    for d in range(dim)
+                ]
+                d, s = random_crop_aug(
+                    data[sample_id : sample_id + 1], s, patch_size, margin
+                )
             else:
-                d, s = center_crop_aug(data[sample_id:sample_id + 1], patch_size, s)
+                d, s = center_crop_aug(data[sample_id : sample_id + 1], patch_size, s)
             data_result[sample_id] = d[0]
             if seg is not None:
                 seg_result[sample_id] = s[0]
     return data_result, seg_result
 
 
-def augment_spatial_2(data, seg, patch_size, patch_center_dist_from_border=30,
-                      do_elastic_deform=True, deformation_scale=(0, 0.25),
-                      do_rotation=True, angle_x=(0, 2 * np.pi), angle_y=(0, 2 * np.pi), angle_z=(0, 2 * np.pi),
-                      do_scale=True, scale=(0.75, 1.25), border_mode_data='nearest', border_cval_data=0, order_data=3,
-                      border_mode_seg='constant', border_cval_seg=0, order_seg=0, random_crop=True, p_el_per_sample=1,
-                      p_scale_per_sample=1, p_rot_per_sample=1, independent_scale_for_each_axis=False,
-                      p_rot_per_axis: float = 1, p_independent_scale_per_axis: float = 1):
+def augment_spatial_2(
+    data,
+    seg,
+    patch_size,
+    patch_center_dist_from_border=30,
+    do_elastic_deform=True,
+    deformation_scale=(0, 0.25),
+    do_rotation=True,
+    angle_x=(0, 2 * np.pi),
+    angle_y=(0, 2 * np.pi),
+    angle_z=(0, 2 * np.pi),
+    do_scale=True,
+    scale=(0.75, 1.25),
+    border_mode_data="nearest",
+    border_cval_data=0,
+    order_data=3,
+    border_mode_seg="constant",
+    border_cval_seg=0,
+    order_seg=0,
+    random_crop=True,
+    p_el_per_sample=1,
+    p_scale_per_sample=1,
+    p_rot_per_sample=1,
+    independent_scale_for_each_axis=False,
+    p_rot_per_axis: float = 1,
+    p_independent_scale_per_axis: float = 1,
+):
     """
 
     :param data:
@@ -337,16 +451,32 @@ def augment_spatial_2(data, seg, patch_size, patch_center_dist_from_border=30,
     seg_result = None
     if seg is not None:
         if dim == 2:
-            seg_result = np.zeros((seg.shape[0], seg.shape[1], patch_size[0], patch_size[1]), dtype=np.float32)
+            seg_result = np.zeros(
+                (seg.shape[0], seg.shape[1], patch_size[0], patch_size[1]),
+                dtype=np.float32,
+            )
         else:
-            seg_result = np.zeros((seg.shape[0], seg.shape[1], patch_size[0], patch_size[1], patch_size[2]),
-                                  dtype=np.float32)
+            seg_result = np.zeros(
+                (
+                    seg.shape[0],
+                    seg.shape[1],
+                    patch_size[0],
+                    patch_size[1],
+                    patch_size[2],
+                ),
+                dtype=np.float32,
+            )
 
     if dim == 2:
-        data_result = np.zeros((data.shape[0], data.shape[1], patch_size[0], patch_size[1]), dtype=np.float32)
+        data_result = np.zeros(
+            (data.shape[0], data.shape[1], patch_size[0], patch_size[1]),
+            dtype=np.float32,
+        )
     else:
-        data_result = np.zeros((data.shape[0], data.shape[1], patch_size[0], patch_size[1], patch_size[2]),
-                               dtype=np.float32)
+        data_result = np.zeros(
+            (data.shape[0], data.shape[1], patch_size[0], patch_size[1], patch_size[2]),
+            dtype=np.float32,
+        )
 
     if not isinstance(patch_center_dist_from_border, (list, tuple, np.ndarray)):
         patch_center_dist_from_border = dim * [patch_center_dist_from_border]
@@ -385,7 +515,6 @@ def augment_spatial_2(data, seg, patch_size, patch_center_dist_from_border=30,
             modified_coords = True
 
         if do_rotation and np.random.uniform() < p_rot_per_sample:
-
             if np.random.uniform() <= p_rot_per_axis:
                 a_x = np.random.uniform(angle_x[0], angle_x[1])
             else:
@@ -408,7 +537,10 @@ def augment_spatial_2(data, seg, patch_size, patch_center_dist_from_border=30,
             modified_coords = True
 
         if do_scale and np.random.uniform() < p_scale_per_sample:
-            if independent_scale_for_each_axis and np.random.uniform() < p_independent_scale_per_axis:
+            if (
+                independent_scale_for_each_axis
+                and np.random.uniform() < p_independent_scale_per_axis
+            ):
                 sc = []
                 for _ in range(dim):
                     if np.random.random() < 0.5 and scale[0] < 1:
@@ -427,34 +559,53 @@ def augment_spatial_2(data, seg, patch_size, patch_center_dist_from_border=30,
         # now find a nice center location
         if modified_coords:
             # recenter coordinates
-            coords_mean = coords.mean(axis=tuple(range(1, len(coords.shape))), keepdims=True)
+            coords_mean = coords.mean(
+                axis=tuple(range(1, len(coords.shape))), keepdims=True
+            )
             coords -= coords_mean
 
             for d in range(dim):
                 if random_crop:
-                    ctr = np.random.uniform(patch_center_dist_from_border[d],
-                                            data.shape[d + 2] - patch_center_dist_from_border[d])
+                    ctr = np.random.uniform(
+                        patch_center_dist_from_border[d],
+                        data.shape[d + 2] - patch_center_dist_from_border[d],
+                    )
                 else:
-                    ctr = data.shape[d + 2] / 2. - 0.5
+                    ctr = data.shape[d + 2] / 2.0 - 0.5
                 coords[d] += ctr
             for channel_id in range(data.shape[1]):
-                data_result[sample_id, channel_id] = interpolate_img(data[sample_id, channel_id], coords, order_data,
-                                                                     border_mode_data, cval=border_cval_data)
+                data_result[sample_id, channel_id] = interpolate_img(
+                    data[sample_id, channel_id],
+                    coords,
+                    order_data,
+                    border_mode_data,
+                    cval=border_cval_data,
+                )
             if seg is not None:
                 for channel_id in range(seg.shape[1]):
-                    seg_result[sample_id, channel_id] = interpolate_img(seg[sample_id, channel_id], coords, order_seg,
-                                                                        border_mode_seg, cval=border_cval_seg,
-                                                                        is_seg=True)
+                    seg_result[sample_id, channel_id] = interpolate_img(
+                        seg[sample_id, channel_id],
+                        coords,
+                        order_seg,
+                        border_mode_seg,
+                        cval=border_cval_seg,
+                        is_seg=True,
+                    )
         else:
             if seg is None:
                 s = None
             else:
-                s = seg[sample_id:sample_id + 1]
+                s = seg[sample_id : sample_id + 1]
             if random_crop:
-                margin = [patch_center_dist_from_border[d] - patch_size[d] // 2 for d in range(dim)]
-                d, s = random_crop_aug(data[sample_id:sample_id + 1], s, patch_size, margin)
+                margin = [
+                    patch_center_dist_from_border[d] - patch_size[d] // 2
+                    for d in range(dim)
+                ]
+                d, s = random_crop_aug(
+                    data[sample_id : sample_id + 1], s, patch_size, margin
+                )
             else:
-                d, s = center_crop_aug(data[sample_id:sample_id + 1], patch_size, s)
+                d, s = center_crop_aug(data[sample_id : sample_id + 1], patch_size, s)
             data_result[sample_id] = d[0]
             if seg is not None:
                 seg_result[sample_id] = s[0]
@@ -469,11 +620,16 @@ def augment_transpose_axes(data_sample, seg_sample, axes=(0, 1, 2)):
     :param axes: list/tuple
     :return:
     """
-    axes = list(np.array(axes) + 1)  # need list to allow shuffle; +1 to accomodate for color channel
+    axes = list(
+        np.array(axes) + 1
+    )  # need list to allow shuffle; +1 to accomodate for color channel
 
-    assert np.max(axes) <= len(data_sample.shape), "axes must only contain valid axis ids"
+    assert np.max(axes) <= len(
+        data_sample.shape
+    ), "axes must only contain valid axis ids"
     static_axes = list(range(len(data_sample.shape)))
-    for i in axes: static_axes[i] = -1
+    for i in axes:
+        static_axes[i] = -1
     np.random.shuffle(axes)
 
     ctr = 0
@@ -487,74 +643,118 @@ def augment_transpose_axes(data_sample, seg_sample, axes=(0, 1, 2)):
         seg_sample = seg_sample.transpose(*static_axes)
     return data_sample, seg_sample
 
-def augment_anatomy_informed(data, seg,
-                             active_organs, dilation_ranges, directions_of_trans, modalities,
-                             spacing_ratio=0.3125/3.0, blur=32, anisotropy_safety= True,
-                             max_annotation_value=1, replace_value=0):
+
+def augment_anatomy_informed(
+    data,
+    seg,
+    active_organs,
+    dilation_ranges,
+    directions_of_trans,
+    modalities,
+    spacing_ratio=0.3125 / 3.0,
+    blur=32,
+    anisotropy_safety=True,
+    max_annotation_value=1,
+    replace_value=0,
+):
     if sum(active_organs) > 0:
         data_shape = data.shape
         coords = create_zero_centered_coordinate_mesh(data_shape[-3:])
 
         for organ_idx, active in reversed(list(enumerate(active_organs))):
             if active:
-                dil_magnitude = np.random.uniform(low=dilation_ranges[organ_idx][0], high=dilation_ranges[organ_idx][1])
+                dil_magnitude = np.random.uniform(
+                    low=dilation_ranges[organ_idx][0],
+                    high=dilation_ranges[organ_idx][1],
+                )
 
-                t, u, v = get_organ_gradient_field(seg == organ_idx + 2,
-                                                   spacing_ratio=spacing_ratio,
-                                                   blur=blur)
+                t, u, v = get_organ_gradient_field(
+                    seg == organ_idx + 2, spacing_ratio=spacing_ratio, blur=blur
+                )
 
                 if directions_of_trans[organ_idx][0]:
-                    coords[0, :, :, :] = coords[0, :, :, :] + t * dil_magnitude * spacing_ratio
+                    coords[0, :, :, :] = (
+                        coords[0, :, :, :] + t * dil_magnitude * spacing_ratio
+                    )
                 if directions_of_trans[organ_idx][1]:
                     coords[1, :, :, :] = coords[1, :, :, :] + u * dil_magnitude
                 if directions_of_trans[organ_idx][2]:
                     coords[2, :, :, :] = coords[2, :, :, :] + v * dil_magnitude
 
         for d in range(3):
-            ctr = data.shape[d+1] / 2  # !!!
+            ctr = data.shape[d + 1] / 2  # !!!
             coords[d] += ctr - 0.5  # !!!
 
         if anisotropy_safety:
             coords[0, 0, :, :][coords[0, 0, :, :] < 0] = 0.0
             coords[0, 1, :, :][coords[0, 1, :, :] < 0] = 0.0
-            coords[0, -1, :, :][coords[0, -1, :, :] > (data_shape[-3] - 1)] = data_shape[-3] - 1
-            coords[0, -2, :, :][coords[0, -2, :, :] > (data_shape[-3] - 1)] = data_shape[-3] - 1
-
+            coords[0, -1, :, :][coords[0, -1, :, :] > (data_shape[-3] - 1)] = (
+                data_shape[-3] - 1
+            )
+            coords[0, -2, :, :][coords[0, -2, :, :] > (data_shape[-3] - 1)] = (
+                data_shape[-3] - 1
+            )
 
         for modality in modalities:
-            data[modality, :, :, :] = map_coordinates(data[modality, :, :, :], coords, order=1, mode='constant')
+            data[modality, :, :, :] = map_coordinates(
+                data[modality, :, :, :], coords, order=1, mode="constant"
+            )
 
-        seg[:, :, :] = ignore_anatomy(seg[:, :, :], max_annotation_value=max_annotation_value, replace_value=replace_value)
-        seg[:, :, :] = map_coordinates(seg[:, :, :], coords, order=0, mode='constant')
+        seg[:, :, :] = ignore_anatomy(
+            seg[:, :, :],
+            max_annotation_value=max_annotation_value,
+            replace_value=replace_value,
+        )
+        seg[:, :, :] = map_coordinates(seg[:, :, :], coords, order=0, mode="constant")
 
     else:
-        seg[:, :, :] = ignore_anatomy(seg[:, :, :], max_annotation_value=max_annotation_value, replace_value=replace_value)
+        seg[:, :, :] = ignore_anatomy(
+            seg[:, :, :],
+            max_annotation_value=max_annotation_value,
+            replace_value=replace_value,
+        )
 
     return data, seg
 
 
-def augment_misalign(data, seg, data_size,
-                     im_channels_2_misalign=[0, ],
-                     label_channels_2_misalign=[0, ],
-                     do_squeeze=False,
-                     sq_x=[1.0, 1.0], sq_y=[0.9, 1.1], sq_z=[1.0, 1.0],
-                     p_sq_per_sample=0.1, p_sq_per_dir=1.0,
-                     do_rotation=False,
-                     angle_x=(-0 / 360. * 2 * np.pi, 0 / 360. * 2 * np.pi),
-                     angle_y=(-0 / 360. * 2 * np.pi, 0 / 360. * 2 * np.pi),
-                     angle_z=(-15 / 360. * 2 * np.pi, 15 / 360. * 2 * np.pi),
-                     p_rot_per_sample=0.1, p_rot_per_axis=1.0,
-                     tr_x=[-32, 32], tr_y=[-32, 32], tr_z=[-2, 2],
-                     p_transl_per_sample=0.1, p_transl_per_dir=1.0,
-                     do_transl=False,
-                     border_mode_data='constant', border_cval_data=0,
-                     border_mode_seg='constant', border_cval_seg=0,
-                     order_data=3, order_seg=0):
-
+def augment_misalign(
+    data,
+    seg,
+    data_size,
+    im_channels_2_misalign=[
+        0,
+    ],
+    label_channels_2_misalign=[
+        0,
+    ],
+    do_squeeze=False,
+    sq_x=[1.0, 1.0],
+    sq_y=[0.9, 1.1],
+    sq_z=[1.0, 1.0],
+    p_sq_per_sample=0.1,
+    p_sq_per_dir=1.0,
+    do_rotation=False,
+    angle_x=(-0 / 360.0 * 2 * np.pi, 0 / 360.0 * 2 * np.pi),
+    angle_y=(-0 / 360.0 * 2 * np.pi, 0 / 360.0 * 2 * np.pi),
+    angle_z=(-15 / 360.0 * 2 * np.pi, 15 / 360.0 * 2 * np.pi),
+    p_rot_per_sample=0.1,
+    p_rot_per_axis=1.0,
+    tr_x=[-32, 32],
+    tr_y=[-32, 32],
+    tr_z=[-2, 2],
+    p_transl_per_sample=0.1,
+    p_transl_per_dir=1.0,
+    do_transl=False,
+    border_mode_data="constant",
+    border_cval_data=0,
+    border_mode_seg="constant",
+    border_cval_seg=0,
+    order_data=3,
+    order_seg=0,
+):
     dim = len(data_size)
 
     for sample_id in range(data.shape[0]):
-
         if do_squeeze and np.random.uniform() < p_sq_per_sample:
             coords = create_zero_centered_coordinate_mesh(data_size)
             sq = []
@@ -575,19 +775,29 @@ def augment_misalign(data, seg, data_size,
                 sq.append(1.0)
             coords = scale_coords(coords, sq)
             for d in range(dim):
-                ctr = data.shape[d + 2] / 2. - 0.5
+                ctr = data.shape[d + 2] / 2.0 - 0.5
                 coords[d] += ctr
 
             for channel_id in range(data.shape[1]):
                 if channel_id in im_channels_2_misalign:
-                    data[sample_id, channel_id] = interpolate_img(data[sample_id, channel_id], coords, order_data,
-                                                                  border_mode_data, cval=border_cval_data)
+                    data[sample_id, channel_id] = interpolate_img(
+                        data[sample_id, channel_id],
+                        coords,
+                        order_data,
+                        border_mode_data,
+                        cval=border_cval_data,
+                    )
             if seg is not None:
                 for channel_id in range(seg.shape[1]):
                     if channel_id in im_channels_2_misalign:
-                        seg[sample_id, channel_id] = interpolate_img(seg[sample_id, channel_id], coords, order_seg,
-                                                                     border_mode_seg, cval=border_cval_seg,
-                                                                     is_seg=True)
+                        seg[sample_id, channel_id] = interpolate_img(
+                            seg[sample_id, channel_id],
+                            coords,
+                            order_seg,
+                            border_mode_seg,
+                            cval=border_cval_seg,
+                            is_seg=True,
+                        )
 
         if do_rotation and np.random.uniform() < p_rot_per_sample:
             coords = create_zero_centered_coordinate_mesh(data_size)
@@ -608,19 +818,29 @@ def augment_misalign(data, seg, data_size,
             else:
                 coords = rotate_coords_2d(coords, a_z)
             for d in range(dim):
-                ctr = data.shape[d + 2] / 2. - 0.5
+                ctr = data.shape[d + 2] / 2.0 - 0.5
                 coords[d] += ctr
 
             for channel_id in range(data.shape[1]):
                 if channel_id in im_channels_2_misalign:
-                    data[sample_id, channel_id] = interpolate_img(data[sample_id, channel_id], coords, order_data,
-                                                                  border_mode_data, cval=border_cval_data)
+                    data[sample_id, channel_id] = interpolate_img(
+                        data[sample_id, channel_id],
+                        coords,
+                        order_data,
+                        border_mode_data,
+                        cval=border_cval_data,
+                    )
             if seg is not None:
                 for channel_id in range(seg.shape[1]):
                     if channel_id in im_channels_2_misalign:
-                        seg[sample_id, channel_id] = interpolate_img(seg[sample_id, channel_id], coords, order_seg,
-                                                                     border_mode_seg, cval=border_cval_seg,
-                                                                     is_seg=True)
+                        seg[sample_id, channel_id] = interpolate_img(
+                            seg[sample_id, channel_id],
+                            coords,
+                            order_seg,
+                            border_mode_seg,
+                            cval=border_cval_seg,
+                            is_seg=True,
+                        )
 
         if do_transl and np.random.uniform() < p_transl_per_sample:
             coords = create_zero_centered_coordinate_mesh(data_size)
@@ -642,17 +862,27 @@ def augment_misalign(data, seg, data_size,
                 tr.append(1.0)
 
             for d in range(dim):
-                ctr = data.shape[d + 2] / 2. - 0.5 + tr[d]
+                ctr = data.shape[d + 2] / 2.0 - 0.5 + tr[d]
                 coords[d] += ctr
 
             for channel_id in range(data.shape[1]):
                 if channel_id in im_channels_2_misalign:
-                    data[sample_id, channel_id] = interpolate_img(data[sample_id, channel_id], coords, order_data,
-                                                                  border_mode_data, cval=border_cval_data)
+                    data[sample_id, channel_id] = interpolate_img(
+                        data[sample_id, channel_id],
+                        coords,
+                        order_data,
+                        border_mode_data,
+                        cval=border_cval_data,
+                    )
             if seg is not None:
                 for channel_id in range(seg.shape[1]):
                     if channel_id in label_channels_2_misalign:
-                        seg[sample_id, channel_id] = interpolate_img(seg[sample_id, channel_id], coords, order_seg,
-                                                                     border_mode_seg, cval=border_cval_seg,
-                                                                     is_seg=True)
+                        seg[sample_id, channel_id] = interpolate_img(
+                            seg[sample_id, channel_id],
+                            coords,
+                            order_seg,
+                            border_mode_seg,
+                            cval=border_cval_seg,
+                            is_seg=True,
+                        )
     return data, seg

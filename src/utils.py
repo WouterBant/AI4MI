@@ -151,7 +151,11 @@ def save_images(segs: Tensor, names: Iterable[str], root: Path) -> None:
 
 # Metrics
 def meta_dice(
-    sum_str: str, label: Tensor, pred: Tensor, smooth: float = 1e-8, skip_bg: bool = False
+    sum_str: str,
+    label: Tensor,
+    pred: Tensor,
+    smooth: float = 1e-8,
+    skip_bg: bool = False,
 ) -> Tensor:
     assert label.shape == pred.shape
     # if not skip_bg:
@@ -172,7 +176,7 @@ def meta_dice(
 
 dice_coef = partial(meta_dice, "bk...->bk")
 dice_batch = partial(meta_dice, "bk...->k")  # used for 3d dice
-our_dice_batch  = partial(meta_dice, "k... ->k")
+our_dice_batch = partial(meta_dice, "k... ->k")
 
 
 def intersection(a: Tensor, b: Tensor) -> Tensor:
@@ -240,6 +244,7 @@ def save_images(segs: Tensor, names: Iterable[str], root: Path) -> None:
             np.save(str(save_path), seg.detach().cpu().numpy())
         else:
             raise ValueError(seg.shape)
+
 
 def log_sample_images_wandb(
     img: Tensor,
@@ -315,8 +320,10 @@ def get_optimizer(
         optimizer = torch.optim.Adam(net.parameters(), lr=args.lr, betas=(0.9, 0.999))
     elif args.optimizer == "sgd":
         optimizer = torch.optim.SGD(net.parameters(), lr=args.lr, momentum=0.9)
-    elif args.optimizer == "sgd-wd":    
-        optimizer = torch.optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=weight_decay)
+    elif args.optimizer == "sgd-wd":
+        optimizer = torch.optim.SGD(
+            net.parameters(), lr=args.lr, momentum=0.9, weight_decay=weight_decay
+        )
     elif args.optimizer == "adamw":
         optimizer = torch.optim.AdamW(
             net.parameters(),

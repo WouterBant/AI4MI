@@ -52,12 +52,17 @@ class SegChannelSelectionTransform(AbstractTransform):
         seg = data_dict.get(self.label_key)
 
         if seg is None:
-            warn("You used SegChannelSelectionTransform but there is no 'seg' key in your data_dict, returning "
-                 "data_dict unmodified", Warning)
+            warn(
+                "You used SegChannelSelectionTransform but there is no 'seg' key in your data_dict, returning "
+                "data_dict unmodified",
+                Warning,
+            )
         else:
             if self.keep_discarded:
-                discarded_seg_idx = [i for i in range(len(seg[0])) if i not in self.channels]
-                data_dict['discarded_seg'] = seg[:, discarded_seg_idx]
+                discarded_seg_idx = [
+                    i for i in range(len(seg[0])) if i not in self.channels
+                ]
+                data_dict["discarded_seg"] = seg[:, discarded_seg_idx]
             data_dict[self.label_key] = seg[:, self.channels]
         return data_dict
 
@@ -70,7 +75,9 @@ class SegChannelMergeTransform(AbstractTransform):
 
     """
 
-    def __init__(self, channels, keep_discarded_seg=False, label_key="seg", fill_value=1):
+    def __init__(
+        self, channels, keep_discarded_seg=False, label_key="seg", fill_value=1
+    ):
         self.label_key = label_key
         self.channels = sorted(channels)
         self.keep_discarded = keep_discarded_seg
@@ -80,10 +87,13 @@ class SegChannelMergeTransform(AbstractTransform):
         seg = data_dict.get(self.label_key)
 
         if seg is None:
-            warn("You used SegChannelSelectionTransform but there is no 'seg' key in your data_dict, returning data_dict unmodified", Warning)
+            warn(
+                "You used SegChannelSelectionTransform but there is no 'seg' key in your data_dict, returning data_dict unmodified",
+                Warning,
+            )
         else:
             if self.keep_discarded:
-                data_dict['discarded_seg'] = seg[:, self.channels[1:]]
+                data_dict["discarded_seg"] = seg[:, self.channels[1:]]
             all_channels = list(range(seg.shape[1]))
             for i in self.channels[1:]:
                 seg[:, self.channels[0]][seg[:, i] != 0] = self.fill_value
@@ -112,8 +122,11 @@ class SegChannelRandomSwapTransform(AbstractTransform):
         seg = data_dict.get(self.label_key)
 
         if seg is None:
-            warn("You used SegChannelSelectionTransform but there is no 'seg' key in your data_dict, returning "
-                 "data_dict unmodified", Warning)
+            warn(
+                "You used SegChannelSelectionTransform but there is no 'seg' key in your data_dict, returning "
+                "data_dict unmodified",
+                Warning,
+            )
         else:
             random_number = np.random.rand()
             if random_number < self.swap_probability:
@@ -140,8 +153,11 @@ class SegChannelRandomDuplicateTransform(AbstractTransform):
         seg = data_dict.get(self.label_key)
 
         if seg is None:
-            warn("You used SegChannelSelectionTransform but there is no 'seg' key in your data_dict, returning "
-                 "data_dict unmodified", Warning)
+            warn(
+                "You used SegChannelSelectionTransform but there is no 'seg' key in your data_dict, returning "
+                "data_dict unmodified",
+                Warning,
+            )
         else:
             seg_shape = list(seg.shape)
             seg_shape[1] = 1
@@ -172,8 +188,11 @@ class SegLabelSelectionBinarizeTransform(AbstractTransform):
         seg = data_dict.get(self.label_key)
 
         if seg is None:
-            warn("You used SegLabelSelectionBinarizeTransform but there is no 'seg' key in your data_dict, returning "
-                 "data_dict unmodified", Warning)
+            warn(
+                "You used SegLabelSelectionBinarizeTransform but there is no 'seg' key in your data_dict, returning "
+                "data_dict unmodified",
+                Warning,
+            )
         else:
             discard_labels = set(np.unique(seg)) - set(self.label) - set([0])
             for label in discard_labels:

@@ -56,14 +56,16 @@ class Sam(nn.Module):
         # for param in self.mask_decoder.parameters():
         #     param.requires_grad = False
 
-        self.register_buffer("pixel_mean", torch.Tensor(pixel_mean).view(-1, 1, 1), False)
+        self.register_buffer(
+            "pixel_mean", torch.Tensor(pixel_mean).view(-1, 1, 1), False
+        )
         self.register_buffer("pixel_std", torch.Tensor(pixel_std).view(-1, 1, 1), False)
         self.up = nn.Upsample(scale_factor=2, mode="bilinear", align_corners=False)
 
         # self.up = nn.Sequential(
-        #     nn.ConvTranspose2d(in_channels=5, 
-        #                       out_channels=5, 
-        #                       kernel_size=2, 
+        #     nn.ConvTranspose2d(in_channels=5,
+        #                       out_channels=5,
+        #                       kernel_size=2,
         #                       stride=2),
         #     CRF(n_spatial_dims=2)
         # )
@@ -90,18 +92,16 @@ class Sam(nn.Module):
             image_pe=self.prompt_encoder.get_dense_pe(),
             sparse_prompt_embeddings=sparse_embeddings,
             dense_prompt_embeddings=dense_embeddings,
-            multimask_output=multimask_output
+            multimask_output=multimask_output,
         )
         masks = self.postprocess_masks(
-            low_res_masks,
-            input_size=(256, 256),
-            original_size=(256, 256)
+            low_res_masks, input_size=(256, 256), original_size=(256, 256)
         )
         # print(low_res_masks.shape)
         outputs = {
-            'masks': masks,
-            'iou_predictions': iou_predictions,
-            'low_res_logits': low_res_masks
+            "masks": masks,
+            "iou_predictions": iou_predictions,
+            "low_res_logits": low_res_masks,
             # 'low_res_logits': self.up(low_res_masks)
         }
         return outputs
@@ -150,7 +150,9 @@ class Sam(nn.Module):
                 shape BxCxHxW, where H=W=256. Can be passed as mask input
                 to subsequent iterations of prediction.
         """
-        input_images = torch.stack([self.preprocess(x["image"]) for x in batched_input], dim=0)
+        input_images = torch.stack(
+            [self.preprocess(x["image"]) for x in batched_input], dim=0
+        )
         image_embeddings = self.image_encoder(input_images)
 
         outputs = []
@@ -214,7 +216,9 @@ class Sam(nn.Module):
             align_corners=False,
         )
         masks = masks[..., : input_size[0], : input_size[1]]
-        masks = F.interpolate(masks, original_size, mode="bilinear", align_corners=False)
+        masks = F.interpolate(
+            masks, original_size, mode="bilinear", align_corners=False
+        )
         return masks
 
     def preprocess(self, x: torch.Tensor) -> torch.Tensor:
@@ -228,4 +232,3 @@ class Sam(nn.Module):
         padw = self.image_encoder.img_size - w
         x = F.pad(x, (0, padw, 0, padh))
         return x
-

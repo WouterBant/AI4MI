@@ -19,7 +19,6 @@ from batchgenerators.augmentations.crop_and_pad_augmentations import random_crop
 
 
 class TestRandomCrop(unittest.TestCase):
-
     def setUp(self):
         np.random.seed(1234)
 
@@ -29,11 +28,21 @@ class TestRandomCrop(unittest.TestCase):
 
         d, s = random_crop(data, seg, 32, 0)
 
-        self.assertTrue(all(i == j for i, j in zip((32, 4, 32, 32, 32), d.shape)), "data has unexpected return shape")
-        self.assertTrue(all(i == j for i, j in zip((32, 4, 32, 32, 32), s.shape)), "seg has unexpected return shape")
+        self.assertTrue(
+            all(i == j for i, j in zip((32, 4, 32, 32, 32), d.shape)),
+            "data has unexpected return shape",
+        )
+        self.assertTrue(
+            all(i == j for i, j in zip((32, 4, 32, 32, 32), s.shape)),
+            "seg has unexpected return shape",
+        )
 
-        self.assertEqual(np.sum(s == 0), 0, "Zeros encountered in seg meaning that we did padding which should not have"
-                                            " happened here!")
+        self.assertEqual(
+            np.sum(s == 0),
+            0,
+            "Zeros encountered in seg meaning that we did padding which should not have"
+            " happened here!",
+        )
 
     def test_random_crop_2D(self):
         data = np.random.random((32, 4, 64, 56))
@@ -41,36 +50,66 @@ class TestRandomCrop(unittest.TestCase):
 
         d, s = random_crop(data, seg, 32, 0)
 
-        self.assertTrue(all(i == j for i, j in zip((32, 4, 32, 32), d.shape)), "data has unexpected return shape")
-        self.assertTrue(all(i == j for i, j in zip((32, 4, 32, 32), s.shape)), "seg has unexpected return shape")
+        self.assertTrue(
+            all(i == j for i, j in zip((32, 4, 32, 32), d.shape)),
+            "data has unexpected return shape",
+        )
+        self.assertTrue(
+            all(i == j for i, j in zip((32, 4, 32, 32), s.shape)),
+            "seg has unexpected return shape",
+        )
 
-        self.assertEqual(np.sum(s == 0), 0, "Zeros encountered in seg meaning that we did padding which should not have"
-                                            " happened here!")
+        self.assertEqual(
+            np.sum(s == 0),
+            0,
+            "Zeros encountered in seg meaning that we did padding which should not have"
+            " happened here!",
+        )
 
     def test_random_crop_3D_from_List(self):
-        data = [np.random.random((4, 64+i, 56+i, 48+i)) for i in range(32)]
-        seg = [np.random.random((4, 64+i, 56+i, 48+i)) for i in range(32)]
+        data = [np.random.random((4, 64 + i, 56 + i, 48 + i)) for i in range(32)]
+        seg = [np.random.random((4, 64 + i, 56 + i, 48 + i)) for i in range(32)]
 
         d, s = random_crop(data, seg, 32, 0)
 
-        self.assertTrue(all(i == j for i, j in zip((32, 4, 32, 32), d.shape)), "data has unexpected return shape")
-        self.assertTrue(all(i == j for i, j in zip((32, 4, 32, 32), s.shape)), "seg has unexpected return shape")
+        self.assertTrue(
+            all(i == j for i, j in zip((32, 4, 32, 32), d.shape)),
+            "data has unexpected return shape",
+        )
+        self.assertTrue(
+            all(i == j for i, j in zip((32, 4, 32, 32), s.shape)),
+            "seg has unexpected return shape",
+        )
 
-        self.assertEqual(np.sum(s == 0), 0, "Zeros encountered in seg meaning that we did padding which should not have"
-                                            " happened here!")
+        self.assertEqual(
+            np.sum(s == 0),
+            0,
+            "Zeros encountered in seg meaning that we did padding which should not have"
+            " happened here!",
+        )
 
     def test_random_crop_2D_from_List(self):
-        data = [np.random.random((4, 64+i, 56+i)) for i in range(32)]
-        seg = [np.random.random((4, 64+i, 56+i)) for i in range(32)]
+        data = [np.random.random((4, 64 + i, 56 + i)) for i in range(32)]
+        seg = [np.random.random((4, 64 + i, 56 + i)) for i in range(32)]
 
         d, s = random_crop(data, seg, 32, 0)
 
-        self.assertTrue(all(i == j for i, j in zip((32, 4, 32, 32), d.shape)), "data has unexpected return shape")
-        self.assertTrue(all(i == j for i, j in zip((32, 4, 32, 32), s.shape)), "seg has unexpected return shape")
+        self.assertTrue(
+            all(i == j for i, j in zip((32, 4, 32, 32), d.shape)),
+            "data has unexpected return shape",
+        )
+        self.assertTrue(
+            all(i == j for i, j in zip((32, 4, 32, 32), s.shape)),
+            "seg has unexpected return shape",
+        )
 
-        self.assertEqual(np.sum(s == 0), 0, "Zeros encountered in seg meaning that we did padding which should not have"
-                                            " happened here!")
+        self.assertEqual(
+            np.sum(s == 0),
+            0,
+            "Zeros encountered in seg meaning that we did padding which should not have"
+            " happened here!",
+        )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

@@ -1,6 +1,7 @@
 import os
 import re
 
+
 def rename_files(directory):
     # Regular expression to capture the current naming structure
     pattern = re.compile(r"(Patient)_(\d{2})_(\d{4})\.png")
@@ -22,6 +23,7 @@ def rename_files(directory):
             new_filepath = os.path.join(directory, new_filename)
             os.rename(old_filepath, new_filepath)
             print(f"Renamed: {filename} -> {new_filename}")
+
 
 # Example usage
 directory_path = "/home/scur2527/ai4mi/data/nnUNet_raw/Dataset014_segthor_images_ordinary_manual_split/labelsTr/"

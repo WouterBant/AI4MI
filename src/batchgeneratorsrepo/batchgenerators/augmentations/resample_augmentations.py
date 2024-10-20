@@ -20,9 +20,17 @@ from skimage.transform import resize
 from batchgenerators.augmentations.utils import uniform
 
 
-def augment_linear_downsampling_scipy(data_sample, zoom_range=(0.5, 1), per_channel=True, p_per_channel=1,
-                                      channels=None, order_downsample=1, order_upsample=0, ignore_axes=None):
-    '''
+def augment_linear_downsampling_scipy(
+    data_sample,
+    zoom_range=(0.5, 1),
+    per_channel=True,
+    p_per_channel=1,
+    channels=None,
+    order_downsample=1,
+    order_upsample=0,
+    ignore_axes=None,
+):
+    """
     Downsamples each sample (linearly) by a random factor and upsamples to original resolution again (nearest neighbor)
 
     Info:
@@ -49,7 +57,7 @@ def augment_linear_downsampling_scipy(data_sample, zoom_range=(0.5, 1), per_chan
 
         ignore_axes: tuple/list
 
-    '''
+    """
     if not isinstance(zoom_range, (list, tuple, np.ndarray)):
         zoom_range = [zoom_range]
 
@@ -86,18 +94,15 @@ def augment_linear_downsampling_scipy(data_sample, zoom_range=(0.5, 1), per_chan
                     for i in ignore_axes:
                         target_shape[i] = shp[i]
 
-            downsampled = resize(data_sample[c].astype(float), target_shape, order=order_downsample, mode='edge',
-                                 anti_aliasing=False)
-            data_sample[c] = resize(downsampled, shp, order=order_upsample, mode='edge',
-                                    anti_aliasing=False)
+            downsampled = resize(
+                data_sample[c].astype(float),
+                target_shape,
+                order=order_downsample,
+                mode="edge",
+                anti_aliasing=False,
+            )
+            data_sample[c] = resize(
+                downsampled, shp, order=order_upsample, mode="edge", anti_aliasing=False
+            )
 
     return data_sample
-
-
-
-
-
-
-
-
-

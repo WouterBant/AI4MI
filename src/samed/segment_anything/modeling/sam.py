@@ -70,10 +70,10 @@ class Sam(nn.Module):
         )
         masks = self.postprocess_masks(
             low_res_masks,
-            input_size=(256,256),
-            original_size=(256,256),
+            input_size=(256, 256),
+            original_size=(256, 256),
         )
-        #masks = masks > self.mask_threshold
+        # masks = masks > self.mask_threshold
         return {
             "masks": masks,
             "iou_predictions": iou_predictions,

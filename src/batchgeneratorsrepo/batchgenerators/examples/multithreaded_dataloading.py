@@ -6,11 +6,12 @@ import torch
 from batchgenerators.dataloading.data_loader import SlimDataLoaderBase
 
 
-
 class ImageDataset(SlimDataLoaderBase):
     def __init__(self, images, batch_size):
         super(ImageDataset, self).__init__(None, batch_size)
-        self.images = [self.add_channel_dim(img) for img in images]  # Keep original size
+        self.images = [
+            self.add_channel_dim(img) for img in images
+        ]  # Keep original size
         self.images = [img.astype(np.float32) for img in self.images]
 
     def add_channel_dim(self, img):
@@ -21,8 +22,9 @@ class ImageDataset(SlimDataLoaderBase):
         # Randomly select indices for the batch
         indices = np.random.choice(len(self.images), self.batch_size, replace=False)
         batch_data = np.stack([self.images[i] for i in indices], axis=0)
-        return {'data': batch_data}
-    
+        return {"data": batch_data}
+
+
 class CTImageDataset(SlimDataLoaderBase):
     """
     Custom DataLoader to handle paired CT images and ground truth masks for medical image processing.
@@ -30,10 +32,18 @@ class CTImageDataset(SlimDataLoaderBase):
 
     def __init__(self, images, gts, batch_size):
         super(CTImageDataset, self).__init__(None, batch_size)
-        self.images = [self.add_channel_dim(img) for img in images]  # Add channel dimension
-        self.gts = [self.add_channel_dim(gt) for gt in gts]  # Add channel dimension to GT
-        self.images = [img.astype(np.float32) for img in self.images]  # Ensure float32 for consistency
-        self.gts = [gt.astype(np.float32) for gt in self.gts]  # Ensure float32 for GT as well
+        self.images = [
+            self.add_channel_dim(img) for img in images
+        ]  # Add channel dimension
+        self.gts = [
+            self.add_channel_dim(gt) for gt in gts
+        ]  # Add channel dimension to GT
+        self.images = [
+            img.astype(np.float32) for img in self.images
+        ]  # Ensure float32 for consistency
+        self.gts = [
+            gt.astype(np.float32) for gt in self.gts
+        ]  # Ensure float32 for GT as well
 
     def add_channel_dim(self, img):
         return np.expand_dims(img, axis=0)  # Add channel dimension (1, H, W)
@@ -43,7 +53,8 @@ class CTImageDataset(SlimDataLoaderBase):
         indices = np.random.choice(len(self.images), self.batch_size, replace=False)
         batch_data = np.stack([self.images[i] for i in indices], axis=0)
         batch_gts = np.stack([self.gts[i] for i in indices], axis=0)
-        return {'data': batch_data, 'gt': batch_gts}  # Return both input data and GT
+        return {"data": batch_data, "gt": batch_gts}  # Return both input data and GT
+
 
 class DummyDL(SlimDataLoaderBase):
     def __init__(self, num_threads_in_mt=8):
@@ -115,7 +126,6 @@ if __name__ == "__main__":
     for i in mt:
         print(i)
 
-
     """
     You can run the mt as often as you want because the DataLoader it will reset itself before raising StopIteration
     """
@@ -124,7 +134,6 @@ if __name__ == "__main__":
 
     for i in mt:
         print(i)
-
 
     """
     But wait. Isn't it suboptimal to iterate over training data always in the same order? Correct. Try this:
@@ -137,7 +146,9 @@ if __name__ == "__main__":
     for i in mt:
         batches.append(i)
     print(batches)
-    assert len(np.unique(batches)) == 100 and len(batches) == 100 # assert makes sure we got what we wanted
+    assert (
+        len(np.unique(batches)) == 100 and len(batches) == 100
+    )  # assert makes sure we got what we wanted
 
     """
     Once again you can run that as often as you want

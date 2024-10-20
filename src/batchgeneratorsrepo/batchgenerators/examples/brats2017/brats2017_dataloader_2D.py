@@ -5,23 +5,44 @@ from batchgenerators.augmentations.crop_and_pad_augmentations import crop
 from batchgenerators.augmentations.utils import pad_nd_image
 from batchgenerators.dataloading.data_loader import DataLoader
 from batchgenerators.dataloading.multi_threaded_augmenter import MultiThreadedAugmenter
-from batchgenerators.examples.brats2017.brats2017_dataloader_3D import get_list_of_patients, BraTS2017DataLoader3D, \
-    get_train_transform
-from batchgenerators.examples.brats2017.config import brats_preprocessed_folder, num_threads_for_brats_example
+from batchgenerators.examples.brats2017.brats2017_dataloader_3D import (
+    get_list_of_patients,
+    BraTS2017DataLoader3D,
+    get_train_transform,
+)
+from batchgenerators.examples.brats2017.config import (
+    brats_preprocessed_folder,
+    num_threads_for_brats_example,
+)
 from batchgenerators.utilities.data_splitting import get_split_deterministic
 
 
 class BraTS2017DataLoader2D(DataLoader):
-    def __init__(self, data, batch_size, patch_size, num_threads_in_multithreaded, seed_for_shuffle=1234, return_incomplete=False,
-                 shuffle=True):
+    def __init__(
+        self,
+        data,
+        batch_size,
+        patch_size,
+        num_threads_in_multithreaded,
+        seed_for_shuffle=1234,
+        return_incomplete=False,
+        shuffle=True,
+    ):
         """
         data must be a list of patients as returned by get_list_of_patients (and split by get_split_deterministic)
 
         patch_size is the spatial size the retured batch will have
 
         """
-        super().__init__(data, batch_size, num_threads_in_multithreaded, seed_for_shuffle, return_incomplete, shuffle,
-                         True)
+        super().__init__(
+            data,
+            batch_size,
+            num_threads_in_multithreaded,
+            seed_for_shuffle,
+            return_incomplete,
+            shuffle,
+            True,
+        )
         self.patch_size = patch_size
         self.num_modalities = 4
         self.indices = list(range(len(data)))
@@ -36,7 +57,9 @@ class BraTS2017DataLoader2D(DataLoader):
         patients_for_batch = [self._data[i] for i in idx]
 
         # initialize empty array for data and seg
-        data = np.zeros((self.batch_size, self.num_modalities, *self.patch_size), dtype=np.float32)
+        data = np.zeros(
+            (self.batch_size, self.num_modalities, *self.patch_size), dtype=np.float32
+        )
         seg = np.zeros((self.batch_size, 1, *self.patch_size), dtype=np.float32)
 
         metadata = []
@@ -57,7 +80,12 @@ class BraTS2017DataLoader2D(DataLoader):
             # now random crop to self.patch_size
             # crop expects the data to be (b, c, x, y, z) but patient_data is (c, x, y, z) so we need to add one
             # dummy dimension in order for it to work (@Todo, could be improved)
-            patient_data, patient_seg = crop(patient_data[:-1][None], patient_data[-1:][None], self.patch_size, crop_type="random")
+            patient_data, patient_seg = crop(
+                patient_data[:-1][None],
+                patient_data[-1:][None],
+                self.patch_size,
+                crop_type="random",
+            )
 
             data[i] = patient_data[0]
             seg[i] = patient_seg[0]
@@ -65,13 +93,15 @@ class BraTS2017DataLoader2D(DataLoader):
             metadata.append(patient_metadata)
             patient_names.append(j)
 
-        return {'data': data, 'seg':seg, 'metadata':metadata, 'names':patient_names}
+        return {"data": data, "seg": seg, "metadata": metadata, "names": patient_names}
 
 
 if __name__ == "__main__":
     patients = get_list_of_patients(brats_preprocessed_folder)
 
-    train, val = get_split_deterministic(patients, fold=0, num_splits=5, random_state=12345)
+    train, val = get_split_deterministic(
+        patients, fold=0, num_splits=5, random_state=12345
+    )
 
     patch_size = (160, 160)
     batch_size = 48
@@ -84,12 +114,15 @@ if __name__ == "__main__":
     batch = next(dataloader)
     try:
         from batchviewer import view_batch
+
         # batch viewer can show up to 4d tensors. We can show only one sample, but that should be sufficient here
-        view_batch(np.concatenate((batch['data'][0], batch['seg'][0]), 0)[:, None])
+        view_batch(np.concatenate((batch["data"][0], batch["seg"][0]), 0)[:, None])
     except ImportError:
         view_batch = None
-        print("you can visualize batches with batchviewer. It's a nice and handy tool. You can get it here: "
-              "https://github.com/FabianIsensee/BatchViewer")
+        print(
+            "you can visualize batches with batchviewer. It's a nice and handy tool. You can get it here: "
+            "https://github.com/FabianIsensee/BatchViewer"
+        )
 
     # now we have some DataLoader. Let's go an get some augmentations
 
@@ -116,14 +149,23 @@ if __name__ == "__main__":
 
     # finally we can create multithreaded transforms that we can actually use for training
     # we don't pin memory here because this is pytorch specific.
-    tr_gen = MultiThreadedAugmenter(dataloader_train, tr_transforms, num_processes=num_threads_for_brats_example,
-                                    num_cached_per_queue=3,
-                                    seeds=None, pin_memory=False)
+    tr_gen = MultiThreadedAugmenter(
+        dataloader_train,
+        tr_transforms,
+        num_processes=num_threads_for_brats_example,
+        num_cached_per_queue=3,
+        seeds=None,
+        pin_memory=False,
+    )
     # we need less processes for vlaidation because we dont apply transformations
-    val_gen = MultiThreadedAugmenter(dataloader_validation, None,
-                                     num_processes=max(1, num_threads_for_brats_example // 2), num_cached_per_queue=1,
-                                     seeds=None,
-                                     pin_memory=False)
+    val_gen = MultiThreadedAugmenter(
+        dataloader_validation,
+        None,
+        num_processes=max(1, num_threads_for_brats_example // 2),
+        num_cached_per_queue=1,
+        seeds=None,
+        pin_memory=False,
+    )
 
     # lets start the MultiThreadedAugmenter. This is not necessary but allows them to start generating training
     # batches while other things run in the main thread
@@ -151,8 +193,10 @@ if __name__ == "__main__":
         time_per_epoch.append(end_epoch - start_epoch)
     end = time()
     total_time = end - start
-    print("Running %d epochs took a total of %.2f seconds with time per epoch being %s" %
-          (num_epochs, total_time, str(time_per_epoch)))
+    print(
+        "Running %d epochs took a total of %.2f seconds with time per epoch being %s"
+        % (num_epochs, total_time, str(time_per_epoch))
+    )
 
     # if you notice that you have CPU usage issues, reduce the probability with which the spatial transformations are
     # applied in get_train_transform (down to 0.1 for example). SpatialTransform is the most expensive transform
@@ -161,6 +205,6 @@ if __name__ == "__main__":
     if view_batch is not None:
         for _ in range(4):
             batch = next(tr_gen)
-            view_batch(np.concatenate((batch['data'][0], batch['seg'][0]), 0)[:, None])
+            view_batch(np.concatenate((batch["data"][0], batch["seg"][0]), 0)[:, None])
     else:
         print("Cannot visualize batches, install batchviewer first")

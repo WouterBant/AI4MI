@@ -15,12 +15,15 @@
 
 import unittest
 import numpy as np
-from batchgenerators.augmentations.crop_and_pad_augmentations import random_crop, center_crop, pad_nd_image_and_seg, \
-    crop
+from batchgenerators.augmentations.crop_and_pad_augmentations import (
+    random_crop,
+    center_crop,
+    pad_nd_image_and_seg,
+    crop,
+)
 
 
 class TestCrop(unittest.TestCase):
-
     def setUp(self):
         np.random.seed(1234)
 
@@ -30,11 +33,21 @@ class TestCrop(unittest.TestCase):
 
         d, s = random_crop(data, seg, 32, 0)
 
-        self.assertTrue(all(i == j for i, j in zip((32, 4, 32, 32, 32), d.shape)), "data has unexpected return shape")
-        self.assertTrue(all(i == j for i, j in zip((32, 4, 32, 32, 32), s.shape)), "seg has unexpected return shape")
+        self.assertTrue(
+            all(i == j for i, j in zip((32, 4, 32, 32, 32), d.shape)),
+            "data has unexpected return shape",
+        )
+        self.assertTrue(
+            all(i == j for i, j in zip((32, 4, 32, 32, 32), s.shape)),
+            "seg has unexpected return shape",
+        )
 
-        self.assertEqual(np.sum(s == 0), 0, "Zeros encountered in seg meaning that we did padding which should not have"
-                                            " happened here!")
+        self.assertEqual(
+            np.sum(s == 0),
+            0,
+            "Zeros encountered in seg meaning that we did padding which should not have"
+            " happened here!",
+        )
 
     def test_random_crop_2D(self):
         data = np.random.random((32, 4, 64, 56))
@@ -42,51 +55,91 @@ class TestCrop(unittest.TestCase):
 
         d, s = random_crop(data, seg, 32, 0)
 
-        self.assertTrue(all(i == j for i, j in zip((32, 4, 32, 32), d.shape)), "data has unexpected return shape")
-        self.assertTrue(all(i == j for i, j in zip((32, 4, 32, 32), s.shape)), "seg has unexpected return shape")
+        self.assertTrue(
+            all(i == j for i, j in zip((32, 4, 32, 32), d.shape)),
+            "data has unexpected return shape",
+        )
+        self.assertTrue(
+            all(i == j for i, j in zip((32, 4, 32, 32), s.shape)),
+            "seg has unexpected return shape",
+        )
 
-        self.assertEqual(np.sum(s == 0), 0, "Zeros encountered in seg meaning that we did padding which should not have"
-                                            " happened here!")
+        self.assertEqual(
+            np.sum(s == 0),
+            0,
+            "Zeros encountered in seg meaning that we did padding which should not have"
+            " happened here!",
+        )
 
     def test_random_crop_3D_from_List(self):
-        data = [np.random.random((4, 64+i, 56+i, 48+i)) for i in range(32)]
-        seg = [np.random.random((4, 64+i, 56+i, 48+i)) for i in range(32)]
+        data = [np.random.random((4, 64 + i, 56 + i, 48 + i)) for i in range(32)]
+        seg = [np.random.random((4, 64 + i, 56 + i, 48 + i)) for i in range(32)]
 
         d, s = random_crop(data, seg, 32, 0)
 
-        self.assertTrue(all(i == j for i, j in zip((32, 4, 32, 32), d.shape)), "data has unexpected return shape")
-        self.assertTrue(all(i == j for i, j in zip((32, 4, 32, 32), s.shape)), "seg has unexpected return shape")
+        self.assertTrue(
+            all(i == j for i, j in zip((32, 4, 32, 32), d.shape)),
+            "data has unexpected return shape",
+        )
+        self.assertTrue(
+            all(i == j for i, j in zip((32, 4, 32, 32), s.shape)),
+            "seg has unexpected return shape",
+        )
 
-        self.assertEqual(np.sum(s == 0), 0, "Zeros encountered in seg meaning that we did padding which should not have"
-                                            " happened here!")
+        self.assertEqual(
+            np.sum(s == 0),
+            0,
+            "Zeros encountered in seg meaning that we did padding which should not have"
+            " happened here!",
+        )
 
     def test_random_crop_2D_from_List(self):
-        data = [np.random.random((4, 64+i, 56+i)) for i in range(32)]
-        seg = [np.random.random((4, 64+i, 56+i)) for i in range(32)]
+        data = [np.random.random((4, 64 + i, 56 + i)) for i in range(32)]
+        seg = [np.random.random((4, 64 + i, 56 + i)) for i in range(32)]
 
         d, s = random_crop(data, seg, 32, 0)
 
-        self.assertTrue(all(i == j for i, j in zip((32, 4, 32, 32), d.shape)), "data has unexpected return shape")
-        self.assertTrue(all(i == j for i, j in zip((32, 4, 32, 32), s.shape)), "seg has unexpected return shape")
+        self.assertTrue(
+            all(i == j for i, j in zip((32, 4, 32, 32), d.shape)),
+            "data has unexpected return shape",
+        )
+        self.assertTrue(
+            all(i == j for i, j in zip((32, 4, 32, 32), s.shape)),
+            "seg has unexpected return shape",
+        )
 
-        self.assertEqual(np.sum(s == 0), 0, "Zeros encountered in seg meaning that we did padding which should not have"
-                                            " happened here!")
+        self.assertEqual(
+            np.sum(s == 0),
+            0,
+            "Zeros encountered in seg meaning that we did padding which should not have"
+            " happened here!",
+        )
 
     def test_random_crop_with_cropsize_larger_image(self):
-        '''
+        """
         should fall back to center crop
         :return:
-        '''
-        data = [np.random.random((4, 64+i, 56+i)) for i in range(32)]
-        seg = [np.random.random((4, 64+i, 56+i)) for i in range(32)]
+        """
+        data = [np.random.random((4, 64 + i, 56 + i)) for i in range(32)]
+        seg = [np.random.random((4, 64 + i, 56 + i)) for i in range(32)]
 
         d, s = random_crop(data, seg, 32, 32)
 
-        self.assertTrue(all(i == j for i, j in zip((32, 4, 32, 32), d.shape)), "data has unexpected return shape")
-        self.assertTrue(all(i == j for i, j in zip((32, 4, 32, 32), s.shape)), "seg has unexpected return shape")
+        self.assertTrue(
+            all(i == j for i, j in zip((32, 4, 32, 32), d.shape)),
+            "data has unexpected return shape",
+        )
+        self.assertTrue(
+            all(i == j for i, j in zip((32, 4, 32, 32), s.shape)),
+            "seg has unexpected return shape",
+        )
 
-        self.assertEqual(np.sum(s == 0), 0, "Zeros encountered in seg meaning that we did padding which should not have"
-                                            " happened here!")
+        self.assertEqual(
+            np.sum(s == 0),
+            0,
+            "Zeros encountered in seg meaning that we did padding which should not have"
+            " happened here!",
+        )
 
     def test_crop_size_larger_than_image(self):
         data = np.random.random((8, 4, 64, 56))
@@ -94,8 +147,14 @@ class TestCrop(unittest.TestCase):
 
         d, s = random_crop(data, seg, 96, 0)
 
-        self.assertTrue(all(i == j for i, j in zip((8, 4, 96, 96), d.shape)), "data has unexpected return shape")
-        self.assertTrue(all(i == j for i, j in zip((8, 4, 96, 96), s.shape)), "seg has unexpected return shape")
+        self.assertTrue(
+            all(i == j for i, j in zip((8, 4, 96, 96), d.shape)),
+            "data has unexpected return shape",
+        )
+        self.assertTrue(
+            all(i == j for i, j in zip((8, 4, 96, 96), s.shape)),
+            "seg has unexpected return shape",
+        )
 
         self.assertNotEqual(np.sum(s == 0), 0, "seg was not padded properly")
 
@@ -106,13 +165,25 @@ class TestCrop(unittest.TestCase):
 
         d, s = center_crop(data, crop_size=crop_size, seg=seg)
 
-        self.assertTrue(all(i == j for i, j in zip((8, 4, crop_size, crop_size, crop_size), d.shape)),
-                        "data has unexpected return shape")
-        self.assertTrue(all(i == j for i, j in zip((8, 4, crop_size, crop_size, crop_size), s.shape)),
-                        "seg has unexpected return shape")
+        self.assertTrue(
+            all(
+                i == j for i, j in zip((8, 4, crop_size, crop_size, crop_size), d.shape)
+            ),
+            "data has unexpected return shape",
+        )
+        self.assertTrue(
+            all(
+                i == j for i, j in zip((8, 4, crop_size, crop_size, crop_size), s.shape)
+            ),
+            "seg has unexpected return shape",
+        )
 
-        np.testing.assert_array_equal(data[:, :, 10:20, 10:20, 10:20], d, err_msg="crop not equal image center")
-        np.testing.assert_array_equal(seg[:, :, 10:20, 10:20, 10:20], s, err_msg="crop not equal image center")
+        np.testing.assert_array_equal(
+            data[:, :, 10:20, 10:20, 10:20], d, err_msg="crop not equal image center"
+        )
+        np.testing.assert_array_equal(
+            seg[:, :, 10:20, 10:20, 10:20], s, err_msg="crop not equal image center"
+        )
 
     def test_center_crop_2D(self):
         data = np.random.random((8, 4, 30, 30))
@@ -121,13 +192,21 @@ class TestCrop(unittest.TestCase):
 
         d, s = center_crop(data, crop_size=crop_size, seg=seg)
 
-        self.assertTrue(all(i == j for i, j in zip((8, 4, crop_size, crop_size), d.shape)),
-                        "data has unexpected return shape")
-        self.assertTrue(all(i == j for i, j in zip((8, 4, crop_size, crop_size), s.shape)),
-                        "seg has unexpected return shape")
+        self.assertTrue(
+            all(i == j for i, j in zip((8, 4, crop_size, crop_size), d.shape)),
+            "data has unexpected return shape",
+        )
+        self.assertTrue(
+            all(i == j for i, j in zip((8, 4, crop_size, crop_size), s.shape)),
+            "seg has unexpected return shape",
+        )
 
-        np.testing.assert_array_equal(data[:, :, 10:20, 10:20], d, err_msg="crop not equal image center")
-        np.testing.assert_array_equal(seg[:, :, 10:20, 10:20], s, err_msg="crop not equal image center")
+        np.testing.assert_array_equal(
+            data[:, :, 10:20, 10:20], d, err_msg="crop not equal image center"
+        )
+        np.testing.assert_array_equal(
+            seg[:, :, 10:20, 10:20], s, err_msg="crop not equal image center"
+        )
 
     def test_center_crop_3D_padding(self):
         data = np.random.random((8, 4, 30, 30, 30))
@@ -136,18 +215,38 @@ class TestCrop(unittest.TestCase):
 
         d, s = center_crop(data, crop_size=crop_size, seg=seg)
 
-        self.assertTrue(all(i == j for i, j in zip((8, 4, crop_size, crop_size, crop_size), d.shape)),
-                        "data has unexpected return shape")
-        self.assertTrue(all(i == j for i, j in zip((8, 4, crop_size, crop_size, crop_size), s.shape)),
-                        "seg has unexpected return shape")
+        self.assertTrue(
+            all(
+                i == j for i, j in zip((8, 4, crop_size, crop_size, crop_size), d.shape)
+            ),
+            "data has unexpected return shape",
+        )
+        self.assertTrue(
+            all(
+                i == j for i, j in zip((8, 4, crop_size, crop_size, crop_size), s.shape)
+            ),
+            "seg has unexpected return shape",
+        )
 
         tmp_d = d[:, :, 10:40, 10:40, 10:40]
         tmp_s = s[:, :, 10:40, 10:40, 10:40]
-        np.testing.assert_array_equal(tmp_d, data, err_msg="Original data is not included in padded image")
-        self.assertAlmostEqual(np.sum(d.flatten()), np.sum(data.flatten()), msg="Padding of data is not zero")
+        np.testing.assert_array_equal(
+            tmp_d, data, err_msg="Original data is not included in padded image"
+        )
+        self.assertAlmostEqual(
+            np.sum(d.flatten()),
+            np.sum(data.flatten()),
+            msg="Padding of data is not zero",
+        )
 
-        np.testing.assert_array_equal(tmp_s, seg, err_msg="Original segmentation is not included in padded image")
-        self.assertAlmostEqual(np.sum(d.flatten()), np.sum(data.flatten()), msg="Padding of segmentation is not zero")
+        np.testing.assert_array_equal(
+            tmp_s, seg, err_msg="Original segmentation is not included in padded image"
+        )
+        self.assertAlmostEqual(
+            np.sum(d.flatten()),
+            np.sum(data.flatten()),
+            msg="Padding of segmentation is not zero",
+        )
 
     def test_center_crop_2D_padding(self):
         data = np.random.random((8, 4, 30, 30))
@@ -156,18 +255,34 @@ class TestCrop(unittest.TestCase):
 
         d, s = center_crop(data, crop_size=crop_size, seg=seg)
 
-        self.assertTrue(all(i == j for i, j in zip((8, 4, crop_size, crop_size), d.shape)),
-                        "data has unexpected return shape")
-        self.assertTrue(all(i == j for i, j in zip((8, 4, crop_size, crop_size), s.shape)),
-                        "seg has unexpected return shape")
+        self.assertTrue(
+            all(i == j for i, j in zip((8, 4, crop_size, crop_size), d.shape)),
+            "data has unexpected return shape",
+        )
+        self.assertTrue(
+            all(i == j for i, j in zip((8, 4, crop_size, crop_size), s.shape)),
+            "seg has unexpected return shape",
+        )
 
         tmp_d = d[:, :, 10:40, 10:40]
         tmp_s = s[:, :, 10:40, 10:40]
-        np.testing.assert_array_equal(tmp_d, data, err_msg="Original data is not included in padded image")
-        self.assertAlmostEqual(np.sum(d.flatten()), np.sum(data.flatten()), msg="Padding of data is not zero")
+        np.testing.assert_array_equal(
+            tmp_d, data, err_msg="Original data is not included in padded image"
+        )
+        self.assertAlmostEqual(
+            np.sum(d.flatten()),
+            np.sum(data.flatten()),
+            msg="Padding of data is not zero",
+        )
 
-        np.testing.assert_array_equal(tmp_s, seg, err_msg="Original segmentation is not included in padded image")
-        self.assertAlmostEqual(np.sum(d.flatten()), np.sum(data.flatten()), msg="Padding of segmentation is not zero")
+        np.testing.assert_array_equal(
+            tmp_s, seg, err_msg="Original segmentation is not included in padded image"
+        )
+        self.assertAlmostEqual(
+            np.sum(d.flatten()),
+            np.sum(data.flatten()),
+            msg="Padding of segmentation is not zero",
+        )
 
     def test_center_crop_2D_list(self):
         data = np.random.random((8, 4, 30, 30))
@@ -176,13 +291,21 @@ class TestCrop(unittest.TestCase):
 
         d, s = center_crop(data, crop_size=crop_size, seg=seg)
 
-        self.assertTrue(all(i == j for i, j in zip((8, 4, crop_size[0], crop_size[1]), d.shape)),
-                        "data has unexpected return shape")
-        self.assertTrue(all(i == j for i, j in zip((8, 4, crop_size[0], crop_size[1]), s.shape)),
-                        "seg has unexpected return shape")
+        self.assertTrue(
+            all(i == j for i, j in zip((8, 4, crop_size[0], crop_size[1]), d.shape)),
+            "data has unexpected return shape",
+        )
+        self.assertTrue(
+            all(i == j for i, j in zip((8, 4, crop_size[0], crop_size[1]), s.shape)),
+            "seg has unexpected return shape",
+        )
 
-        np.testing.assert_array_equal(data[:, :, 10:20, 5:25], d, err_msg="crop not equal image center")
-        np.testing.assert_array_equal(seg[:, :, 10:20, 5:25], s, err_msg="crop not equal image center")
+        np.testing.assert_array_equal(
+            data[:, :, 10:20, 5:25], d, err_msg="crop not equal image center"
+        )
+        np.testing.assert_array_equal(
+            seg[:, :, 10:20, 5:25], s, err_msg="crop not equal image center"
+        )
 
     def test_center_crop_3D_list(self):
         data = np.random.random((8, 4, 30, 30, 30))
@@ -191,16 +314,34 @@ class TestCrop(unittest.TestCase):
 
         d, s = center_crop(data, crop_size=crop_size, seg=seg)
 
-        self.assertTrue(all(i == j for i, j in zip((8, 4, crop_size[0], crop_size[1], crop_size[2]), d.shape)),
-                        "data has unexpected return shape")
-        self.assertTrue(all(i == j for i, j in zip((8, 4, crop_size[0], crop_size[1], crop_size[2]), s.shape)),
-                        "seg has unexpected return shape")
+        self.assertTrue(
+            all(
+                i == j
+                for i, j in zip(
+                    (8, 4, crop_size[0], crop_size[1], crop_size[2]), d.shape
+                )
+            ),
+            "data has unexpected return shape",
+        )
+        self.assertTrue(
+            all(
+                i == j
+                for i, j in zip(
+                    (8, 4, crop_size[0], crop_size[1], crop_size[2]), s.shape
+                )
+            ),
+            "seg has unexpected return shape",
+        )
 
-        np.testing.assert_array_equal(data[:, :, 10:20, 5:25, 0:29], d, err_msg="crop not equal image center")
-        np.testing.assert_array_equal(seg[:, :, 10:20, 5:25, 0:29], s, err_msg="crop not equal image center")
+        np.testing.assert_array_equal(
+            data[:, :, 10:20, 5:25, 0:29], d, err_msg="crop not equal image center"
+        )
+        np.testing.assert_array_equal(
+            seg[:, :, 10:20, 5:25, 0:29], s, err_msg="crop not equal image center"
+        )
 
     def test_pad_nd_image_and_seg_2D(self):
-        print('Test test_pad_nd_image_and_seg_2D. [START]')
+        print("Test test_pad_nd_image_and_seg_2D. [START]")
         input_shape = (5, 5, 30, 30)
         data = np.random.random(input_shape)
         seg = np.random.random(data.shape)
@@ -218,72 +359,196 @@ class TestCrop(unittest.TestCase):
         number_of_padded_ones7 = np.prod(new_shape7) - np.prod(input_shape)
 
         data_padded, seg_padded = pad_nd_image_and_seg(data, seg, new_shape=new_shape)
-        data_padded2, seg_padded2 = pad_nd_image_and_seg(data, seg, new_shape=new_shape2)
-        data_padded3, seg_padded3 = pad_nd_image_and_seg(data, seg, new_shape=new_shape3)
-        data_padded4, seg_padded4 = pad_nd_image_and_seg(data, seg, new_shape=new_shape4)
-        data_padded5, seg_padded5 = pad_nd_image_and_seg(data, seg, new_shape=new_shape5)
-        data_padded7, seg_padded7 = pad_nd_image_and_seg(data, seg, new_shape=new_shape7, np_pad_kwargs_seg={'constant_values': 1})
+        data_padded2, seg_padded2 = pad_nd_image_and_seg(
+            data, seg, new_shape=new_shape2
+        )
+        data_padded3, seg_padded3 = pad_nd_image_and_seg(
+            data, seg, new_shape=new_shape3
+        )
+        data_padded4, seg_padded4 = pad_nd_image_and_seg(
+            data, seg, new_shape=new_shape4
+        )
+        data_padded5, seg_padded5 = pad_nd_image_and_seg(
+            data, seg, new_shape=new_shape5
+        )
+        data_padded7, seg_padded7 = pad_nd_image_and_seg(
+            data, seg, new_shape=new_shape7, np_pad_kwargs_seg={"constant_values": 1}
+        )
 
-        print('Zero padding to bigger output shape in all dimensions. [START]')
-        self.assertTrue(all(i == j for i, j in zip(new_shape, data_padded.shape)), "padded data has unexpected shape")
-        self.assertTrue(all(i == j for i, j in zip(new_shape, seg_padded.shape)), "padded seg has unexpected shape")
-        np.testing.assert_array_equal(data_padded[5:10, 5:10, 10:40, 10:40], data, err_msg="data wrongly padded")
-        np.testing.assert_array_equal(seg_padded[5:10, 5:10, 10:40, 10:40], seg, err_msg="seg wrongly padded")
-        self.assertAlmostEqual(np.sum(data_padded.flatten()), np.sum(data.flatten()), msg="Padding of data is not zero")
-        self.assertAlmostEqual(np.sum(seg_padded.flatten()), np.sum(seg.flatten()), msg="Padding of data is not zero")
-        print('Zero padding to bigger output shape in all dimensions. [DONE]')
+        print("Zero padding to bigger output shape in all dimensions. [START]")
+        self.assertTrue(
+            all(i == j for i, j in zip(new_shape, data_padded.shape)),
+            "padded data has unexpected shape",
+        )
+        self.assertTrue(
+            all(i == j for i, j in zip(new_shape, seg_padded.shape)),
+            "padded seg has unexpected shape",
+        )
+        np.testing.assert_array_equal(
+            data_padded[5:10, 5:10, 10:40, 10:40], data, err_msg="data wrongly padded"
+        )
+        np.testing.assert_array_equal(
+            seg_padded[5:10, 5:10, 10:40, 10:40], seg, err_msg="seg wrongly padded"
+        )
+        self.assertAlmostEqual(
+            np.sum(data_padded.flatten()),
+            np.sum(data.flatten()),
+            msg="Padding of data is not zero",
+        )
+        self.assertAlmostEqual(
+            np.sum(seg_padded.flatten()),
+            np.sum(seg.flatten()),
+            msg="Padding of data is not zero",
+        )
+        print("Zero padding to bigger output shape in all dimensions. [DONE]")
 
-        print('Zero padding to smaller output shape in all dimensions. [START]')
-        self.assertTrue(all(i == j for i, j in zip(input_shape, data_padded2.shape)), "padded data has unexpected shape")
-        self.assertTrue(all(i == j for i, j in zip(input_shape, seg_padded2.shape)), "padded seg has unexpected shape")
-        np.testing.assert_array_equal(data_padded2, data, err_msg="data wrongly padded for smaller output shape than input shape")
-        np.testing.assert_array_equal(seg_padded2, seg, err_msg="seg wrongly padded for smaller output shape than input shape")
-        print('Zero padding to smaller output shape in all dimensions. [DONE]')
+        print("Zero padding to smaller output shape in all dimensions. [START]")
+        self.assertTrue(
+            all(i == j for i, j in zip(input_shape, data_padded2.shape)),
+            "padded data has unexpected shape",
+        )
+        self.assertTrue(
+            all(i == j for i, j in zip(input_shape, seg_padded2.shape)),
+            "padded seg has unexpected shape",
+        )
+        np.testing.assert_array_equal(
+            data_padded2,
+            data,
+            err_msg="data wrongly padded for smaller output shape than input shape",
+        )
+        np.testing.assert_array_equal(
+            seg_padded2,
+            seg,
+            err_msg="seg wrongly padded for smaller output shape than input shape",
+        )
+        print("Zero padding to smaller output shape in all dimensions. [DONE]")
 
-        print('Zero padding to smaller output shape in first two dimensions and bigger output shape in last two dimensions. [START]')
-        self.assertTrue(all(i == j for i, j in zip(expected_shape3, data_padded3.shape)), "padded data has unexpected shape")
-        self.assertTrue(all(i == j for i, j in zip(expected_shape3, seg_padded3.shape)), "padded seg has unexpected shape")
-        np.testing.assert_array_equal(data_padded3[:, :, 10:40, 10:40], data, err_msg="data wrongly padded")
-        np.testing.assert_array_equal(seg_padded3[:, :, 10:40, 10:40], seg, err_msg="seg wrongly padded")
-        self.assertAlmostEqual(np.sum(data_padded3.flatten()), np.sum(data.flatten()), msg="Padding of data is not zero")
-        self.assertAlmostEqual(np.sum(seg_padded3.flatten()), np.sum(seg.flatten()), msg="Padding of data is not zero")
-        print('Zero padding to smaller output shape in first two dimensions and bigger output shape in last two dimensions. [DONE]')
+        print(
+            "Zero padding to smaller output shape in first two dimensions and bigger output shape in last two dimensions. [START]"
+        )
+        self.assertTrue(
+            all(i == j for i, j in zip(expected_shape3, data_padded3.shape)),
+            "padded data has unexpected shape",
+        )
+        self.assertTrue(
+            all(i == j for i, j in zip(expected_shape3, seg_padded3.shape)),
+            "padded seg has unexpected shape",
+        )
+        np.testing.assert_array_equal(
+            data_padded3[:, :, 10:40, 10:40], data, err_msg="data wrongly padded"
+        )
+        np.testing.assert_array_equal(
+            seg_padded3[:, :, 10:40, 10:40], seg, err_msg="seg wrongly padded"
+        )
+        self.assertAlmostEqual(
+            np.sum(data_padded3.flatten()),
+            np.sum(data.flatten()),
+            msg="Padding of data is not zero",
+        )
+        self.assertAlmostEqual(
+            np.sum(seg_padded3.flatten()),
+            np.sum(seg.flatten()),
+            msg="Padding of data is not zero",
+        )
+        print(
+            "Zero padding to smaller output shape in first two dimensions and bigger output shape in last two dimensions. [DONE]"
+        )
 
-        print('Zero padding to odd padding dimensions. [START]')
-        self.assertTrue(all(i == j for i, j in zip(new_shape4, data_padded4.shape)), "padded data has unexpected shape")
-        self.assertTrue(all(i == j for i, j in zip(new_shape4, seg_padded4.shape)), "padded seg has unexpected shape")
-        np.testing.assert_array_equal(data_padded4[:, :, 10:40, 10:40], data, err_msg="data wrongly padded")
-        np.testing.assert_array_equal(seg_padded4[:, :, 10:40, 10:40], seg, err_msg="seg wrongly padded")
-        self.assertAlmostEqual(np.sum(data_padded4.flatten()), np.sum(data.flatten()), msg="Padding of data is not zero")
-        self.assertAlmostEqual(np.sum(seg_padded4.flatten()), np.sum(seg.flatten()), msg="Padding of data is not zero")
-        print('Zero padding to odd padding dimensions. [DONE]')
+        print("Zero padding to odd padding dimensions. [START]")
+        self.assertTrue(
+            all(i == j for i, j in zip(new_shape4, data_padded4.shape)),
+            "padded data has unexpected shape",
+        )
+        self.assertTrue(
+            all(i == j for i, j in zip(new_shape4, seg_padded4.shape)),
+            "padded seg has unexpected shape",
+        )
+        np.testing.assert_array_equal(
+            data_padded4[:, :, 10:40, 10:40], data, err_msg="data wrongly padded"
+        )
+        np.testing.assert_array_equal(
+            seg_padded4[:, :, 10:40, 10:40], seg, err_msg="seg wrongly padded"
+        )
+        self.assertAlmostEqual(
+            np.sum(data_padded4.flatten()),
+            np.sum(data.flatten()),
+            msg="Padding of data is not zero",
+        )
+        self.assertAlmostEqual(
+            np.sum(seg_padded4.flatten()),
+            np.sum(seg.flatten()),
+            msg="Padding of data is not zero",
+        )
+        print("Zero padding to odd padding dimensions. [DONE]")
 
-        print('Zero padding with new_shape.shape smaller than data.shape. [START]')
-        self.assertTrue(all(i == j for i, j in zip(expected_shape5, data_padded5.shape)), "data has unexpected shape")
-        self.assertTrue(all(i == j for i, j in zip(expected_shape5, seg_padded5.shape)), "seg has unexpected shape")
-        np.testing.assert_array_equal(data_padded5[:, :, 10:40, 10:40], data, err_msg="data wrongly padded")
-        np.testing.assert_array_equal(seg_padded5[:, :, 10:40, 10:40], seg, err_msg="seg wrongly padded")
-        self.assertAlmostEqual(np.sum(data_padded5.flatten()), np.sum(data.flatten()), msg="Padding of data is not zero")
-        self.assertAlmostEqual(np.sum(seg_padded5.flatten()), np.sum(seg.flatten()), msg="Padding of data is not zero")
-        print('Zero padding with new_shape.shape smaller than data.shape. [DONE]')
+        print("Zero padding with new_shape.shape smaller than data.shape. [START]")
+        self.assertTrue(
+            all(i == j for i, j in zip(expected_shape5, data_padded5.shape)),
+            "data has unexpected shape",
+        )
+        self.assertTrue(
+            all(i == j for i, j in zip(expected_shape5, seg_padded5.shape)),
+            "seg has unexpected shape",
+        )
+        np.testing.assert_array_equal(
+            data_padded5[:, :, 10:40, 10:40], data, err_msg="data wrongly padded"
+        )
+        np.testing.assert_array_equal(
+            seg_padded5[:, :, 10:40, 10:40], seg, err_msg="seg wrongly padded"
+        )
+        self.assertAlmostEqual(
+            np.sum(data_padded5.flatten()),
+            np.sum(data.flatten()),
+            msg="Padding of data is not zero",
+        )
+        self.assertAlmostEqual(
+            np.sum(seg_padded5.flatten()),
+            np.sum(seg.flatten()),
+            msg="Padding of data is not zero",
+        )
+        print("Zero padding with new_shape.shape smaller than data.shape. [DONE]")
 
-        print('Zero padding with new_shape.shape bigger than data.shape. [START]')
-        self.assertRaises(IndexError, pad_nd_image_and_seg, data, seg,  new_shape=new_shape6)
-        print('Zero padding with new_shape.shape bigger than data.shape. [DONE]')
+        print("Zero padding with new_shape.shape bigger than data.shape. [START]")
+        self.assertRaises(
+            IndexError, pad_nd_image_and_seg, data, seg, new_shape=new_shape6
+        )
+        print("Zero padding with new_shape.shape bigger than data.shape. [DONE]")
 
-        print('Padding to bigger output shape in all dimensions with constant_value=1 for segmentation padding . [START]')
-        self.assertTrue(all(i == j for i, j in zip(new_shape, data_padded.shape)), "padded data has unexpected shape")
-        self.assertTrue(all(i == j for i, j in zip(new_shape, seg_padded.shape)), "padded seg has unexpected shape")
-        np.testing.assert_array_equal(data_padded7[:, :, :, 10:40], data, err_msg="data wrongly padded")
-        np.testing.assert_array_equal(seg_padded7[:, :, :, 10:40], seg, err_msg="seg wrongly padded")
-        self.assertAlmostEqual(np.sum(data_padded7.flatten()), np.sum(data.flatten()), msg="Padding of data is not zero")
-        self.assertAlmostEqual(np.sum(seg_padded7.flatten()), np.sum(seg.flatten()) + number_of_padded_ones7, msg="Padding of data is not one")
-        print('Padding to bigger output shape in all dimensions with constant_value=1 for segmentation padding . [DONE]')
+        print(
+            "Padding to bigger output shape in all dimensions with constant_value=1 for segmentation padding . [START]"
+        )
+        self.assertTrue(
+            all(i == j for i, j in zip(new_shape, data_padded.shape)),
+            "padded data has unexpected shape",
+        )
+        self.assertTrue(
+            all(i == j for i, j in zip(new_shape, seg_padded.shape)),
+            "padded seg has unexpected shape",
+        )
+        np.testing.assert_array_equal(
+            data_padded7[:, :, :, 10:40], data, err_msg="data wrongly padded"
+        )
+        np.testing.assert_array_equal(
+            seg_padded7[:, :, :, 10:40], seg, err_msg="seg wrongly padded"
+        )
+        self.assertAlmostEqual(
+            np.sum(data_padded7.flatten()),
+            np.sum(data.flatten()),
+            msg="Padding of data is not zero",
+        )
+        self.assertAlmostEqual(
+            np.sum(seg_padded7.flatten()),
+            np.sum(seg.flatten()) + number_of_padded_ones7,
+            msg="Padding of data is not one",
+        )
+        print(
+            "Padding to bigger output shape in all dimensions with constant_value=1 for segmentation padding . [DONE]"
+        )
 
-        print('Test test_pad_nd_image_and_seg_2D. [DONE]')
+        print("Test test_pad_nd_image_and_seg_2D. [DONE]")
 
     def test_pad_nd_image_and_seg_3D(self):
-        print('Test test_pad_nd_image_and_seg_3D. [START]')
+        print("Test test_pad_nd_image_and_seg_3D. [START]")
         input_shape = (5, 5, 30, 30, 30)
         data = np.random.random(input_shape)
         seg = np.random.random(data.shape)
@@ -301,70 +566,201 @@ class TestCrop(unittest.TestCase):
         number_of_padded_ones7 = np.prod(new_shape7) - np.prod(input_shape)
 
         data_padded, seg_padded = pad_nd_image_and_seg(data, seg, new_shape=new_shape)
-        data_padded2, seg_padded2 = pad_nd_image_and_seg(data, seg, new_shape=new_shape2)
-        data_padded3, seg_padded3 = pad_nd_image_and_seg(data, seg, new_shape=new_shape3)
-        data_padded4, seg_padded4 = pad_nd_image_and_seg(data, seg, new_shape=new_shape4)
-        data_padded5, seg_padded5 = pad_nd_image_and_seg(data, seg, new_shape=new_shape5)
-        data_padded7, seg_padded7 = pad_nd_image_and_seg(data, seg, new_shape=new_shape7, np_pad_kwargs_data={'constant_values': 1} , np_pad_kwargs_seg={'constant_values': 1})
+        data_padded2, seg_padded2 = pad_nd_image_and_seg(
+            data, seg, new_shape=new_shape2
+        )
+        data_padded3, seg_padded3 = pad_nd_image_and_seg(
+            data, seg, new_shape=new_shape3
+        )
+        data_padded4, seg_padded4 = pad_nd_image_and_seg(
+            data, seg, new_shape=new_shape4
+        )
+        data_padded5, seg_padded5 = pad_nd_image_and_seg(
+            data, seg, new_shape=new_shape5
+        )
+        data_padded7, seg_padded7 = pad_nd_image_and_seg(
+            data,
+            seg,
+            new_shape=new_shape7,
+            np_pad_kwargs_data={"constant_values": 1},
+            np_pad_kwargs_seg={"constant_values": 1},
+        )
 
+        print("Zero padding to bigger output shape in all dimensions. [START]")
+        self.assertTrue(
+            all(i == j for i, j in zip(new_shape, data_padded.shape)),
+            "padded data has unexpected shape",
+        )
+        self.assertTrue(
+            all(i == j for i, j in zip(new_shape, seg_padded.shape)),
+            "padded seg has unexpected shape",
+        )
+        np.testing.assert_array_equal(
+            data_padded[5:10, 5:10, 10:40, 10:40, 10:40],
+            data,
+            err_msg="data wrongly padded",
+        )
+        np.testing.assert_array_equal(
+            seg_padded[5:10, 5:10, 10:40, 10:40, 10:40],
+            seg,
+            err_msg="seg wrongly padded",
+        )
+        self.assertAlmostEqual(
+            np.sum(data_padded.flatten()),
+            np.sum(data.flatten()),
+            msg="Padding of data is not zero",
+        )
+        self.assertAlmostEqual(
+            np.sum(seg_padded.flatten()),
+            np.sum(seg.flatten()),
+            msg="Padding of data is not zero",
+        )
+        print("Zero padding to bigger output shape in all dimensions. [DONE]")
 
-        print('Zero padding to bigger output shape in all dimensions. [START]')
-        self.assertTrue(all(i == j for i, j in zip(new_shape, data_padded.shape)), "padded data has unexpected shape")
-        self.assertTrue(all(i == j for i, j in zip(new_shape, seg_padded.shape)), "padded seg has unexpected shape")
-        np.testing.assert_array_equal(data_padded[5:10, 5:10, 10:40, 10:40, 10:40], data, err_msg="data wrongly padded")
-        np.testing.assert_array_equal(seg_padded[5:10, 5:10, 10:40, 10:40, 10:40], seg, err_msg="seg wrongly padded")
-        self.assertAlmostEqual(np.sum(data_padded.flatten()), np.sum(data.flatten()), msg="Padding of data is not zero")
-        self.assertAlmostEqual(np.sum(seg_padded.flatten()), np.sum(seg.flatten()), msg="Padding of data is not zero")
-        print('Zero padding to bigger output shape in all dimensions. [DONE]')
+        print("Zero padding to smaller output shape in all dimensions. [START]")
+        self.assertTrue(
+            all(i == j for i, j in zip(input_shape, data_padded2.shape)),
+            "padded data has unexpected shape",
+        )
+        self.assertTrue(
+            all(i == j for i, j in zip(input_shape, seg_padded2.shape)),
+            "padded seg has unexpected shape",
+        )
+        np.testing.assert_array_equal(
+            data_padded2,
+            data,
+            err_msg="data wrongly padded for smaller output shape than input shape",
+        )
+        np.testing.assert_array_equal(
+            seg_padded2,
+            seg,
+            err_msg="seg wrongly padded for smaller output shape than input shape",
+        )
+        print("Zero padding to smaller output shape in all dimensions. [DONE]")
 
-        print('Zero padding to smaller output shape in all dimensions. [START]')
-        self.assertTrue(all(i == j for i, j in zip(input_shape, data_padded2.shape)), "padded data has unexpected shape")
-        self.assertTrue(all(i == j for i, j in zip(input_shape, seg_padded2.shape)), "padded seg has unexpected shape")
-        np.testing.assert_array_equal(data_padded2, data, err_msg="data wrongly padded for smaller output shape than input shape")
-        np.testing.assert_array_equal(seg_padded2, seg, err_msg="seg wrongly padded for smaller output shape than input shape")
-        print('Zero padding to smaller output shape in all dimensions. [DONE]')
+        print(
+            "Zero padding to smaller output shape in first two dimensions and bigger output shape in last two dimensions. [START]"
+        )
+        self.assertTrue(
+            all(i == j for i, j in zip(expected_shape3, data_padded3.shape)),
+            "padded data has unexpected shape",
+        )
+        self.assertTrue(
+            all(i == j for i, j in zip(expected_shape3, seg_padded3.shape)),
+            "padded seg has unexpected shape",
+        )
+        np.testing.assert_array_equal(
+            data_padded3[:, :, 10:40, 10:40, 10:40], data, err_msg="data wrongly padded"
+        )
+        np.testing.assert_array_equal(
+            seg_padded3[:, :, 10:40, 10:40, 10:40], seg, err_msg="seg wrongly padded"
+        )
+        self.assertAlmostEqual(
+            np.sum(data_padded3.flatten()),
+            np.sum(data.flatten()),
+            msg="Padding of data is not zero",
+        )
+        self.assertAlmostEqual(
+            np.sum(seg_padded3.flatten()),
+            np.sum(seg.flatten()),
+            msg="Padding of data is not zero",
+        )
+        print(
+            "Zero padding to smaller output shape in first two dimensions and bigger output shape in last two dimensions. [DONE]"
+        )
 
-        print('Zero padding to smaller output shape in first two dimensions and bigger output shape in last two dimensions. [START]')
-        self.assertTrue(all(i == j for i, j in zip(expected_shape3, data_padded3.shape)), "padded data has unexpected shape")
-        self.assertTrue(all(i == j for i, j in zip(expected_shape3, seg_padded3.shape)), "padded seg has unexpected shape")
-        np.testing.assert_array_equal(data_padded3[:, :, 10:40, 10:40, 10:40], data, err_msg="data wrongly padded")
-        np.testing.assert_array_equal(seg_padded3[:, :, 10:40, 10:40, 10:40], seg, err_msg="seg wrongly padded")
-        self.assertAlmostEqual(np.sum(data_padded3.flatten()), np.sum(data.flatten()), msg="Padding of data is not zero")
-        self.assertAlmostEqual(np.sum(seg_padded3.flatten()), np.sum(seg.flatten()), msg="Padding of data is not zero")
-        print('Zero padding to smaller output shape in first two dimensions and bigger output shape in last two dimensions. [DONE]')
+        print("Zero padding to odd padding dimensions. [START]")
+        self.assertTrue(
+            all(i == j for i, j in zip(new_shape4, data_padded4.shape)),
+            "padded data has unexpected shape",
+        )
+        self.assertTrue(
+            all(i == j for i, j in zip(new_shape4, seg_padded4.shape)),
+            "padded seg has unexpected shape",
+        )
+        np.testing.assert_array_equal(
+            data_padded4[:, :, 10:40, 10:40, 9:39], data, err_msg="data wrongly padded"
+        )
+        np.testing.assert_array_equal(
+            seg_padded4[:, :, 10:40, 10:40, 9:39], seg, err_msg="seg wrongly padded"
+        )
+        self.assertAlmostEqual(
+            np.sum(data_padded4.flatten()),
+            np.sum(data.flatten()),
+            msg="Padding of data is not zero",
+        )
+        self.assertAlmostEqual(
+            np.sum(seg_padded4.flatten()),
+            np.sum(seg.flatten()),
+            msg="Padding of data is not zero",
+        )
+        print("Zero padding to odd padding dimensions. [DONE]")
 
-        print('Zero padding to odd padding dimensions. [START]')
-        self.assertTrue(all(i == j for i, j in zip(new_shape4, data_padded4.shape)), "padded data has unexpected shape")
-        self.assertTrue(all(i == j for i, j in zip(new_shape4, seg_padded4.shape)), "padded seg has unexpected shape")
-        np.testing.assert_array_equal(data_padded4[:, :, 10:40, 10:40, 9:39], data, err_msg="data wrongly padded")
-        np.testing.assert_array_equal(seg_padded4[:, :, 10:40, 10:40, 9:39], seg, err_msg="seg wrongly padded")
-        self.assertAlmostEqual(np.sum(data_padded4.flatten()), np.sum(data.flatten()), msg="Padding of data is not zero")
-        self.assertAlmostEqual(np.sum(seg_padded4.flatten()), np.sum(seg.flatten()), msg="Padding of data is not zero")
-        print('Zero padding to odd padding dimensions. [DONE]')
+        print("Zero padding with new_shape.shape smaller than data.shape. [START]")
+        self.assertTrue(
+            all(i == j for i, j in zip(expected_shape5, data_padded5.shape)),
+            "data has unexpected shape",
+        )
+        self.assertTrue(
+            all(i == j for i, j in zip(expected_shape5, seg_padded5.shape)),
+            "seg has unexpected shape",
+        )
+        np.testing.assert_array_equal(
+            data_padded5[:, :, :, 10:40, 10:40], data, err_msg="data wrongly padded"
+        )
+        np.testing.assert_array_equal(
+            seg_padded5[:, :, :, 10:40, 10:40], seg, err_msg="seg wrongly padded"
+        )
+        self.assertAlmostEqual(
+            np.sum(data_padded5.flatten()),
+            np.sum(data.flatten()),
+            msg="Padding of data is not zero",
+        )
+        self.assertAlmostEqual(
+            np.sum(seg_padded5.flatten()),
+            np.sum(seg.flatten()),
+            msg="Padding of data is not zero",
+        )
+        print("Zero padding with new_shape.shape smaller than data.shape. [DONE]")
 
-        print('Zero padding with new_shape.shape smaller than data.shape. [START]')
-        self.assertTrue(all(i == j for i, j in zip(expected_shape5, data_padded5.shape)), "data has unexpected shape")
-        self.assertTrue(all(i == j for i, j in zip(expected_shape5, seg_padded5.shape)), "seg has unexpected shape")
-        np.testing.assert_array_equal(data_padded5[:, :, :, 10:40, 10:40], data, err_msg="data wrongly padded")
-        np.testing.assert_array_equal(seg_padded5[:, :, :, 10:40, 10:40], seg, err_msg="seg wrongly padded")
-        self.assertAlmostEqual(np.sum(data_padded5.flatten()), np.sum(data.flatten()), msg="Padding of data is not zero")
-        self.assertAlmostEqual(np.sum(seg_padded5.flatten()), np.sum(seg.flatten()), msg="Padding of data is not zero")
-        print('Zero padding with new_shape.shape smaller than data.shape. [DONE]')
+        print("Zero padding with new_shape.shape bigger than data.shape. [START]")
+        self.assertRaises(
+            IndexError, pad_nd_image_and_seg, data, seg, new_shape=new_shape6
+        )
+        print("Zero padding with new_shape.shape bigger than data.shape. [DONE]")
 
-        print('Zero padding with new_shape.shape bigger than data.shape. [START]')
-        self.assertRaises(IndexError, pad_nd_image_and_seg, data, seg,  new_shape=new_shape6)
-        print('Zero padding with new_shape.shape bigger than data.shape. [DONE]')
+        print(
+            "Padding to bigger output shape in all dimensions with constant_value=1 for segmentation padding . [START]"
+        )
+        self.assertTrue(
+            all(i == j for i, j in zip(new_shape, data_padded.shape)),
+            "padded data has unexpected shape",
+        )
+        self.assertTrue(
+            all(i == j for i, j in zip(new_shape, seg_padded.shape)),
+            "padded seg has unexpected shape",
+        )
+        np.testing.assert_array_equal(
+            data_padded7[:, :, :, :, 10:40], data, err_msg="data wrongly padded"
+        )
+        np.testing.assert_array_equal(
+            seg_padded7[:, :, :, :, 10:40], seg, err_msg="seg wrongly padded"
+        )
+        self.assertAlmostEqual(
+            np.sum(data_padded7.flatten()),
+            np.sum(data.flatten()) + number_of_padded_ones7,
+            msg="Padding of data is not one",
+        )
+        self.assertAlmostEqual(
+            np.sum(seg_padded7.flatten()),
+            np.sum(seg.flatten()) + number_of_padded_ones7,
+            msg="Padding of data is not one",
+        )
+        print(
+            "Padding to bigger output shape in all dimensions with constant_value=1 for segmentation padding . [DONE]"
+        )
 
-        print('Padding to bigger output shape in all dimensions with constant_value=1 for segmentation padding . [START]')
-        self.assertTrue(all(i == j for i, j in zip(new_shape, data_padded.shape)), "padded data has unexpected shape")
-        self.assertTrue(all(i == j for i, j in zip(new_shape, seg_padded.shape)), "padded seg has unexpected shape")
-        np.testing.assert_array_equal(data_padded7[:, :, :, :, 10:40], data, err_msg="data wrongly padded")
-        np.testing.assert_array_equal(seg_padded7[:, :, :, :, 10:40], seg, err_msg="seg wrongly padded")
-        self.assertAlmostEqual(np.sum(data_padded7.flatten()), np.sum(data.flatten()) + number_of_padded_ones7, msg="Padding of data is not one")
-        self.assertAlmostEqual(np.sum(seg_padded7.flatten()), np.sum(seg.flatten()) + number_of_padded_ones7, msg="Padding of data is not one")
-        print('Padding to bigger output shape in all dimensions with constant_value=1 for segmentation padding . [DONE]')
-
-        print('Test test_pad_nd_image_and_seg_3D. [DONE]')
+        print("Test test_pad_nd_image_and_seg_3D. [DONE]")
 
     def test_center_crop_even(self):
         """
@@ -379,17 +775,32 @@ class TestCrop(unittest.TestCase):
         crop_size = np.array([10, 20, 16])
         shp = np.array(data.shape[2:])
         border = (shp - crop_size) // 2
-        data[:, :, border[0]:(shp[0] + crop_size[0]), border[1]:(shp[1] + crop_size[0]),
-        border[2]:(shp[2] + crop_size[0])] = 1
+        data[
+            :,
+            :,
+            border[0] : (shp[0] + crop_size[0]),
+            border[1] : (shp[1] + crop_size[0]),
+            border[2] : (shp[2] + crop_size[0]),
+        ] = 1
         # same with seg
-        seg[:, :, border[0]:(shp[0] + crop_size[0]), border[1]:(shp[1] + crop_size[0]),
-        border[2]:(shp[2] + crop_size[0])] = 1
+        seg[
+            :,
+            :,
+            border[0] : (shp[0] + crop_size[0]),
+            border[1] : (shp[1] + crop_size[0]),
+            border[2] : (shp[2] + crop_size[0]),
+        ] = 1
 
-        data_cropped, seg_cropped = crop(data, seg, crop_size, margins=(0, 0, 0), crop_type="center")
+        data_cropped, seg_cropped = crop(
+            data, seg, crop_size, margins=(0, 0, 0), crop_type="center"
+        )
 
-        assert np.sum(data_cropped == 0) == 0, "Center crop did not crop the center of data " \
-                                               "(even data and crop size)"
-        assert np.sum(seg_cropped == 0) == 0, "Center crop did not crop the center of seg (even data and crop size)"
+        assert np.sum(data_cropped == 0) == 0, (
+            "Center crop did not crop the center of data " "(even data and crop size)"
+        )
+        assert (
+            np.sum(seg_cropped == 0) == 0
+        ), "Center crop did not crop the center of seg (even data and crop size)"
 
     def test_center_crop_odd(self):
         """
@@ -404,17 +815,33 @@ class TestCrop(unittest.TestCase):
         crop_size = np.array([9, 19, 13])
         shp = np.array(data.shape[2:])
         border = (shp - crop_size) // 2
-        data[:, :, border[0]:(shp[0] + crop_size[0]), border[1]:(shp[1] + crop_size[0]),
-        border[2]:(shp[2] + crop_size[0])] = 1
+        data[
+            :,
+            :,
+            border[0] : (shp[0] + crop_size[0]),
+            border[1] : (shp[1] + crop_size[0]),
+            border[2] : (shp[2] + crop_size[0]),
+        ] = 1
         # same with seg
-        seg[:, :, border[0]:(shp[0] + crop_size[0]), border[1]:(shp[1] + crop_size[0]),
-        border[2]:(shp[2] + crop_size[0])] = 1
+        seg[
+            :,
+            :,
+            border[0] : (shp[0] + crop_size[0]),
+            border[1] : (shp[1] + crop_size[0]),
+            border[2] : (shp[2] + crop_size[0]),
+        ] = 1
 
-        data_cropped, seg_cropped = crop(data, seg, crop_size, margins=(0, 0, 0), crop_type="center")
+        data_cropped, seg_cropped = crop(
+            data, seg, crop_size, margins=(0, 0, 0), crop_type="center"
+        )
 
-        assert np.sum(data_cropped == 0) == 0, "Center crop did not crop the center of data (even data " \
-                                               "and odd crop size)"
-        assert np.sum(seg_cropped == 0) == 0, "Center crop did not crop the center of seg (even data and odd crop size)"
+        assert np.sum(data_cropped == 0) == 0, (
+            "Center crop did not crop the center of data (even data "
+            "and odd crop size)"
+        )
+        assert (
+            np.sum(seg_cropped == 0) == 0
+        ), "Center crop did not crop the center of seg (even data and odd crop size)"
 
     def test_center_crop_negative_margin(self):
         """
@@ -428,22 +855,24 @@ class TestCrop(unittest.TestCase):
 
         # data and set are just ones and will be padded of necessary, so the border will be 0
         border = (crop_size - np.array(data.shape[2:])) // 2
-        assert np.sum(data_cropped[:, :, 0:border[0]]) == 0
-        assert np.sum(data_cropped[:, :, border[0] + crop_size[0]:]) == 0
+        assert np.sum(data_cropped[:, :, 0 : border[0]]) == 0
+        assert np.sum(data_cropped[:, :, border[0] + crop_size[0] :]) == 0
 
-        assert np.sum(data_cropped[:, :, :, 0:border[1]]) == 0
-        assert np.sum(data_cropped[:, :, :, border[1] + crop_size[1]:]) == 0
+        assert np.sum(data_cropped[:, :, :, 0 : border[1]]) == 0
+        assert np.sum(data_cropped[:, :, :, border[1] + crop_size[1] :]) == 0
 
-        data_cropped_back, seg_cropped_back = center_crop(data_cropped, (30, 30, 30), seg_cropped)
+        data_cropped_back, seg_cropped_back = center_crop(
+            data_cropped, (30, 30, 30), seg_cropped
+        )
 
-        self.assertAlmostEqual(np.sum(data_cropped_back) / np.sum(data), 16 / 30.)
+        self.assertAlmostEqual(np.sum(data_cropped_back) / np.sum(data), 16 / 30.0)
 
     def test_randomness_1(self):
         data = np.ones((1, 2, 30, 30, 30))
         crop_size = (16, 16, 16)
         margin = (-4, -4, -4)
 
-        sums = [] # these should always be different
+        sums = []  # these should always be different
         for _ in range(50):
             data_cropped, _ = random_crop(data, crop_size=crop_size, margins=margin)
             s = np.sum(data_cropped[0, 0, 8, 8, :])
@@ -466,5 +895,5 @@ class TestCrop(unittest.TestCase):
         assert len(np.unique(sums)) == 50
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

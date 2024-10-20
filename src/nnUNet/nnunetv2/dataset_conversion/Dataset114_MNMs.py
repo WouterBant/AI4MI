@@ -36,8 +36,12 @@ def read_csv(csv_file: str):
 # Conversion to nnUNet format
 # ------------------------------------------------------------------------------
 def convert_mnms(src_data_folder: Path, csv_file_name: str, dataset_id: int):
-    out_dir, out_train_dir, out_labels_dir, out_test_dir = make_out_dirs(dataset_id, task_name="MNMs")
-    patients_train = [f for f in (src_data_folder / "Training" / "Labeled").iterdir() if f.is_dir()]
+    out_dir, out_train_dir, out_labels_dir, out_test_dir = make_out_dirs(
+        dataset_id, task_name="MNMs"
+    )
+    patients_train = [
+        f for f in (src_data_folder / "Training" / "Labeled").iterdir() if f.is_dir()
+    ]
     patients_test = [f for f in (src_data_folder / "Testing").iterdir() if f.is_dir()]
 
     patient_info = read_csv(str(src_data_folder / csv_file_name))
@@ -57,12 +61,16 @@ def convert_mnms(src_data_folder: Path, csv_file_name: str, dataset_id: int):
         },
         labels={"background": 0, "LVBP": 1, "LVM": 2, "RV": 3},
         file_ending=".nii.gz",
-        num_training_cases=len(patients_train) * 2,  # 2 since we have ED and ES for each patient
+        num_training_cases=len(patients_train)
+        * 2,  # 2 since we have ED and ES for each patient
     )
 
 
 def save_cardiac_phases(
-    patients: list[Path], patient_info: dict[str, dict[str, int]], out_dir: Path, labels_dir: Path = None
+    patients: list[Path],
+    patient_info: dict[str, dict[str, int]],
+    out_dir: Path,
+    labels_dir: Path = None,
 ):
     for patient in patients:
         print(f"Processing patient: {patient.name}")
@@ -71,20 +79,36 @@ def save_cardiac_phases(
         ed_frame = patient_info[patient.name]["ed"]
         es_frame = patient_info[patient.name]["es"]
 
-        save_extracted_nifti_slice(image, ed_frame=ed_frame, es_frame=es_frame, out_dir=out_dir, patient=patient)
+        save_extracted_nifti_slice(
+            image,
+            ed_frame=ed_frame,
+            es_frame=es_frame,
+            out_dir=out_dir,
+            patient=patient,
+        )
 
         if labels_dir:
             label = nib.load(patient / f"{patient.name}_sa_gt.nii.gz")
-            save_extracted_nifti_slice(label, ed_frame=ed_frame, es_frame=es_frame, out_dir=labels_dir, patient=patient)
+            save_extracted_nifti_slice(
+                label,
+                ed_frame=ed_frame,
+                es_frame=es_frame,
+                out_dir=labels_dir,
+                patient=patient,
+            )
 
 
-def save_extracted_nifti_slice(image, ed_frame: int, es_frame: int, out_dir: Path, patient: Path):
+def save_extracted_nifti_slice(
+    image, ed_frame: int, es_frame: int, out_dir: Path, patient: Path
+):
     # Save only extracted diastole and systole slices from the 4D H x W x D x time volume.
     image_ed = nib.Nifti1Image(image.dataobj[..., ed_frame], image.affine)
     image_es = nib.Nifti1Image(image.dataobj[..., es_frame], image.affine)
 
     # Labels do not have modality identifiers. Labels always end with 'gt'.
-    suffix = ".nii.gz" if image.get_filename().endswith("_gt.nii.gz") else "_0000.nii.gz"
+    suffix = (
+        ".nii.gz" if image.get_filename().endswith("_gt.nii.gz") else "_0000.nii.gz"
+    )
 
     nib.save(image_ed, str(out_dir / f"{patient.name}_frame{ed_frame:02d}{suffix}"))
     nib.save(image_es, str(out_dir / f"{patient.name}_frame{es_frame:02d}{suffix}"))
@@ -93,11 +117,19 @@ def save_extracted_nifti_slice(image, ed_frame: int, es_frame: int, out_dir: Pat
 # ------------------------------------------------------------------------------
 # Create custom splits
 # ------------------------------------------------------------------------------
-def create_custom_splits(src_data_folder: Path, csv_file: str, dataset_id: int, num_val_patients: int = 25):
-    existing_splits = os.path.join(nnUNet_preprocessed, f"Dataset{dataset_id}_MNMs", "splits_final.json")
+def create_custom_splits(
+    src_data_folder: Path, csv_file: str, dataset_id: int, num_val_patients: int = 25
+):
+    existing_splits = os.path.join(
+        nnUNet_preprocessed, f"Dataset{dataset_id}_MNMs", "splits_final.json"
+    )
     splits = load_json(existing_splits)
 
-    patients_train = [f.name for f in (src_data_folder / "Training" / "Labeled").iterdir() if f.is_dir()]
+    patients_train = [
+        f.name
+        for f in (src_data_folder / "Training" / "Labeled").iterdir()
+        if f.is_dir()
+    ]
     # Filter out any patients not in the training set
     patient_info = {
         patient: data
@@ -106,20 +138,55 @@ def create_custom_splits(src_data_folder: Path, csv_file: str, dataset_id: int, 
     }
 
     # Get train and validation patients for both vendors
-    patients_a = [patient for patient, patient_data in patient_info.items() if patient_data["vendor"] == "A"]
-    patients_b = [patient for patient, patient_data in patient_info.items() if patient_data["vendor"] == "B"]
+    patients_a = [
+        patient
+        for patient, patient_data in patient_info.items()
+        if patient_data["vendor"] == "A"
+    ]
+    patients_b = [
+        patient
+        for patient, patient_data in patient_info.items()
+        if patient_data["vendor"] == "B"
+    ]
     train_a, val_a = get_vendor_split(patients_a, num_val_patients)
     train_b, val_b = get_vendor_split(patients_b, num_val_patients)
 
     # Build filenames from corresponding patient frames
-    train_a = [f"{patient}_frame{patient_info[patient][frame]:02d}" for patient in train_a for frame in ["es", "ed"]]
-    train_b = [f"{patient}_frame{patient_info[patient][frame]:02d}" for patient in train_b for frame in ["es", "ed"]]
-    train_a_mix_1, train_a_mix_2 = train_a[: len(train_a) // 2], train_a[len(train_a) // 2 :]
-    train_b_mix_1, train_b_mix_2 = train_b[: len(train_b) // 2], train_b[len(train_b) // 2 :]
-    val_a = [f"{patient}_frame{patient_info[patient][frame]:02d}" for patient in val_a for frame in ["es", "ed"]]
-    val_b = [f"{patient}_frame{patient_info[patient][frame]:02d}" for patient in val_b for frame in ["es", "ed"]]
+    train_a = [
+        f"{patient}_frame{patient_info[patient][frame]:02d}"
+        for patient in train_a
+        for frame in ["es", "ed"]
+    ]
+    train_b = [
+        f"{patient}_frame{patient_info[patient][frame]:02d}"
+        for patient in train_b
+        for frame in ["es", "ed"]
+    ]
+    train_a_mix_1, train_a_mix_2 = (
+        train_a[: len(train_a) // 2],
+        train_a[len(train_a) // 2 :],
+    )
+    train_b_mix_1, train_b_mix_2 = (
+        train_b[: len(train_b) // 2],
+        train_b[len(train_b) // 2 :],
+    )
+    val_a = [
+        f"{patient}_frame{patient_info[patient][frame]:02d}"
+        for patient in val_a
+        for frame in ["es", "ed"]
+    ]
+    val_b = [
+        f"{patient}_frame{patient_info[patient][frame]:02d}"
+        for patient in val_b
+        for frame in ["es", "ed"]
+    ]
 
-    for train_set in [train_a, train_b, train_a_mix_1 + train_b_mix_1, train_a_mix_2 + train_b_mix_2]:
+    for train_set in [
+        train_a,
+        train_b,
+        train_a_mix_1 + train_b_mix_1,
+        train_a_mix_2 + train_b_mix_2,
+    ]:
         # For each train set, we evaluate on A, B and (A + B) respectively
         # See table 3 from the original paper for more details.
         splits.append({"train": train_set, "val": val_a})
@@ -139,10 +206,14 @@ def get_vendor_split(patients: list[str], num_val_patients: int):
 if __name__ == "__main__":
     import argparse
 
-    class RawTextArgumentDefaultsHelpFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawTextHelpFormatter):
+    class RawTextArgumentDefaultsHelpFormatter(
+        argparse.ArgumentDefaultsHelpFormatter, argparse.RawTextHelpFormatter
+    ):
         pass
 
-    parser = argparse.ArgumentParser(add_help=False, formatter_class=RawTextArgumentDefaultsHelpFormatter)
+    parser = argparse.ArgumentParser(
+        add_help=False, formatter_class=RawTextArgumentDefaultsHelpFormatter
+    )
     parser.add_argument(
         "-h",
         "--help",
@@ -166,14 +237,18 @@ if __name__ == "__main__":
         help="The downloaded MNMs dataset dir. Should contain a csv file, as well as Training, Validation and Testing "
         "folders.",
     )
+    (
+        parser.add_argument(
+            "-c",
+            "--csv_file_name",
+            type=str,
+            default="211230_M&Ms_Dataset_information_diagnosis_opendataset.csv",
+            help="The csv file containing the dataset information.",
+        ),
+    )
     parser.add_argument(
-        "-c",
-        "--csv_file_name",
-        type=str,
-        default="211230_M&Ms_Dataset_information_diagnosis_opendataset.csv",
-        help="The csv file containing the dataset information.",
-    ),
-    parser.add_argument("-d", "--dataset_id", type=int, default=114, help="nnUNet Dataset ID.")
+        "-d", "--dataset_id", type=int, default=114, help="nnUNet Dataset ID."
+    )
     parser.add_argument(
         "-s",
         "--custom_splits",

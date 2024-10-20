@@ -31,7 +31,9 @@ except ImportError:
     torch = None
 
 
-def producer(queue, data_loader, transform, thread_id, seed, abort_event, wait_time: float = 0.02):
+def producer(
+    queue, data_loader, transform, thread_id, seed, abort_event, wait_time: float = 0.02
+):
     np.random.seed(seed)
     data_loader.set_thread_id(thread_id)
     item = None
@@ -67,12 +69,24 @@ def producer(queue, data_loader, transform, thread_id, seed, abort_event, wait_t
         return
 
 
-def results_loop(in_queues: List[Queue], out_queue: thrQueue, abort_event: Event, pin_memory: bool,
-                 gpu: Union[int, None], wait_time: float, worker_list: list):
-    do_pin_memory = torch is not None and pin_memory and gpu is not None and torch.cuda.is_available()
+def results_loop(
+    in_queues: List[Queue],
+    out_queue: thrQueue,
+    abort_event: Event,
+    pin_memory: bool,
+    gpu: Union[int, None],
+    wait_time: float,
+    worker_list: list,
+):
+    do_pin_memory = (
+        torch is not None
+        and pin_memory
+        and gpu is not None
+        and torch.cuda.is_available()
+    )
 
     if do_pin_memory:
-        print('using pin_memory on device', gpu)
+        print("using pin_memory on device", gpu)
         torch.cuda.set_device(gpu)
 
     item = None
@@ -89,8 +103,10 @@ def results_loop(in_queues: List[Queue], out_queue: thrQueue, abort_event: Event
             # check if all workers are still alive
             if not all([i.is_alive() for i in worker_list]):
                 abort_event.set()
-                raise RuntimeError("One or more background workers are no longer alive. Exiting. Please check the print"
-                                   " statements above for the actual error message")
+                raise RuntimeError(
+                    "One or more background workers are no longer alive. Exiting. Please check the print"
+                    " statements above for the actual error message"
+                )
 
             # if we don't have an item we need to fetch it first. If the queue we want to get it from it empty, try
             # again later
@@ -107,7 +123,7 @@ def results_loop(in_queues: List[Queue], out_queue: thrQueue, abort_event: Event
                                     item[k] = item[k].pin_memory()
                     queue_ctr += 1
 
-                    if isinstance(item, str) and item == 'end':
+                    if isinstance(item, str) and item == "end":
                         end_ctr += 1
                     if end_ctr == len(in_queues):
                         end_ctr = 0
@@ -130,7 +146,7 @@ def results_loop(in_queues: List[Queue], out_queue: thrQueue, abort_event: Event
 
 
 class MultiThreadedAugmenter(object):
-    """ Makes your pipeline multi threaded. Yeah!
+    """Makes your pipeline multi threaded. Yeah!
     If seeded we guarantee that batches are retunred in the same order and with the same augmentation every time this
     is run. This is realized internally by using une queue per worker and querying the queues one ofter the other.
     Args:
@@ -151,8 +167,17 @@ class MultiThreadedAugmenter(object):
         that will come with a performance penalty. Default is 0.02 which will be fine for 50 iterations/s
     """
 
-    def __init__(self, data_loader, transform, num_processes, num_cached_per_queue=2, seeds=None, pin_memory=False,
-                 timeout=10, wait_time=0.02):
+    def __init__(
+        self,
+        data_loader,
+        transform,
+        num_processes,
+        num_cached_per_queue=2,
+        seeds=None,
+        pin_memory=False,
+        timeout=10,
+        wait_time=0.02,
+    ):
         self.timeout = timeout
         self.pin_memory = pin_memory
         self.transform = transform
@@ -186,8 +211,10 @@ class MultiThreadedAugmenter(object):
         while item is None:
             if self.abort_event.is_set():
                 self._finish()
-                raise RuntimeError("One or more background workers are no longer alive. Exiting. Please check the "
-                                   "print statements above for the actual error message")
+                raise RuntimeError(
+                    "One or more background workers are no longer alive. Exiting. Please check the "
+                    "print statements above for the actual error message"
+                )
 
             if not self.pin_memory_queue.empty():
                 item = self.pin_memory_queue.get()
@@ -216,7 +243,9 @@ class MultiThreadedAugmenter(object):
             return item
 
         except KeyboardInterrupt:
-            logging.error("MultiThreadedGenerator: caught exception: {}".format(sys.exc_info()))
+            logging.error(
+                "MultiThreadedGenerator: caught exception: {}".format(sys.exc_info())
+            )
             self.abort_event.set()
             self._finish()
             raise KeyboardInterrupt
@@ -230,14 +259,25 @@ class MultiThreadedAugmenter(object):
             self._queue_ctr = 0
             self._end_ctr = 0
 
-            if hasattr(self.generator, 'was_initialized'):
+            if hasattr(self.generator, "was_initialized"):
                 self.generator.was_initialized = False
 
             with threadpool_limits(limits=1, user_api="blas"):
                 for i in range(self.num_processes):
                     self._queues.append(Queue(self.num_cached_per_queue))
-                    self._processes.append(Process(target=producer, args=(
-                        self._queues[i], self.generator, self.transform, i, self.seeds[i], self.abort_event)))
+                    self._processes.append(
+                        Process(
+                            target=producer,
+                            args=(
+                                self._queues[i],
+                                self.generator,
+                                self.transform,
+                                i,
+                                self.seeds[i],
+                                self.abort_event,
+                            ),
+                        )
+                    )
                     self._processes[-1].daemon = True
                     self._processes[-1].start()
 
@@ -247,25 +287,42 @@ class MultiThreadedAugmenter(object):
                 gpu = None
 
             # more caching = more performance. But don't cache too much or your RAM will hate you
-            self.pin_memory_queue = thrQueue(max(3, self.num_cached_per_queue * self.num_processes // 2))
+            self.pin_memory_queue = thrQueue(
+                max(3, self.num_cached_per_queue * self.num_processes // 2)
+            )
 
-            self.pin_memory_thread = threading.Thread(target=results_loop, args=(
-                self._queues, self.pin_memory_queue, self.abort_event, self.pin_memory, gpu, self.wait_time,
-                self._processes))
+            self.pin_memory_thread = threading.Thread(
+                target=results_loop,
+                args=(
+                    self._queues,
+                    self.pin_memory_queue,
+                    self.abort_event,
+                    self.pin_memory,
+                    gpu,
+                    self.wait_time,
+                    self._processes,
+                ),
+            )
 
             self.pin_memory_thread.daemon = True
             self.pin_memory_thread.start()
 
             self.was_initialized = True
         else:
-            logging.debug("MultiThreadedGenerator Warning: start() has been called but it has already been "
-                          "initialized previously")
+            logging.debug(
+                "MultiThreadedGenerator Warning: start() has been called but it has already been "
+                "initialized previously"
+            )
 
     def _finish(self, timeout=10):
         self.abort_event.set()
 
         start = time()
-        while self.pin_memory_thread is not None and self.pin_memory_thread.is_alive() and start + timeout > time():
+        while (
+            self.pin_memory_thread is not None
+            and self.pin_memory_thread.is_alive()
+            and start + timeout > time()
+        ):
             sleep(0.2)
 
         if len(self._processes) != 0:

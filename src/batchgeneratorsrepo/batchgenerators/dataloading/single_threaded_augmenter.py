@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 class SingleThreadedAugmenter(object):
     """
     Use this for debugging custom transforms. It does not use a background thread and you can therefore easily debug
@@ -25,6 +26,7 @@ class SingleThreadedAugmenter(object):
         transform (Transform instance): Any of our transformations. If you want to use multiple transformations then
         use our Compose transform! Can be None (in that case no transform will be applied)
     """
+
     def __init__(self, data_loader, transform):
         self.data_loader = data_loader
         self.transform = transform

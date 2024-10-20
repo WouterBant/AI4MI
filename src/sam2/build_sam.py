@@ -20,7 +20,6 @@ def build_sam2(
     hydra_overrides_extra=[],
     apply_postprocessing=True,
 ):
-
     if apply_postprocessing:
         hydra_overrides_extra = hydra_overrides_extra.copy()
         hydra_overrides_extra += [

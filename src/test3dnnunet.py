@@ -1,4 +1,4 @@
-# Some command to generate the scripts for some models watch out, if trained with CRF, enable CRF flat 
+# Some command to generate the scripts for some models watch out, if trained with CRF, enable CRF flat
 # ALWAYS CHANGE THE CHECKPOINT PATH AND THE MODEL NAME
 # src/test.py --dataset SEGTHOR --mode full --dest results/SEGTHOR --batch_size 5 --model ENet --num_workers 4 --crf --finetune_crf --from_checkpoint src/samed/checkpoints/sam_vit_b_01ec64.pth
 
@@ -27,7 +27,7 @@ from utils import (
     class2one_hot,
     probs2one_hot,
 )
-from metrics3d import update_metrics_3D #, print_store_metrics
+from metrics3d import update_metrics_3D  # , print_store_metrics
 from crf_model import apply_crf
 from collections import defaultdict
 import pandas as pd
@@ -55,6 +55,7 @@ datasets_params["SEGTHOR_MANUAL_SPLIT"] = {
     "B": 8,
     "names": ["Background", "Esophagus", "Heart", "Trachea", "Aorta"],
 }
+
 
 def setup(args):
     # Networks and scheduler
@@ -125,7 +126,9 @@ def run_test(args):
 
     # Preallocate the tensors in a dictionary
     predictions = {
-        patient_id: torch.zeros((id2nfiles[patient_id], K, 256, 256), dtype=torch.uint8)  # K - 1 to skip the background class
+        patient_id: torch.zeros(
+            (id2nfiles[patient_id], K, 256, 256), dtype=torch.uint8
+        )  # K - 1 to skip the background class
         for patient_id in id2nfiles
     }
     ground_truths = {
@@ -133,8 +136,8 @@ def run_test(args):
         for patient_id in id2nfiles
     }
     cur_idx = {patient_id: 0 for patient_id in id2nfiles}
-    
-    if args.mode=='partial':
+
+    if args.mode == "partial":
         raise NotImplementedError("args.mode partial training should not be used")
 
     # Loop over the dataset to fill the tensors
@@ -150,7 +153,7 @@ def run_test(args):
                 patient_id = stems[b].split("_")[-2]
                 ground_truths[patient_id][cur_idx[patient_id]] = gt[b]
                 cur_idx[patient_id] += 1
-    
+
     for file_path in args.folder.iterdir():
         if file_path.is_file():
             print("loading", file_path)
@@ -159,34 +162,56 @@ def run_test(args):
             print(array.shape)
             file_name = str(file_path).split("/")[-1]
             id_ = file_name.split("_")[-1].split(".")[0]
-            predictions[id_] = probs2one_hot(F.interpolate(torch.from_numpy(array), size=(256, 256), mode='nearest').permute(1,0,3,2))
+            predictions[id_] = probs2one_hot(
+                F.interpolate(
+                    torch.from_numpy(array), size=(256, 256), mode="nearest"
+                ).permute(1, 0, 3, 2)
+            )
             print(predictions[id_].shape)
 
     # Initialize dataframe for storing metric results
-    columns = ['patient_id', 'slice_name', 'class', 'metric_type', 'metric_value']
+    columns = ["patient_id", "slice_name", "class", "metric_type", "metric_value"]
     metrics = pd.DataFrame(columns=columns)
-    metric_types = ["dice", "sensitivity", "specificity", "iou", "hausdorff", "precision", "volumetric", "VOE"]
+    metric_types = [
+        "dice",
+        "sensitivity",
+        "specificity",
+        "iou",
+        "hausdorff",
+        "precision",
+        "volumetric",
+        "VOE",
+    ]
 
     # now compute the metrics for each patient
     for patient_id in predictions:
         pred = predictions[patient_id]
         gt = ground_truths[patient_id]
         print(pred.shape, gt.shape, "here")
-        metrics = update_metrics_3D(metrics, pred, gt, patient_id, datasets_params[args.dataset]["names"], metric_types)  # TODO implement this
-    
+        metrics = update_metrics_3D(
+            metrics,
+            pred,
+            gt,
+            patient_id,
+            datasets_params[args.dataset]["names"],
+            metric_types,
+        )  # TODO implement this
+
     # Save the metrics in pickle format
     save_directory = Path(f"results_metrics/{str(args.folder)}")
     print(save_directory)
     save_directory.mkdir(parents=True, exist_ok=True)
     metrics.to_csv(str(save_directory) + f"/test_metrics.csv")
 
+
 def convert_to_dict(d):
     if isinstance(d, defaultdict):
         # Recursively convert any nested defaultdicts
         return {k: convert_to_dict(v) for k, v in d.items()}
     else:
-        return d      
-                
+        return d
+
+
 def main():
     parser = argparse.ArgumentParser()
 
@@ -203,12 +228,14 @@ def main():
         help="Destination directory to save the results (predictions and weights).",
     )
     parser.add_argument(
-        "--folder", 
+        "--folder",
         type=Path,
-        default="predictions", 
-        help="Path to folder with predictions"
+        default="predictions",
+        help="Path to folder with predictions",
     )
-    parser.add_argument("--dataset", default="SEGTHOR_MANUAL_SPLIT", choices=datasets_params.keys())
+    parser.add_argument(
+        "--dataset", default="SEGTHOR_MANUAL_SPLIT", choices=datasets_params.keys()
+    )
     parser.add_argument("--mode", default="full", choices=["partial", "full"])
     parser.add_argument("--from_checkpoint", type=Path, default=None)
     parser.add_argument("--gpu", action="store_true")
@@ -224,11 +251,11 @@ def main():
         action="store_true",
         help="Normalize the input images",
     )
+    parser.add_argument("--crf", action="store_true", help="Apply CRF on the output")
     parser.add_argument(
-        "--crf", action="store_true", help="Apply CRF on the output"
-    )
-    parser.add_argument(
-        "--finetune_crf", action="store_true", help="Freeze the model and only train CRF and the last layer"
+        "--finetune_crf",
+        action="store_true",
+        help="Freeze the model and only train CRF and the last layer",
     )
     args = parser.parse_args()
 

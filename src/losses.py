@@ -29,7 +29,7 @@ from torch import einsum
 import argparse
 from typing import Callable
 import monai
-#from monai.losses import DiceLoss, GeneralizedDiceLoss, GeneralizedWassersteinDiceLoss
+# from monai.losses import DiceLoss, GeneralizedDiceLoss, GeneralizedWassersteinDiceLoss
 
 from utils import simplex, sset
 
@@ -68,6 +68,7 @@ def get_loss_fn(args: argparse.Namespace, K) -> Callable:
     else:
         raise ValueError(f"Unsupported loss function: {args.loss}")
 
+
 class CrossEntropy:
     def __init__(self, **kwargs):
         # Self.idk is used to filter out some classes of the target mask. Use fancy indexing
@@ -75,7 +76,9 @@ class CrossEntropy:
         print(f"Initialized {self.__class__.__name__} with {kwargs}")
 
     def __call__(self, pred_softmax, weak_target):
-        assert pred_softmax.shape == weak_target.shape, f"{pred_softmax.shape} != {weak_target.shape}"
+        assert (
+            pred_softmax.shape == weak_target.shape
+        ), f"{pred_softmax.shape} != {weak_target.shape}"
         assert simplex(pred_softmax)
         assert sset(weak_target, [0, 1])
 
@@ -134,6 +137,7 @@ class DiceLoss(nn.Module):
             class_wise_dice.append(1.0 - dice.item())
             loss += dice * weight[i]
         return loss / self.n_classes
+
 
 class DiceCrossEntropy(CrossEntropy):
     def __init__(self, **kwargs):

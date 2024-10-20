@@ -14,8 +14,12 @@
 # limitations under the License.
 
 
-from batchgenerators.augmentations.noise_augmentations import augment_blank_square_noise, augment_gaussian_blur, \
-    augment_gaussian_noise, augment_rician_noise
+from batchgenerators.augmentations.noise_augmentations import (
+    augment_blank_square_noise,
+    augment_gaussian_blur,
+    augment_gaussian_noise,
+    augment_rician_noise,
+)
 from batchgenerators.transforms.abstract_transforms import AbstractTransform
 import numpy as np
 from typing import Union, Tuple
@@ -36,7 +40,9 @@ class RicianNoiseTransform(AbstractTransform):
     CAREFUL: This transform will modify the value range of your data!
     """
 
-    def __init__(self, noise_variance=(0, 0.1), data_key="data", label_key="seg", p_per_sample=1):
+    def __init__(
+        self, noise_variance=(0, 0.1), data_key="data", label_key="seg", p_per_sample=1
+    ):
         self.p_per_sample = p_per_sample
         self.data_key = data_key
         self.label_key = label_key
@@ -45,14 +51,21 @@ class RicianNoiseTransform(AbstractTransform):
     def __call__(self, **data_dict):
         for b in range(len(data_dict[self.data_key])):
             if np.random.uniform() < self.p_per_sample:
-                data_dict[self.data_key][b] = augment_rician_noise(data_dict[self.data_key][b],
-                                                                   noise_variance=self.noise_variance)
+                data_dict[self.data_key][b] = augment_rician_noise(
+                    data_dict[self.data_key][b], noise_variance=self.noise_variance
+                )
         return data_dict
 
 
 class GaussianNoiseTransform(AbstractTransform):
-    def __init__(self, noise_variance=(0, 0.1), p_per_sample=1, p_per_channel: float = 1,
-                 per_channel: bool = False, data_key="data"):
+    def __init__(
+        self,
+        noise_variance=(0, 0.1),
+        p_per_sample=1,
+        p_per_channel: float = 1,
+        per_channel: bool = False,
+        data_key="data",
+    ):
         """
         Adds additive Gaussian Noise
 
@@ -73,15 +86,26 @@ class GaussianNoiseTransform(AbstractTransform):
     def __call__(self, **data_dict):
         for b in range(len(data_dict[self.data_key])):
             if np.random.uniform() < self.p_per_sample:
-                data_dict[self.data_key][b] = augment_gaussian_noise(data_dict[self.data_key][b], self.noise_variance,
-                                                                     self.p_per_channel, self.per_channel)
+                data_dict[self.data_key][b] = augment_gaussian_noise(
+                    data_dict[self.data_key][b],
+                    self.noise_variance,
+                    self.p_per_channel,
+                    self.per_channel,
+                )
         return data_dict
 
 
 class GaussianBlurTransform(AbstractTransform):
-    def __init__(self, blur_sigma: Tuple[float, float] = (1, 5), different_sigma_per_channel: bool = True,
-                 different_sigma_per_axis: bool = False, p_isotropic: float = 0, p_per_channel: float = 1,
-                 p_per_sample: float = 1, data_key: str = "data"):
+    def __init__(
+        self,
+        blur_sigma: Tuple[float, float] = (1, 5),
+        different_sigma_per_channel: bool = True,
+        different_sigma_per_axis: bool = False,
+        p_isotropic: float = 0,
+        p_per_channel: float = 1,
+        p_per_sample: float = 1,
+        data_key: str = "data",
+    ):
         """
 
         :param blur_sigma:
@@ -104,18 +128,29 @@ class GaussianBlurTransform(AbstractTransform):
     def __call__(self, **data_dict):
         for b in range(len(data_dict[self.data_key])):
             if np.random.uniform() < self.p_per_sample:
-                data_dict[self.data_key][b] = augment_gaussian_blur(data_dict[self.data_key][b], self.blur_sigma,
-                                                                    self.different_sigma_per_channel,
-                                                                    self.p_per_channel,
-                                                                    different_sigma_per_axis=self.different_sigma_per_axis,
-                                                                    p_isotropic=self.p_isotropic)
+                data_dict[self.data_key][b] = augment_gaussian_blur(
+                    data_dict[self.data_key][b],
+                    self.blur_sigma,
+                    self.different_sigma_per_channel,
+                    self.p_per_channel,
+                    different_sigma_per_axis=self.different_sigma_per_axis,
+                    p_isotropic=self.p_isotropic,
+                )
         return data_dict
 
 
 class BlankSquareNoiseTransform(AbstractTransform):
-    def __init__(self, squre_size=20, n_squres=1, noise_val=(0, 0), channel_wise_n_val=False, square_pos=None,
-                 data_key="data", label_key="seg", p_per_sample=1):
-
+    def __init__(
+        self,
+        squre_size=20,
+        n_squres=1,
+        noise_val=(0, 0),
+        channel_wise_n_val=False,
+        square_pos=None,
+        data_key="data",
+        label_key="seg",
+        p_per_sample=1,
+    ):
         self.p_per_sample = p_per_sample
         self.data_key = data_key
         self.label_key = label_key
@@ -128,10 +163,16 @@ class BlankSquareNoiseTransform(AbstractTransform):
     def __call__(self, **data_dict):
         for b in range(len(data_dict[self.data_key])):
             if np.random.uniform() < self.p_per_sample:
-                data_dict[self.data_key][b] = augment_blank_square_noise(data_dict[self.data_key][b], self.squre_size,
-                                                                         self.n_squres, self.noise_val,
-                                                                         self.channel_wise_n_val, self.square_pos)
+                data_dict[self.data_key][b] = augment_blank_square_noise(
+                    data_dict[self.data_key][b],
+                    self.squre_size,
+                    self.n_squres,
+                    self.noise_val,
+                    self.channel_wise_n_val,
+                    self.square_pos,
+                )
         return data_dict
+
 
 class ColorFunctionExtractor:
     def __init__(self, rectangle_value):
@@ -149,8 +190,16 @@ class ColorFunctionExtractor:
 
 
 class BlankRectangleTransform(AbstractTransform):
-    def __init__(self, rectangle_size, rectangle_value, num_rectangles, force_square=False, p_per_sample=0.5,
-                 p_per_channel=0.5, apply_to_keys=('data',)):
+    def __init__(
+        self,
+        rectangle_size,
+        rectangle_value,
+        num_rectangles,
+        force_square=False,
+        p_per_sample=0.5,
+        p_per_channel=0.5,
+        apply_to_keys=("data",),
+    ):
         """
         Currently under development. This will replace BlankSquareNoiseTransform soon
 
@@ -205,29 +254,59 @@ class BlankRectangleTransform(AbstractTransform):
                     for c in range(workon.shape[1]):
                         if np.random.uniform(0, 1) < self.p_per_channel:
                             # number of rectangles
-                            n_rect = self.num_rectangles if isinstance(self.num_rectangles, int) else \
-                                np.random.random_integers(*self.num_rectangles)
+                            n_rect = (
+                                self.num_rectangles
+                                if isinstance(self.num_rectangles, int)
+                                else np.random.random_integers(*self.num_rectangles)
+                            )
                             for rect_id in range(n_rect):
                                 if isinstance(self.rectangle_size, int):
-                                    rectangle_size = [self.rectangle_size for d in img_shape]
-                                elif isinstance(self.rectangle_size, (tuple, list)) and \
-                                        all([isinstance(i, int) for i in self.rectangle_size]):
+                                    rectangle_size = [
+                                        self.rectangle_size for d in img_shape
+                                    ]
+                                elif isinstance(
+                                    self.rectangle_size, (tuple, list)
+                                ) and all(
+                                    [isinstance(i, int) for i in self.rectangle_size]
+                                ):
                                     rectangle_size = self.rectangle_size
-                                elif isinstance(self.rectangle_size, (tuple, list)) and \
-                                        all([isinstance(i, (tuple, list)) for i in self.rectangle_size]):
+                                elif isinstance(
+                                    self.rectangle_size, (tuple, list)
+                                ) and all(
+                                    [
+                                        isinstance(i, (tuple, list))
+                                        for i in self.rectangle_size
+                                    ]
+                                ):
                                     if self.force_square:
-                                        rectangle_size = [np.random.random_integers(*self.rectangle_size[0])] * img_dim
+                                        rectangle_size = [
+                                            np.random.random_integers(
+                                                *self.rectangle_size[0]
+                                            )
+                                        ] * img_dim
                                     else:
-                                        rectangle_size = [np.random.random_integers(*self.rectangle_size[d])
-                                                          for d in range(img_dim)]
+                                        rectangle_size = [
+                                            np.random.random_integers(
+                                                *self.rectangle_size[d]
+                                            )
+                                            for d in range(img_dim)
+                                        ]
                                 else:
-                                    raise RuntimeError("unrecognized format for rectangle_size")
+                                    raise RuntimeError(
+                                        "unrecognized format for rectangle_size"
+                                    )
 
-                                lb = [np.random.random_integers(img_shape[i] - rectangle_size[i]) for i in
-                                      range(img_dim)]
+                                lb = [
+                                    np.random.random_integers(
+                                        img_shape[i] - rectangle_size[i]
+                                    )
+                                    for i in range(img_dim)
+                                ]
                                 ub = [i + j for i, j in zip(lb, rectangle_size)]
 
-                                my_slice = tuple([b, c, *[slice(i, j) for i, j in zip(lb, ub)]])
+                                my_slice = tuple(
+                                    [b, c, *[slice(i, j) for i, j in zip(lb, ub)]]
+                                )
 
                                 # figure out intensity value
                                 intensity = self.color_fn(workon[my_slice])
@@ -237,13 +316,14 @@ class BlankRectangleTransform(AbstractTransform):
 
 
 class MedianFilterTransform(AbstractTransform):
-    def __init__(self,
-                 filter_size: Union[int, Tuple[int, int]],
-                 same_for_each_channel: bool = False,
-                 p_per_sample: float = 1.,
-                 p_per_channel: float = 1.,
-                 data_key='data'
-                 ):
+    def __init__(
+        self,
+        filter_size: Union[int, Tuple[int, int]],
+        same_for_each_channel: bool = False,
+        p_per_sample: float = 1.0,
+        p_per_channel: float = 1.0,
+        data_key="data",
+    ):
         """
 
         :param filter_size:
@@ -264,39 +344,44 @@ class MedianFilterTransform(AbstractTransform):
         for b in range(data.shape[0]):
             if np.random.uniform() < self.p_per_sample:
                 if self.same_for_each_channel:
-                    filter_size = self.filter_size if isinstance(self.filter_size, int) else np.random.randint(*self.filter_size)
+                    filter_size = (
+                        self.filter_size
+                        if isinstance(self.filter_size, int)
+                        else np.random.randint(*self.filter_size)
+                    )
                     for c in range(data.shape[1]):
                         if np.random.uniform() < self.p_per_channel:
                             data[b, c] = median_filter(data[b, c], filter_size)
                 else:
                     for c in range(data.shape[1]):
                         if np.random.uniform() < self.p_per_channel:
-                            filter_size = self.filter_size if isinstance(self.filter_size, int) else np.random.randint(*self.filter_size)
+                            filter_size = (
+                                self.filter_size
+                                if isinstance(self.filter_size, int)
+                                else np.random.randint(*self.filter_size)
+                            )
                             data[b, c] = median_filter(data[b, c], filter_size)
         return data_dict
 
 
 class SharpeningTransform(AbstractTransform):
-    filter_2d = np.array([[0, -1, 0],
-                          [-1, 4, -1],
-                          [0, -1, 0]])
-    filter_3d = np.array([[[0, 0, 0],
-                           [0, -1, 0],
-                           [0, 0, 0]],
-                          [[0, -1, 0],
-                           [-1, 6, -1],
-                           [0, -1, 0]],
-                          [[0, 0, 0],
-                           [0, -1, 0],
-                           [0, 0, 0]],
-                          ])
+    filter_2d = np.array([[0, -1, 0], [-1, 4, -1], [0, -1, 0]])
+    filter_3d = np.array(
+        [
+            [[0, 0, 0], [0, -1, 0], [0, 0, 0]],
+            [[0, -1, 0], [-1, 6, -1], [0, -1, 0]],
+            [[0, 0, 0], [0, -1, 0], [0, 0, 0]],
+        ]
+    )
 
-    def __init__(self,
-                 strength: Union[float, Tuple[float, float]] = 0.2,
-                 same_for_each_channel: bool = False,
-                 p_per_sample: float = 1.,
-                 p_per_channel: float = 1.,
-                 data_key='data'):
+    def __init__(
+        self,
+        strength: Union[float, Tuple[float, float]] = 0.2,
+        same_for_each_channel: bool = False,
+        p_per_sample: float = 1.0,
+        p_per_channel: float = 1.0,
+        data_key="data",
+    ):
         """
         :param strength:
         :param same_for_each_channel:
@@ -317,8 +402,11 @@ class SharpeningTransform(AbstractTransform):
             if np.random.uniform() < self.p_per_sample:
                 if self.same_for_each_channel:
                     mn, mx = data[b].min(), data[b].max()
-                    strength_here = self.strength if isinstance(self.strength, float) else np.random.uniform(
-                        *self.strength)
+                    strength_here = (
+                        self.strength
+                        if isinstance(self.strength, float)
+                        else np.random.uniform(*self.strength)
+                    )
                     if len(data.shape) == 4:
                         filter_here = self.filter_2d * strength_here
                         filter_here[1, 1] += 1
@@ -327,39 +415,40 @@ class SharpeningTransform(AbstractTransform):
                         filter_here[1, 1, 1] += 1
                     for c in range(data.shape[1]):
                         if np.random.uniform() < self.p_per_channel:
-                            data[b, c] = convolve(data[b, c],
-                                                  filter_here,
-                                                  mode='same'
-                                                  )
+                            data[b, c] = convolve(data[b, c], filter_here, mode="same")
                             data[b, c] = np.clip(data[b, c], mn, mx)
                 else:
                     for c in range(data.shape[1]):
                         if np.random.uniform() < self.p_per_channel:
                             mn, mx = data[b, c].min(), data[b, c].max()
-                            strength_here = self.strength if isinstance(self.strength, float) else np.random.uniform(
-                                *self.strength)
+                            strength_here = (
+                                self.strength
+                                if isinstance(self.strength, float)
+                                else np.random.uniform(*self.strength)
+                            )
                             if len(data.shape) == 4:
                                 filter_here = self.filter_2d * strength_here
                                 filter_here[1, 1] += 1
                             else:
                                 filter_here = self.filter_3d * strength_here
                                 filter_here[1, 1, 1] += 1
-                            data[b, c] = convolve(data[b, c],
-                                                  filter_here,
-                                                  mode='same'
-                                                  )
+                            data[b, c] = convolve(data[b, c], filter_here, mode="same")
                             data[b, c] = np.clip(data[b, c], mn, mx)
         return data_dict
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     from copy import deepcopy
     from skimage.data import camera
 
     # just some playing around with BrightnessGradientAdditiveTransform
-    data = {'data': np.vstack((camera()[None], camera()[None], camera()[None]))[None, None].astype(np.float32)}
+    data = {
+        "data": np.vstack((camera()[None], camera()[None], camera()[None]))[
+            None, None
+        ].astype(np.float32)
+    }
     tr = MedianFilterTransform((1, 20), True)
-    transformed = tr(**deepcopy(data))['data']
+    transformed = tr(**deepcopy(data))["data"]
     from batchviewer import view_batch
 
-    view_batch(*data['data'][0], *transformed[0])
+    view_batch(*data["data"][0], *transformed[0])

@@ -23,13 +23,12 @@ class BasicDataLoader(SlimDataLoaderBase):
     """
 
     def generate_train_batch(self):
-        #Sample randomly from data
+        # Sample randomly from data
         idx = np.random.choice(self._data[0].shape[0], self.batch_size, True, None)
         # copy data to ensure that we are not modifying the original dataset with subsequeng augmentation techniques!
         x = np.array(self._data[0][idx])
         y = np.array(self._data[1][idx])
-        data_dict = {"data": x,
-                     "seg": y}
+        data_dict = {"data": x, "seg": y}
         return data_dict
 
 
@@ -37,7 +36,8 @@ class DummyGenerator(SlimDataLoaderBase):
     """
     creates random data and seg of shape dataset_size and returns those.
     """
-    def __init__(self, dataset_size, batch_size, fill_data='random', fill_seg='ones'):
+
+    def __init__(self, dataset_size, batch_size, fill_data="random", fill_seg="ones"):
         if fill_data == "random":
             data = np.random.random(dataset_size)
         elif fill_data == "ones":
@@ -57,7 +57,7 @@ class DummyGenerator(SlimDataLoaderBase):
 
         data = self._data[0][idx]
         seg = self._data[1][idx]
-        return {'data': data, 'seg': seg}
+        return {"data": data, "seg": seg}
 
 
 class OneDotDataLoader(SlimDataLoaderBase):
@@ -80,4 +80,4 @@ class OneDotDataLoader(SlimDataLoaderBase):
 
         data = self.data[idx]
         seg = self.data[idx]
-        return {'data': data, 'seg': seg}
+        return {"data": data, "seg": seg}

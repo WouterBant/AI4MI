@@ -18,9 +18,12 @@ from typing import List, Type, Union, Tuple
 
 import numpy as np
 
-from batchgenerators.augmentations.utils import convert_seg_image_to_one_hot_encoding, \
-    convert_seg_to_bounding_box_coordinates, transpose_channels, \
-    ignore_anatomy
+from batchgenerators.augmentations.utils import (
+    convert_seg_image_to_one_hot_encoding,
+    convert_seg_to_bounding_box_coordinates,
+    transpose_channels,
+    ignore_anatomy,
+)
 from batchgenerators.transforms.abstract_transforms import AbstractTransform
 
 
@@ -39,16 +42,16 @@ class NumpyToTensor(AbstractTransform):
 
     def cast(self, tensor):
         if self.cast_to is not None:
-            if self.cast_to == 'half':
+            if self.cast_to == "half":
                 tensor = tensor.half()
-            elif self.cast_to == 'float':
+            elif self.cast_to == "float":
                 tensor = tensor.float()
-            elif self.cast_to == 'long':
+            elif self.cast_to == "long":
                 tensor = tensor.long()
-            elif self.cast_to == 'bool':
+            elif self.cast_to == "bool":
                 tensor = tensor.bool()
             else:
-                raise ValueError('Unknown value for cast_to: %s' % self.cast_to)
+                raise ValueError("Unknown value for cast_to: %s" % self.cast_to)
         return tensor
 
     def __call__(self, **data_dict):
@@ -58,25 +61,33 @@ class NumpyToTensor(AbstractTransform):
             for key, val in data_dict.items():
                 if isinstance(val, np.ndarray):
                     data_dict[key] = self.cast(torch.from_numpy(val)).contiguous()
-                elif isinstance(val, (list, tuple)) and all([isinstance(i, np.ndarray) for i in val]):
-                    data_dict[key] = [self.cast(torch.from_numpy(i)).contiguous() for i in val]
+                elif isinstance(val, (list, tuple)) and all(
+                    [isinstance(i, np.ndarray) for i in val]
+                ):
+                    data_dict[key] = [
+                        self.cast(torch.from_numpy(i)).contiguous() for i in val
+                    ]
         else:
             for key in self.keys:
                 if isinstance(data_dict[key], np.ndarray):
-                    data_dict[key] = self.cast(torch.from_numpy(data_dict[key])).contiguous()
-                elif isinstance(data_dict[key], (list, tuple)) and all([isinstance(i, np.ndarray) for i in data_dict[key]]):
-                    data_dict[key] = [self.cast(torch.from_numpy(i)).contiguous() for i in data_dict[key]]
+                    data_dict[key] = self.cast(
+                        torch.from_numpy(data_dict[key])
+                    ).contiguous()
+                elif isinstance(data_dict[key], (list, tuple)) and all(
+                    [isinstance(i, np.ndarray) for i in data_dict[key]]
+                ):
+                    data_dict[key] = [
+                        self.cast(torch.from_numpy(i)).contiguous()
+                        for i in data_dict[key]
+                    ]
 
         return data_dict
 
 
-
 class ListToNumpy(AbstractTransform):
-    """Utility function for pytorch. Converts data (and seg) numpy ndarrays to pytorch tensors
-    """
+    """Utility function for pytorch. Converts data (and seg) numpy ndarrays to pytorch tensors"""
 
     def __call__(self, **data_dict):
-
         for key, val in data_dict.items():
             if isinstance(val, (list, tuple)):
                 data_dict[key] = np.asarray(val)
@@ -85,8 +96,7 @@ class ListToNumpy(AbstractTransform):
 
 
 class ListToTensor(AbstractTransform):
-    """Utility function for pytorch. Converts data (and seg) numpy ndarrays to pytorch tensors
-    """
+    """Utility function for pytorch. Converts data (and seg) numpy ndarrays to pytorch tensors"""
 
     def __call__(self, **data_dict):
         import torch
@@ -119,12 +129,17 @@ class ConvertSegToOnehotTransform(AbstractTransform):
     def __call__(self, **data_dict):
         seg = data_dict.get("seg")
         if seg is not None:
-            new_seg = np.zeros([seg.shape[0], len(self.classes)] + list(seg.shape[2:]), dtype=seg.dtype)
+            new_seg = np.zeros(
+                [seg.shape[0], len(self.classes)] + list(seg.shape[2:]), dtype=seg.dtype
+            )
             for b in range(seg.shape[0]):
-                new_seg[b] = convert_seg_image_to_one_hot_encoding(seg[b, self.seg_channel], self.classes)
+                new_seg[b] = convert_seg_image_to_one_hot_encoding(
+                    seg[b, self.seg_channel], self.classes
+                )
             data_dict[self.output_key] = new_seg
         else:
             from warnings import warn
+
             warn("calling ConvertSegToOnehotTransform but there is no segmentation")
 
         return data_dict
@@ -139,14 +154,22 @@ class ConvertMultiSegToOnehotTransform(AbstractTransform):
     def __call__(self, **data_dict):
         seg = data_dict.get("seg")
         if seg is not None:
-            new_seg = np.zeros([seg.shape[0], len(self.classes) * seg.shape[1]] + list(seg.shape[2:]), dtype=seg.dtype)
+            new_seg = np.zeros(
+                [seg.shape[0], len(self.classes) * seg.shape[1]] + list(seg.shape[2:]),
+                dtype=seg.dtype,
+            )
             for b in range(seg.shape[0]):
                 for c in range(seg.shape[1]):
-                    new_seg[b, c*len(self.classes):(c+1)*len(self.classes)] = convert_seg_image_to_one_hot_encoding(seg[b, c], self.classes)
+                    new_seg[b, c * len(self.classes) : (c + 1) * len(self.classes)] = (
+                        convert_seg_image_to_one_hot_encoding(seg[b, c], self.classes)
+                    )
             data_dict["seg"] = new_seg
         else:
             from warnings import warn
-            warn("calling ConvertMultiSegToOnehotTransform but there is no segmentation")
+
+            warn(
+                "calling ConvertMultiSegToOnehotTransform but there is no segmentation"
+            )
 
         return data_dict
 
@@ -178,6 +201,7 @@ class ConvertSegToArgmaxTransform(AbstractTransform):
             data_dict["seg"] = seg
         else:
             from warnings import warn
+
             warn("Calling ConvertSegToArgmaxTransform but there is no segmentation")
 
         return data_dict
@@ -201,13 +225,18 @@ class ConvertMultiSegToArgmaxTransform(AbstractTransform):
         if seg is not None:
             if not seg.shape[1] % self.output_channels == 0:
                 from warnings import warn
-                warn("Calling ConvertMultiSegToArgmaxTransform but number of input channels {} cannot be divided into {} output channels.".format(seg.shape[1], self.output_channels))
+
+                warn(
+                    "Calling ConvertMultiSegToArgmaxTransform but number of input channels {} cannot be divided into {} output channels.".format(
+                        seg.shape[1], self.output_channels
+                    )
+                )
             n_labels = seg.shape[1] // self.output_channels
             target_size = list(seg.shape)
             target_size[1] = self.output_channels
             output = np.zeros(target_size, dtype=seg.dtype)
             for i in range(self.output_channels):
-                output[:, i] = np.argmax(seg[:, i*n_labels:(i+1)*n_labels], 1)
+                output[:, i] = np.argmax(seg[:, i * n_labels : (i + 1) * n_labels], 1)
             if self.labels is not None:
                 if list(self.labels) != list(range(n_labels)):
                     for index, value in enumerate(reversed(self.labels)):
@@ -216,22 +245,31 @@ class ConvertMultiSegToArgmaxTransform(AbstractTransform):
             data_dict["seg"] = output
         else:
             from warnings import warn
-            warn("Calling ConvertMultiSegToArgmaxTransform but there is no segmentation")
+
+            warn(
+                "Calling ConvertMultiSegToArgmaxTransform but there is no segmentation"
+            )
 
         return data_dict
 
 
 class ConvertSegToBoundingBoxCoordinates(AbstractTransform):
-    """ Converts segmentation masks into bounding box coordinates.
-    """
+    """Converts segmentation masks into bounding box coordinates."""
 
-    def __init__(self, dim, get_rois_from_seg_flag=False, class_specific_seg_flag=False):
+    def __init__(
+        self, dim, get_rois_from_seg_flag=False, class_specific_seg_flag=False
+    ):
         self.dim = dim
         self.get_rois_from_seg_flag = get_rois_from_seg_flag
         self.class_specific_seg_flag = class_specific_seg_flag
 
     def __call__(self, **data_dict):
-        data_dict = convert_seg_to_bounding_box_coordinates(data_dict, self.dim, self.get_rois_from_seg_flag, class_specific_seg_flag=self.class_specific_seg_flag)
+        data_dict = convert_seg_to_bounding_box_coordinates(
+            data_dict,
+            self.dim,
+            self.get_rois_from_seg_flag,
+            class_specific_seg_flag=self.class_specific_seg_flag,
+        )
         return data_dict
 
 
@@ -239,8 +277,11 @@ class MoveSegToDataChannel(AbstractTransform):
     """
     concatenates data_dict['seg'] to data_dict['data']
     """
+
     def __call__(self, **data_dict):
-        data_dict['data'] = np.concatenate((data_dict['data'], data_dict['seg']), axis=1)
+        data_dict["data"] = np.concatenate(
+            (data_dict["data"], data_dict["seg"]), axis=1
+        )
         return data_dict
 
 
@@ -252,17 +293,17 @@ class ColorChannelToLastAxisTransform(AbstractTransform):
     """
 
     def __call__(self, **data_dict):
-        data_dict['data'] = transpose_channels(data_dict['data'])
-        data_dict['seg'] = transpose_channels(data_dict['seg'])
+        data_dict["data"] = transpose_channels(data_dict["data"])
+        data_dict["seg"] = transpose_channels(data_dict["seg"])
 
         return data_dict
 
 
 class RemoveLabelTransform(AbstractTransform):
-    '''
+    """
     Replaces all pixels in data_dict[input_key] that have value remove_label with replace_with and saves the result to
     data_dict[output_key]
-    '''
+    """
 
     def __init__(self, remove_label, replace_with=0, input_key="seg", output_key="seg"):
         self.output_key = output_key
@@ -283,19 +324,24 @@ class IgnoreAnatomy(AbstractTransform):
     This transform is used for the anatomy-informed augmentation scheme to remove all additional anatomical annotations.
     You can find more information here: https://github.com/MIC-DKFZ/anatomy_informed_DA
     """
+
     def __init__(self, max_annotation_value=1, replace_value=0):
         self.max_annotation_value = max_annotation_value
         self.replace_value = replace_value
 
     def __call__(self, **data_dict):
-        data_dict['seg'] = ignore_anatomy(data_dict['seg'], max_annotation_value=self.max_annotation_value, replace_value=self.replace_value)
+        data_dict["seg"] = ignore_anatomy(
+            data_dict["seg"],
+            max_annotation_value=self.max_annotation_value,
+            replace_value=self.replace_value,
+        )
         return data_dict
 
 
 class RenameTransform(AbstractTransform):
-    '''
+    """
     Saves the value of data_dict[in_key] to data_dict[out_key]. Optionally removes data_dict[in_key] from the dict.
-    '''
+    """
 
     def __init__(self, in_key, out_key, delete_old=False):
         self.delete_old = delete_old
@@ -353,13 +399,11 @@ class CopyTransform(AbstractTransform):
 
 
 class ReshapeTransform(AbstractTransform):
-
     def __init__(self, new_shape, key="data"):
         self.key = key
         self.new_shape = new_shape
 
     def __call__(self, **data_dict):
-
         data_arr = data_dict[self.key]
         data_shape = data_arr.shape
         c, h, w = data_shape[-3:]
@@ -381,9 +425,9 @@ class ReshapeTransform(AbstractTransform):
 
 
 class AddToDictTransform(AbstractTransform):
-    '''
+    """
     Add a value of data_dict[key].
-    '''
+    """
 
     def __init__(self, in_key, in_val, strict=False):
         self.strict = strict
@@ -410,18 +454,22 @@ class AppendChannelsTransform(AbstractTransform):
         self.channel_indexes = channel_indexes
         self.output_key = output_key
         self.input_key = input_key
-        assert isinstance(self.channel_indexes, (tuple, list)), "channel_indexes must be either tuple or list of int"
+        assert isinstance(
+            self.channel_indexes, (tuple, list)
+        ), "channel_indexes must be either tuple or list of int"
 
     def __call__(self, **data_dict):
         inp = data_dict.get(self.input_key)
         outp = data_dict.get(self.output_key)
 
-        assert inp is not None, "input_key %s is not present in data_dict" % self.input_key
+        assert inp is not None, (
+            "input_key %s is not present in data_dict" % self.input_key
+        )
 
         selected_channels = inp[:, self.channel_indexes]
 
         if outp is None:
-            #warn("output key %s is not present in dict, it will be created" % self.output_key)
+            # warn("output key %s is not present in dict, it will be created" % self.output_key)
             outp = selected_channels
             data_dict[self.output_key] = outp
         else:
@@ -429,7 +477,9 @@ class AppendChannelsTransform(AbstractTransform):
             data_dict[self.output_key] = outp
 
         if self.remove_from_input:
-            remaining = [i for i in range(inp.shape[1]) if i not in self.channel_indexes]
+            remaining = [
+                i for i in range(inp.shape[1]) if i not in self.channel_indexes
+            ]
             inp = inp[:, remaining]
             data_dict[self.input_key] = inp
 
@@ -447,17 +497,24 @@ class ConvertToChannelLastTransform(AbstractTransform):
         for k in self.input_keys:
             data = data_dict.get(k)
             if data is None:
-                print("WARNING in ConvertToChannelLastTransform: data_dict has no key named", k)
+                print(
+                    "WARNING in ConvertToChannelLastTransform: data_dict has no key named",
+                    k,
+                )
             else:
                 if len(data.shape) == 4:
                     new_ordering = (0, 2, 3, 1)
                 elif len(data.shape) == 5:
                     new_ordering = (0, 2, 3, 4, 1)
                 else:
-                    raise RuntimeError("unsupported dimensionality for ConvertToChannelLastTransform:",
-                                       len(data.shape),
-                                       ". Only 2d (b, c, x, y) and 3d (b, c, x, y, z) are supported for now.")
-                assert isinstance(data, np.ndarray), "data_dict[k] must be a numpy array"
+                    raise RuntimeError(
+                        "unsupported dimensionality for ConvertToChannelLastTransform:",
+                        len(data.shape),
+                        ". Only 2d (b, c, x, y) and 3d (b, c, x, y, z) are supported for now.",
+                    )
+                assert isinstance(
+                    data, np.ndarray
+                ), "data_dict[k] must be a numpy array"
                 data = data.transpose(new_ordering)
                 data_dict[k] = data
         return data_dict
@@ -478,8 +535,12 @@ class OneOfTransform(AbstractTransform):
 
 
 class OneOfTransformPerSample(AbstractTransform):
-    def __init__(self, list_of_transforms: List, relevant_keys: Union[Tuple[str, ...], List[str]],
-                 p: Tuple[float, ...] = None):
+    def __init__(
+        self,
+        list_of_transforms: List,
+        relevant_keys: Union[Tuple[str, ...], List[str]],
+        p: Tuple[float, ...] = None,
+    ):
         """
         For each sample in a batch, randomly select one of the transforms. Difference to OneOfTransform is that
         OneOfTransform selects a random transform for each batch, so all samples in a batch share that transform
@@ -489,16 +550,18 @@ class OneOfTransformPerSample(AbstractTransform):
         self.relevant_keys = relevant_keys
         self.p = p
         if p is not None:
-            assert len(p) == len(list_of_transforms), 'if sampling probabilities are provided there must be one ' \
-                                                      'probability per transform (length of tuples/lists must match)'
-            assert sum(p) == 1, 'probabilities must sum to 1'
+            assert len(p) == len(list_of_transforms), (
+                "if sampling probabilities are provided there must be one "
+                "probability per transform (length of tuples/lists must match)"
+            )
+            assert sum(p) == 1, "probabilities must sum to 1"
 
     def __call__(self, **data_dict):
         # for each sample in the batch, construct a new dict using the relevant keys. All entries of relevent_keys are
         # expected to have the same length
         some_value = data_dict.get(self.relevant_keys[0])
         for b in range(len(some_value)):
-            new_dict = {i: data_dict[i][b:b+1] for i in self.relevant_keys}
+            new_dict = {i: data_dict[i][b : b + 1] for i in self.relevant_keys}
             random_transform = np.random.choice(len(self.list_of_transforms), p=self.p)
             ret = self.list_of_transforms[random_transform](**new_dict)
             for i in self.relevant_keys:

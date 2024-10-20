@@ -64,9 +64,7 @@ def our_aumentations(img: Tensor, gt: Tensor) -> tuple[Tensor, Tensor]:
         if random_val < 0.3:
             C = gt.size(-3)
             angle = random.uniform(-5, 5)
-            img = TF.rotate(
-                img, angle, interpolation=TF.InterpolationMode.BILINEAR
-            )
+            img = TF.rotate(img, angle, interpolation=TF.InterpolationMode.BILINEAR)
             class_indices = torch.argmax(gt, dim=-3)
             rotated_class_indices = (
                 TF.rotate(
@@ -139,7 +137,7 @@ class SliceDataset(Dataset):
             self.files = self.files[:150]
 
         if self.augmentation_nnunet:
-            self.augmentation_pipeline = AugmentationPipeline((256,256))
+            self.augmentation_pipeline = AugmentationPipeline((256, 256))
 
         print(f">> Created {subset} dataset with {len(self)} images...")
 
@@ -149,20 +147,24 @@ class SliceDataset(Dataset):
     def histogram_equalization(self, img: Tensor) -> Tensor:
         # Convert to numpy for easier histogram manipulation
         img_np = img.cpu().numpy()
-        
+
         # Calculate histogram
-        hist, bin_edges = np.histogram(img_np, bins=256, range=(img_np.min(), img_np.max()))
-        
+        hist, bin_edges = np.histogram(
+            img_np, bins=256, range=(img_np.min(), img_np.max())
+        )
+
         # Calculate cumulative distribution function (CDF)
         cdf = hist.cumsum()
         cdf_normalized = cdf * hist.max() / cdf.max()
-        
+
         # Linear interpolation of CDF to map intensity values
         img_equalized = np.interp(img_np.flatten(), bin_edges[:-1], cdf_normalized)
-        
+
         # Reshape back to original shape and convert to tensor
-        img_equalized = torch.from_numpy(img_equalized.reshape(img_np.shape)).to(img.device)
-        
+        img_equalized = torch.from_numpy(img_equalized.reshape(img_np.shape)).to(
+            img.device
+        )
+
         return img_equalized
 
     def normalize_img(self, img: Tensor) -> Tensor:
@@ -170,10 +172,14 @@ class SliceDataset(Dataset):
         equalized_img = self.histogram_equalization(img)
 
         # Normalize to [-1, 1] range
-        normalized_img = 2 * (equalized_img - equalized_img.min()) / (equalized_img.max() - equalized_img.min()) - 1
+        normalized_img = (
+            2
+            * (equalized_img - equalized_img.min())
+            / (equalized_img.max() - equalized_img.min())
+            - 1
+        )
 
         return normalized_img.float()
-
 
     def __getitem__(self, index) -> dict[str, Union[Tensor, int, str]]:
         img_path, gt_path = self.files[index]
@@ -188,14 +194,20 @@ class SliceDataset(Dataset):
             img, gt = our_aumentations(img, gt)
         elif self.augmentation_nnunet:
             batchgen = CTImageDataset(img, gt, 1, True)
-            augmented_data_generator = self.augmentation_pipeline.create_data_generator(batchgen)
+            augmented_data_generator = self.augmentation_pipeline.create_data_generator(
+                batchgen
+            )
             augmented_batch = next(augmented_data_generator)
             img = augmented_batch["data"][0]
             gt = augmented_batch["seg"][0]
-            gt = F.one_hot(torch.from_numpy(gt).long(), num_classes=5).permute(0, 3, 1, 2).squeeze()
+            gt = (
+                F.one_hot(torch.from_numpy(gt).long(), num_classes=5)
+                .permute(0, 3, 1, 2)
+                .squeeze()
+            )
             img = img.clip(0, 1)
             del batchgen, augmented_data_generator, augmented_batch
-            
+
         _, W, H = img.shape
         K, _, _ = gt.shape
         assert gt.shape == (K, W, H)

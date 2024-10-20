@@ -18,9 +18,15 @@ from time import sleep
 import numpy as np
 from batchgenerators.dataloading.data_loader import SlimDataLoaderBase
 from batchgenerators.dataloading.multi_threaded_augmenter import MultiThreadedAugmenter
-from batchgenerators.examples.multithreaded_dataloading import DummyDL, DummyDLWithShuffle
+from batchgenerators.examples.multithreaded_dataloading import (
+    DummyDL,
+    DummyDLWithShuffle,
+)
 from batchgenerators.transforms.abstract_transforms import Compose
-from batchgenerators.transforms.spatial_transforms import MirrorTransform, TransposeAxesTransform
+from batchgenerators.transforms.spatial_transforms import (
+    MirrorTransform,
+    TransposeAxesTransform,
+)
 from batchgenerators.transforms.utility_transforms import NumpyToTensor
 from skimage.data import camera, checkerboard, astronaut, binary_blobs, coins
 from skimage.transform import resize
@@ -33,23 +39,58 @@ class DummyDL2DImage(SlimDataLoaderBase):
         target_shape = (224, 224)
 
         c = camera()
-        c = resize(c.astype(np.float64), target_shape, 1, anti_aliasing=False, clip=True, mode='reflect').astype(np.float32)
+        c = resize(
+            c.astype(np.float64),
+            target_shape,
+            1,
+            anti_aliasing=False,
+            clip=True,
+            mode="reflect",
+        ).astype(np.float32)
         data.append(c[None])
 
         c = checkerboard()
-        c = resize(c.astype(np.float64), target_shape, 1, anti_aliasing=False, clip=True, mode='reflect').astype(np.float32)
+        c = resize(
+            c.astype(np.float64),
+            target_shape,
+            1,
+            anti_aliasing=False,
+            clip=True,
+            mode="reflect",
+        ).astype(np.float32)
         data.append(c[None])
 
         c = astronaut().mean(-1)
-        c = resize(c.astype(np.float64), target_shape, 1, anti_aliasing=False, clip=True, mode='reflect').astype(np.float32)
+        c = resize(
+            c.astype(np.float64),
+            target_shape,
+            1,
+            anti_aliasing=False,
+            clip=True,
+            mode="reflect",
+        ).astype(np.float32)
         data.append(c[None])
 
         c = binary_blobs()
-        c = resize(c.astype(np.float64), target_shape, 1, anti_aliasing=False, clip=True, mode='reflect').astype(np.float32)
+        c = resize(
+            c.astype(np.float64),
+            target_shape,
+            1,
+            anti_aliasing=False,
+            clip=True,
+            mode="reflect",
+        ).astype(np.float32)
         data.append(c[None])
 
         c = coins()
-        c = resize(c.astype(np.float64), target_shape, 1, anti_aliasing=False, clip=True, mode='reflect').astype(np.float32)
+        c = resize(
+            c.astype(np.float64),
+            target_shape,
+            1,
+            anti_aliasing=False,
+            clip=True,
+            mode="reflect",
+        ).astype(np.float32)
         data.append(c[None])
         data = np.stack(data)
         super(DummyDL2DImage, self).__init__(data, batch_size, num_threads)
@@ -58,15 +99,16 @@ class DummyDL2DImage(SlimDataLoaderBase):
         idx = np.random.choice(len(self._data), self.batch_size)
         res = []
         for i in idx:
-            res.append(self._data[i:i+1])
+            res.append(self._data[i : i + 1])
         res = np.vstack(res)
-        return {'data': res}
+        return {"data": res}
 
 
 class TestMultiThreadedAugmenter(unittest.TestCase):
     """
     This test is inspired by the multithreaded example I did a while back
     """
+
     def setUp(self):
         np.random.seed(1234)
         self.num_threads = 4
@@ -162,21 +204,22 @@ class TestMultiThreadedAugmenter(unittest.TestCase):
         assert all((i == j for i, j in zip(res, np.arange(0, 100))))
 
     def test_image_pipeline_and_pin_memory(self):
-        '''
+        """
         This just should not crash
         :return:
-        '''
+        """
         try:
             import torch
         except ImportError:
-            '''dont test if torch is not installed'''
+            """dont test if torch is not installed"""
             return
-
 
         tr_transforms = []
         tr_transforms.append(MirrorTransform())
-        tr_transforms.append(TransposeAxesTransform(transpose_any_of_these=(0, 1), p_per_sample=0.5))
-        tr_transforms.append(NumpyToTensor(keys='data', cast_to='float'))
+        tr_transforms.append(
+            TransposeAxesTransform(transpose_any_of_these=(0, 1), p_per_sample=0.5)
+        )
+        tr_transforms.append(NumpyToTensor(keys="data", cast_to="float"))
 
         composed = Compose(tr_transforms)
 
@@ -186,22 +229,24 @@ class TestMultiThreadedAugmenter(unittest.TestCase):
         for _ in range(50):
             res = mt.next()
 
-        assert isinstance(res['data'], torch.Tensor)
-        assert res['data'].is_pinned()
+        assert isinstance(res["data"], torch.Tensor)
+        assert res["data"].is_pinned()
 
         # let mt finish caching, otherwise it's going to print an error (which is not a problem and will not prevent
         # the success of the test but it does not look pretty)
         sleep(2)
 
     def test_image_pipeline(self):
-        '''
+        """
         This just should not crash
         :return:
-        '''
+        """
 
         tr_transforms = []
         tr_transforms.append(MirrorTransform())
-        tr_transforms.append(TransposeAxesTransform(transpose_any_of_these=(0, 1), p_per_sample=0.5))
+        tr_transforms.append(
+            TransposeAxesTransform(transpose_any_of_these=(0, 1), p_per_sample=0.5)
+        )
 
         composed = Compose(tr_transforms)
 
@@ -216,7 +261,8 @@ class TestMultiThreadedAugmenter(unittest.TestCase):
         sleep(2)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     from multiprocessing import freeze_support
+
     freeze_support()
     unittest.main()

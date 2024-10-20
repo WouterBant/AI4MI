@@ -2,6 +2,7 @@ import os
 from PIL import Image
 import numpy as np
 
+
 # Function to map the pixel values
 def map_pixel_values(image_array):
     # Create a copy of the array to modify pixel values
@@ -12,11 +13,12 @@ def map_pixel_values(image_array):
     modified_array[image_array == 126] = 2
     modified_array[image_array == 189] = 3
     modified_array[image_array == 252] = 4
-    
+
     return modified_array
 
+
 # Directory containing the PNG images
-image_directory = '/home/scur2527/ai4mi/data/nnUNet_raw/Dataset014_segthor_images_ordinary_manual_split/labelsTr'
+image_directory = "/home/scur2527/ai4mi/data/nnUNet_raw/Dataset014_segthor_images_ordinary_manual_split/labelsTr"
 
 # Iterate through all the files in the directory
 for filename in os.listdir(image_directory):

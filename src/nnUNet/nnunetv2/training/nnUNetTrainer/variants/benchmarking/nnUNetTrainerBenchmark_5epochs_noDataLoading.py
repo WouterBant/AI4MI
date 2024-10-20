@@ -3,7 +3,9 @@ import torch
 from nnunetv2.training.nnUNetTrainer.variants.benchmarking.nnUNetTrainerBenchmark_5epochs import (
     nnUNetTrainerBenchmark_5epochs,
 )
-from nnunetv2.utilities.label_handling.label_handling import determine_num_input_channels
+from nnunetv2.utilities.label_handling.label_handling import (
+    determine_num_input_channels,
+)
 
 
 class nnUNetTrainerBenchmark_5epochs_noDataLoading(nnUNetTrainerBenchmark_5epochs):
@@ -16,17 +18,28 @@ class nnUNetTrainerBenchmark_5epochs_noDataLoading(nnUNetTrainerBenchmark_5epoch
         unpack_dataset: bool = True,
         device: torch.device = torch.device("cuda"),
     ):
-        super().__init__(plans, configuration, fold, dataset_json, unpack_dataset, device)
+        super().__init__(
+            plans, configuration, fold, dataset_json, unpack_dataset, device
+        )
         self._set_batch_size_and_oversample()
         num_input_channels = determine_num_input_channels(
             self.plans_manager, self.configuration_manager, self.dataset_json
         )
         patch_size = self.configuration_manager.patch_size
-        dummy_data = torch.rand((self.batch_size, num_input_channels, *patch_size), device=self.device)
+        dummy_data = torch.rand(
+            (self.batch_size, num_input_channels, *patch_size), device=self.device
+        )
         if self.enable_deep_supervision:
             dummy_target = [
                 torch.round(
-                    torch.rand((self.batch_size, 1, *[int(i * j) for i, j in zip(patch_size, k)]), device=self.device)
+                    torch.rand(
+                        (
+                            self.batch_size,
+                            1,
+                            *[int(i * j) for i, j in zip(patch_size, k)],
+                        ),
+                        device=self.device,
+                    )
                     * max(self.label_manager.all_labels)
                 )
                 for k in self._get_deep_supervision_scales()

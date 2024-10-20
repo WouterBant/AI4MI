@@ -19,8 +19,13 @@ import json
 from typing import List, Union
 
 
-def subdirs(folder: str, join: bool = True, prefix: Union[List[str], str] = None,
-            suffix: Union[List[str], str] = None, sort: bool = True) -> List[str]:
+def subdirs(
+    folder: str,
+    join: bool = True,
+    prefix: Union[List[str], str] = None,
+    suffix: Union[List[str], str] = None,
+    sort: bool = True,
+) -> List[str]:
     if join:
         l = os.path.join
     else:
@@ -31,17 +36,26 @@ def subdirs(folder: str, join: bool = True, prefix: Union[List[str], str] = None
     if suffix is not None and isinstance(suffix, str):
         suffix = [suffix]
 
-    res = [l(folder, i) for i in os.listdir(folder) if os.path.isdir(os.path.join(folder, i))
-           and (prefix is None or any([i.startswith(j) for j in prefix]))
-           and (suffix is None or any([i.endswith(j) for j in suffix]))]
+    res = [
+        l(folder, i)
+        for i in os.listdir(folder)
+        if os.path.isdir(os.path.join(folder, i))
+        and (prefix is None or any([i.startswith(j) for j in prefix]))
+        and (suffix is None or any([i.endswith(j) for j in suffix]))
+    ]
 
     if sort:
         res.sort()
     return res
 
 
-def subfiles(folder: str, join: bool = True, prefix: Union[List[str], str] = None,
-             suffix: Union[List[str], str] = None, sort: bool = True) -> List[str]:
+def subfiles(
+    folder: str,
+    join: bool = True,
+    prefix: Union[List[str], str] = None,
+    suffix: Union[List[str], str] = None,
+    sort: bool = True,
+) -> List[str]:
     if join:
         l = os.path.join
     else:
@@ -52,9 +66,13 @@ def subfiles(folder: str, join: bool = True, prefix: Union[List[str], str] = Non
     if suffix is not None and isinstance(suffix, str):
         suffix = [suffix]
 
-    res = [l(folder, i) for i in os.listdir(folder) if os.path.isfile(os.path.join(folder, i))
-           and (prefix is None or any([i.startswith(j) for j in prefix]))
-           and (suffix is None or any([i.endswith(j) for j in suffix]))]
+    res = [
+        l(folder, i)
+        for i in os.listdir(folder)
+        if os.path.isfile(os.path.join(folder, i))
+        and (prefix is None or any([i.startswith(j) for j in prefix]))
+        and (suffix is None or any([i.endswith(j) for j in suffix]))
+    ]
 
     if sort:
         res.sort()
@@ -62,32 +80,32 @@ def subfiles(folder: str, join: bool = True, prefix: Union[List[str], str] = Non
 
 
 def nifti_files(folder: str, join: bool = True, sort: bool = True) -> List[str]:
-    return subfiles(folder, join=join, sort=sort, suffix='.nii.gz')
+    return subfiles(folder, join=join, sort=sort, suffix=".nii.gz")
 
 
 def maybe_mkdir_p(directory: str) -> None:
     os.makedirs(directory, exist_ok=True)
 
 
-def load_pickle(file: str, mode: str = 'rb'):
+def load_pickle(file: str, mode: str = "rb"):
     with open(file, mode) as f:
         a = pickle.load(f)
     return a
 
 
-def write_pickle(obj, file: str, mode: str = 'wb') -> None:
+def write_pickle(obj, file: str, mode: str = "wb") -> None:
     with open(file, mode) as f:
         pickle.dump(obj, f)
 
 
 def load_json(file: str):
-    with open(file, 'r') as f:
+    with open(file, "r") as f:
         a = json.load(f)
     return a
 
 
 def save_json(obj, file: str, indent: int = 4, sort_keys: bool = True) -> None:
-    with open(file, 'w') as f:
+    with open(file, "w") as f:
         json.dump(obj, f, sort_keys=sort_keys, indent=indent)
 
 

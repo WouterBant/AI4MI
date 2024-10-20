@@ -5,8 +5,13 @@ import numpy as np
 
 
 class ConvertSegmentationToRegionsTransform(AbstractTransform):
-    def __init__(self, regions: Union[List, Tuple],
-                 seg_key: str = "seg", output_key: str = "seg", seg_channel: int = 0):
+    def __init__(
+        self,
+        regions: Union[List, Tuple],
+        seg_key: str = "seg",
+        output_key: str = "seg",
+        seg_channel: int = 0,
+    ):
         """
         regions are tuple of tuples where each inner tuple holds the class indices that are merged into one region,
         example:
@@ -26,7 +31,8 @@ class ConvertSegmentationToRegionsTransform(AbstractTransform):
             b, c, *shape = seg.shape
             region_output = np.zeros((b, len(self.regions), *shape), dtype=bool)
             for region_id, region_labels in enumerate(self.regions):
-                region_output[:, region_id] |= np.isin(seg[:, self.seg_channel], region_labels)
+                region_output[:, region_id] |= np.isin(
+                    seg[:, self.seg_channel], region_labels
+                )
             data_dict[self.output_key] = region_output.astype(np.uint8, copy=False)
         return data_dict
-

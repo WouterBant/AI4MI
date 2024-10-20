@@ -148,11 +148,19 @@ def slice_patient(
             Note that we apply it after resizing, so the ground truth translations don't match.
             """
             # Fix the heart data
-            gt_heart_slice = resize_(to_slice_gt[:, :, idz-15], shape, order=0).astype(np.uint8)
+            gt_heart_slice = resize_(
+                to_slice_gt[:, :, idz - 15], shape, order=0
+            ).astype(np.uint8)
             rotate = np.zeros_like(gt_slice)
             rotate[gt_heart_slice == 2] = 2
             gt_slice[gt_slice == 2] = 0
-            rotated = transforms.functional.affine(torch.from_numpy(rotate[None, ...]), angle=25, translate=(7, 45), scale=1.0, shear=0).squeeze()
+            rotated = transforms.functional.affine(
+                torch.from_numpy(rotate[None, ...]),
+                angle=25,
+                translate=(7, 45),
+                scale=1.0,
+                shear=0,
+            ).squeeze()
             mask = rotated > 0
             gt_slice[mask] = 0
             gt_slice = gt_slice + rotated.numpy()

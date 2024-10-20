@@ -57,8 +57,9 @@ def image_to_nifi(input_path: str, output_path: str) -> None:
     sitk.WriteImage(image_sitk, output_path)
 
 
-def label_mapping(input_path: str, output_path: str, mapping: Dict[int, int] = None) -> None:
-
+def label_mapping(
+    input_path: str, output_path: str, mapping: Dict[int, int] = None
+) -> None:
     label_sitk = sitk.ReadImage(input_path)
     if mapping is not None:
         label_np = sitk.GetArrayFromImage(label_sitk)
@@ -74,8 +75,9 @@ def label_mapping(input_path: str, output_path: str, mapping: Dict[int, int] = N
         sitk.WriteImage(label_sitk, output_path)
 
 
-def process_images(files: str, img_dir_in: str, img_dir_out: str, n_processes: int = 12):
-
+def process_images(
+    files: str, img_dir_in: str, img_dir_out: str, n_processes: int = 12
+):
     os.makedirs(img_dir_out, exist_ok=True)
 
     iterable = [
@@ -91,9 +93,12 @@ def process_images(files: str, img_dir_in: str, img_dir_out: str, n_processes: i
 
 
 def process_labels(
-    files: str, lbl_dir_in: str, lbl_dir_out: str, mapping: Dict[int, int], n_processes: int = 12
+    files: str,
+    lbl_dir_in: str,
+    lbl_dir_out: str,
+    mapping: Dict[int, int],
+    n_processes: int = 12,
 ) -> None:
-
     os.makedirs(lbl_dir_out, exist_ok=True)
 
     iterable = [
@@ -179,7 +184,13 @@ if __name__ == "__main__":
 
     root = "/media/l727r/data/Teeth_Data/ToothFairy2_Dataset"
 
-    process_ds(root, "Dataset112_ToothFairy2", "Dataset119_ToothFairy2_All", mapping_DS119(), None)
+    process_ds(
+        root,
+        "Dataset112_ToothFairy2",
+        "Dataset119_ToothFairy2_All",
+        mapping_DS119(),
+        None,
+    )
     # process_ds(
     #     root,
     #     "Dataset112_ToothFairy2",

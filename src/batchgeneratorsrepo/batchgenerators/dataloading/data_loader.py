@@ -24,7 +24,7 @@ from .dataset import Dataset
 
 
 class DataLoaderBase(object):
-    """ Derive from this class and override generate_train_batch. If you don't want to use this you can use any
+    """Derive from this class and override generate_train_batch. If you don't want to use this you can use any
     generator.
     You can modify this class however you want. How the data is presented as batch is you responsibility. You can sample
     randomly, cycle through the training examples or sample the dtaa according to a specific pattern. Just make sure to
@@ -48,14 +48,20 @@ class DataLoaderBase(object):
         seed (False, None, int): seed to seed the numpy rng with. False = no seeding
 
     """
+
     def __init__(self, data, BATCH_SIZE, num_batches=None, seed=False):
         warnings.simplefilter("once", DeprecationWarning)
-        warn("This DataLoader will soon be removed. Migrate everything to SlimDataLoaderBase now!", DeprecationWarning)
+        warn(
+            "This DataLoader will soon be removed. Migrate everything to SlimDataLoaderBase now!",
+            DeprecationWarning,
+        )
         __metaclass__ = ABCMeta
         self._data = data
         self.BATCH_SIZE = BATCH_SIZE
         if num_batches is not None:
-            warn("We currently strongly discourage using num_batches != None! That does not seem to work properly")
+            warn(
+                "We currently strongly discourage using num_batches != None! That does not seem to work properly"
+            )
         self._num_batches = num_batches
         self._seed = seed
         self._was_initialized = False
@@ -88,9 +94,9 @@ class DataLoaderBase(object):
 
     @abstractmethod
     def generate_train_batch(self):
-        '''override this
+        """override this
         Generate your batch from self._data .Make sure you generate the correct batch size (self.BATCH_SIZE)
-        '''
+        """
         pass
 
 
@@ -127,15 +133,24 @@ class SlimDataLoaderBase(object):
 
     @abstractmethod
     def generate_train_batch(self):
-        '''override this
+        """override this
         Generate your batch from self._data .Make sure you generate the correct batch size (self.BATCH_SIZE)
-        '''
+        """
         pass
 
 
 class DataLoader(SlimDataLoaderBase):
-    def __init__(self, data, batch_size, num_threads_in_multithreaded=1, seed_for_shuffle=None, return_incomplete=False,
-                 shuffle=True, infinite=False, sampling_probabilities=None):
+    def __init__(
+        self,
+        data,
+        batch_size,
+        num_threads_in_multithreaded=1,
+        seed_for_shuffle=None,
+        return_incomplete=False,
+        shuffle=True,
+        infinite=False,
+        sampling_probabilities=None,
+    ):
         """
 
         :param data: will be stored in self._data for use in generate_train_batch
@@ -185,7 +200,12 @@ class DataLoader(SlimDataLoaderBase):
     def get_indices(self):
         # if self.infinite, this is easy
         if self.infinite:
-            return np.random.choice(self.indices, self.batch_size, replace=True, p=self.sampling_probabilities)
+            return np.random.choice(
+                self.indices,
+                self.batch_size,
+                replace=True,
+                p=self.sampling_probabilities,
+            )
 
         if self.last_reached:
             self.reset()
@@ -206,7 +226,9 @@ class DataLoader(SlimDataLoaderBase):
                 break
 
         if len(indices) > 0 and ((not self.last_reached) or self.return_incomplete):
-            self.current_position += (self.number_of_threads_in_multithreaded - 1) * self.batch_size
+            self.current_position += (
+                self.number_of_threads_in_multithreaded - 1
+            ) * self.batch_size
             return indices
         else:
             self.reset()
@@ -214,19 +236,19 @@ class DataLoader(SlimDataLoaderBase):
 
     @abstractmethod
     def generate_train_batch(self):
-        '''
+        """
         make use of self.get_indices() to know what indices to work on!
         :return:
-        '''
+        """
         pass
 
 
 def default_collate(batch):
-    '''
+    """
     heavily inspired by the default_collate function of pytorch
     :param batch:
     :return:
-    '''
+    """
     if isinstance(batch[0], np.ndarray):
         return np.vstack(batch)
     elif isinstance(batch[0], (int, np.int64)):
@@ -243,13 +265,22 @@ def default_collate(batch):
     elif isinstance(batch[0], str):
         return batch
     else:
-        raise TypeError('unknown type for batch:', type(batch))
+        raise TypeError("unknown type for batch:", type(batch))
 
 
 class DataLoaderFromDataset(DataLoader):
-    def __init__(self, data, batch_size, num_threads_in_multithreaded, seed_for_shuffle=1, collate_fn=default_collate,
-                 return_incomplete=False, shuffle=True, infinite=False):
-        '''
+    def __init__(
+        self,
+        data,
+        batch_size,
+        num_threads_in_multithreaded,
+        seed_for_shuffle=1,
+        collate_fn=default_collate,
+        return_incomplete=False,
+        shuffle=True,
+        infinite=False,
+    ):
+        """
         A simple dataloader that can take a Dataset as data.
         It is not super efficient because I cannot make too many hard assumptions about what data_dict will contain.
         If you know what you need, implement your own!
@@ -257,10 +288,16 @@ class DataLoaderFromDataset(DataLoader):
         :param batch_size:
         :param num_threads_in_multithreaded:
         :param seed_for_shuffle:
-        '''
-        super(DataLoaderFromDataset, self).__init__(data, batch_size, num_threads_in_multithreaded, seed_for_shuffle,
-                                                    return_incomplete=return_incomplete, shuffle=shuffle,
-                                                    infinite=infinite)
+        """
+        super(DataLoaderFromDataset, self).__init__(
+            data,
+            batch_size,
+            num_threads_in_multithreaded,
+            seed_for_shuffle,
+            return_incomplete=return_incomplete,
+            shuffle=shuffle,
+            infinite=infinite,
+        )
         self.collate_fn = collate_fn
         assert isinstance(self._data, Dataset)
         self.indices = np.arange(len(data))

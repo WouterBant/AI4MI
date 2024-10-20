@@ -24,27 +24,51 @@ class nnUNetDataLoader2D(nnUNetDataLoaderBase):
             # select a class/region first, then a slice where this class is present, then crop to that area
             if not force_fg:
                 if self.has_ignore:
-                    selected_class_or_region = self.annotated_classes_key if (
-                            len(properties['class_locations'][self.annotated_classes_key]) > 0) else None
+                    selected_class_or_region = (
+                        self.annotated_classes_key
+                        if (
+                            len(
+                                properties["class_locations"][
+                                    self.annotated_classes_key
+                                ]
+                            )
+                            > 0
+                        )
+                        else None
+                    )
                 else:
                     selected_class_or_region = None
             else:
                 # filter out all classes that are not present here
-                eligible_classes_or_regions = [i for i in properties['class_locations'].keys() if len(properties['class_locations'][i]) > 0]
+                eligible_classes_or_regions = [
+                    i
+                    for i in properties["class_locations"].keys()
+                    if len(properties["class_locations"][i]) > 0
+                ]
 
                 # if we have annotated_classes_key locations and other classes are present, remove the annotated_classes_key from the list
                 # strange formulation needed to circumvent
                 # ValueError: The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()
-                tmp = [i == self.annotated_classes_key if isinstance(i, tuple) else False for i in eligible_classes_or_regions]
+                tmp = [
+                    i == self.annotated_classes_key if isinstance(i, tuple) else False
+                    for i in eligible_classes_or_regions
+                ]
                 if any(tmp):
                     if len(eligible_classes_or_regions) > 1:
                         eligible_classes_or_regions.pop(np.where(tmp)[0][0])
 
-                selected_class_or_region = eligible_classes_or_regions[np.random.choice(len(eligible_classes_or_regions))] if \
-                    len(eligible_classes_or_regions) > 0 else None
+                selected_class_or_region = (
+                    eligible_classes_or_regions[
+                        np.random.choice(len(eligible_classes_or_regions))
+                    ]
+                    if len(eligible_classes_or_regions) > 0
+                    else None
+                )
 
             if selected_class_or_region is not None:
-                selected_slice = np.random.choice(properties['class_locations'][selected_class_or_region][:, 1])
+                selected_slice = np.random.choice(
+                    properties["class_locations"][selected_class_or_region][:, 1]
+                )
             else:
                 selected_slice = np.random.choice(len(data[0]))
 
@@ -58,16 +82,28 @@ class nnUNetDataLoader2D(nnUNetDataLoaderBase):
             # - None if we do not have an ignore label and force_fg is False OR if force_fg is True but there is no foreground in the image
             # - A tuple of all (non-ignore) labels if there is an ignore label and force_fg is False
             # - a class or region if force_fg is True
-            class_locations = {
-                selected_class_or_region: properties['class_locations'][selected_class_or_region][properties['class_locations'][selected_class_or_region][:, 1] == selected_slice][:, (0, 2, 3)]
-            } if (selected_class_or_region is not None) else None
+            class_locations = (
+                {
+                    selected_class_or_region: properties["class_locations"][
+                        selected_class_or_region
+                    ][
+                        properties["class_locations"][selected_class_or_region][:, 1]
+                        == selected_slice
+                    ][:, (0, 2, 3)]
+                }
+                if (selected_class_or_region is not None)
+                else None
+            )
 
             # print(properties)
             shape = data.shape[1:]
             dim = len(shape)
-            bbox_lbs, bbox_ubs = self.get_bbox(shape, force_fg if selected_class_or_region is not None else False,
-                                               class_locations, overwrite_class=selected_class_or_region)
-
+            bbox_lbs, bbox_ubs = self.get_bbox(
+                shape,
+                force_fg if selected_class_or_region is not None else False,
+                class_locations,
+                overwrite_class=selected_class_or_region,
+            )
 
             # whoever wrote this knew what he was doing (hint: it was me). We first crop the data to the region of the
             # bbox that actually lies within the data. This will result in a smaller array which is then faster to pad.
@@ -80,42 +116,57 @@ class nnUNetDataLoader2D(nnUNetDataLoaderBase):
             # Why not just concatenate them here and forget about the if statements? Well that's because segneeds to
             # be padded with -1 constant whereas seg_from_previous_stage needs to be padded with 0s (we could also
             # remove label -1 in the data augmentation but this way it is less error prone)
-            this_slice = tuple([slice(0, data.shape[0])] + [slice(i, j) for i, j in zip(valid_bbox_lbs, valid_bbox_ubs)])
+            this_slice = tuple(
+                [slice(0, data.shape[0])]
+                + [slice(i, j) for i, j in zip(valid_bbox_lbs, valid_bbox_ubs)]
+            )
             data = data[this_slice]
 
-            this_slice = tuple([slice(0, seg.shape[0])] + [slice(i, j) for i, j in zip(valid_bbox_lbs, valid_bbox_ubs)])
+            this_slice = tuple(
+                [slice(0, seg.shape[0])]
+                + [slice(i, j) for i, j in zip(valid_bbox_lbs, valid_bbox_ubs)]
+            )
             seg = seg[this_slice]
 
-            padding = [(-min(0, bbox_lbs[i]), max(bbox_ubs[i] - shape[i], 0)) for i in range(dim)]
-            data_all[j] = np.pad(data, ((0, 0), *padding), 'constant', constant_values=0)
-            seg_all[j] = np.pad(seg, ((0, 0), *padding), 'constant', constant_values=-1)
+            padding = [
+                (-min(0, bbox_lbs[i]), max(bbox_ubs[i] - shape[i], 0))
+                for i in range(dim)
+            ]
+            data_all[j] = np.pad(
+                data, ((0, 0), *padding), "constant", constant_values=0
+            )
+            seg_all[j] = np.pad(seg, ((0, 0), *padding), "constant", constant_values=-1)
 
         if self.transforms is not None:
             with torch.no_grad():
                 with threadpool_limits(limits=1, user_api=None):
-
                     data_all = torch.from_numpy(data_all).float()
                     seg_all = torch.from_numpy(seg_all).to(torch.int16)
                     images = []
                     segs = []
                     for b in range(self.batch_size):
-                        tmp = self.transforms(**{'image': data_all[b], 'segmentation': seg_all[b]})
-                        images.append(tmp['image'])
-                        segs.append(tmp['segmentation'])
+                        tmp = self.transforms(
+                            **{"image": data_all[b], "segmentation": seg_all[b]}
+                        )
+                        images.append(tmp["image"])
+                        segs.append(tmp["segmentation"])
                     data_all = torch.stack(images)
                     if isinstance(segs[0], list):
-                        seg_all = [torch.stack([s[i] for s in segs]) for i in range(len(segs[0]))]
+                        seg_all = [
+                            torch.stack([s[i] for s in segs])
+                            for i in range(len(segs[0]))
+                        ]
                     else:
                         seg_all = torch.stack(segs)
                     del segs, images
 
-            return {'data': data_all, 'target': seg_all, 'keys': selected_keys}
+            return {"data": data_all, "target": seg_all, "keys": selected_keys}
 
-        return {'data': data_all, 'target': seg_all, 'keys': selected_keys}
+        return {"data": data_all, "target": seg_all, "keys": selected_keys}
 
 
-if __name__ == '__main__':
-    folder = '/media/fabian/data/nnUNet_preprocessed/Dataset004_Hippocampus/2d'
+if __name__ == "__main__":
+    folder = "/media/fabian/data/nnUNet_preprocessed/Dataset004_Hippocampus/2d"
     ds = nnUNetDataset(folder, None, 1000)  # this should not load the properties!
     dl = nnUNetDataLoader2D(ds, 366, (65, 65), (56, 40), 0.33, None, None)
     a = next(dl)
