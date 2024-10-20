@@ -44,7 +44,7 @@ For future reference: when training a model with `torch.compile` save models wit
 
 ### Running the code
 
-> **Note that for running the SAM based models you also need the checkpoints released by Meta**. These download commands can also be found in [checkpoints/download_checkpoints.sh](checkpoints/download_checkpoints.sh).
+> **Note that for running the SAM based models you also need the checkpoints released by Meta**. These download commands can also be found in [checkpoints/download_checkpoints.sh](checkpoints/download_checkpoints.sh) and [src/download.sh](src/download.sh).
 
 Run training with:
 ```bash
@@ -146,6 +146,7 @@ options:
 </details>
 
 <br> 
+
 Evaluate with 3D metrics with:
 
 ```bash
@@ -190,17 +191,44 @@ We found it easier to evaluate nnU-Net with the predicted logits rather than loa
 python src/test3dnnunet.py
 ```
 
+
+<details> <summary>Click to expand full usage </summary>
+
+<br>
+
+```bash
+usage: test3dnnunet.py [-h] [--batch_size BATCH_SIZE] [--dest DEST] [--folder FOLDER] [--dataset {TOY2,SEGTHOR,SEGTHOR_MANUAL_SPLIT}] [--mode {partial,full}] [--from_checkpoint FROM_CHECKPOINT] [--gpu] [--num_workers NUM_WORKERS] [--debug] [--normalize] [--crf] [--finetune_crf]
+
+options:
+  -h, --help            show this help message and exit
+  --batch_size BATCH_SIZE
+                        Batch size
+  --dest DEST           Destination directory to save the results (predictions and weights).
+  --folder FOLDER       Path to folder with predictions
+  --dataset {TOY2,SEGTHOR,SEGTHOR_MANUAL_SPLIT}
+  --mode {partial,full}
+  --from_checkpoint FROM_CHECKPOINT
+  --gpu
+  --num_workers NUM_WORKERS
+  --debug               Keep only a fraction (10 samples) of the datasets, to test the logic around epochs and logging easily.
+  --normalize           Normalize the input images
+  --crf                 Apply CRF on the output
+  --finetune_crf        Freeze the model and only train CRF and the last layer
+```
+</details>
+
+
 ## Our contributions
 - Notebook showing how we were able to fix the data (with and without the provided transformation matrix) and are able to work with nifti files: [notebooks/heart_transform](notebooks/heart_transform.ipynb), this is incorporated in [src/slice_seghtor.py](src/slice_segthor.py).
-- Implementation of by us chosen metrics: [src/metrics.py](src/metrics.py).
-- [Inference](src/test.py).
+- Implementation of by us chosen metrics: [src/metrics.py](src/metrics.py) [src/metricsed.py](src/metrics3d.py).
+- [2D Inference](src/test.py), [General 3D Inference](src/test3d.py), and [3D NNU-Net Inference](src/test3dnnunet.py).
 - [Our version of SAMed](src/samed/), the most imporatant change is using `masks` instead of `low_res_logits` in the [training loop](src/main.py).
 - [Cosine learning rate scheduler](src/scheduler.py).
 - [CRF wrapper class for models](src/crf_model.py).
 - [Adaptive sampler to downsample only background images](src/adaptive_sampler.py).
 - [Wandb integration with uploading predicted segmentations during training](src/utils.py).
-- Notebooks for [interpretability](notebooks/interpretability.ipynb) (and its [code](notebooks/notebook_utils.py)), [image normalization visualization](notebooks/normalize.ipynb), [augmentation visualization](notebooks/augmentations.ipynb), and [data analysis](notebooks/data_analysis.ipynb) can be found in the [notebooks](notebooks) folder.
-
+- Notebooks for [interpretability](notebooks/interpretability.ipynb) (and its [code](notebooks/notebook_utils.py)), [image normalization visualization](notebooks/normalize.ipynb), [augmentation visualization](notebooks/augmentations.ipynb), and [data analysis](notebooks/data_analysis.ipynb) alongside notebooks to generate all figures presented in our paper (and more) can be found in the [notebooks](notebooks) folder.
+- [Framework for Ensemble models](src/EnsembleModel.py) results were not clear improvement so left out of paper.
 
 ## Acknowledgements
 This was part of a project for the course AI for Medical Imaging (2024) at the University of Amsterdam. Some base code was provided: https://github.com/HKervadec/ai4mi_project. 
