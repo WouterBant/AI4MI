@@ -221,7 +221,7 @@ options:
 ## Our contributions
 - Notebook showing how we were able to fix the data (with and without the provided transformation matrix) and are able to work with nifti files: [notebooks/heart_transform](notebooks/heart_transform.ipynb), this is incorporated in [src/slice_seghtor.py](src/slice_segthor.py).
 - Implementation of by us chosen metrics: [src/metrics.py](src/metrics.py) [src/metricsed.py](src/metrics3d.py).
-- [2D Inference](src/test.py), [General 3D Inference](src/test3d.py), and [3D NNU-Net Inference](src/test3dnnunet.py).
+- [2D Inference](src/test.py), [General 3D Inference](src/test3d.py), and [3D nnU-Net Inference](src/test3dnnunet.py).
 - [Our version of SAMed](src/samed/), the most imporatant change is using `masks` instead of `low_res_logits` in the [training loop](src/main.py).
 - [Cosine learning rate scheduler](src/scheduler.py).
 - [CRF wrapper class for models](src/crf_model.py).
