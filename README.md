@@ -233,7 +233,7 @@ options:
 ## Acknowledgements
 This was part of a project for the course AI for Medical Imaging (2024) at the University of Amsterdam. Some base code was provided: https://github.com/HKervadec/ai4mi_project. 
 
-- SAM: https://github.com/facebookresearch/segment-an
+- SAM: https://github.com/facebookresearch/segment-anything
 - Implementation for LoRA for SAM: https://github.com/JamesQFreeman/Sam_LoRA
 - We further adopted parts of the code of samed who also fine-tuned SAM for medical image segmentation: https://github.com/hitachinsk/SAMed
 - nnU-Net: https://github.com/MIC-DKFZ/nnUNet
