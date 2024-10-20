@@ -228,7 +228,7 @@ options:
 - [Adaptive sampler to downsample only background images](src/adaptive_sampler.py).
 - [Wandb integration with uploading predicted segmentations during training](src/utils.py).
 - Notebooks for [interpretability](notebooks/interpretability.ipynb) (and its [code](notebooks/notebook_utils.py)), [image normalization visualization](notebooks/normalize.ipynb), [augmentation visualization](notebooks/augmentations.ipynb), and [data analysis](notebooks/data_analysis.ipynb) alongside notebooks to generate all figures presented in our paper (and more) can be found in the [notebooks](notebooks) folder.
-- [Framework for Ensemble models](src/EnsembleModel.py) results were not clear improvement so left out of paper.
+- [Framework for Ensemble models](src/EnsembleModel.py) (results were not clear improvement so left out of paper).
 
 ## Acknowledgements
 This was part of a project for the course AI for Medical Imaging (2024) at the University of Amsterdam. Some base code was provided: https://github.com/HKervadec/ai4mi_project. 
