@@ -103,7 +103,9 @@ options:
 
 <br>
 
-And evaluation on 2D metrics with:
+Training nnU-Net was easily done by following instructions from their [README](src/nnUNet/readme.md).
+
+Evaluation on 2D metrics with:
 
 ```bash
 python src/test.py --from_checkpoint [your_checkpoint]
