@@ -221,16 +221,19 @@ options:
 
 
 ## Our contributions
-- Notebook showing how we were able to fix the data (with and without the provided transformation matrix) and are able to work with nifti files: [notebooks/heart_transform](notebooks/heart_transform.ipynb), this is incorporated in [src/slice_seghtor.py](src/slice_segthor.py).
-- Implementation of by us chosen metrics: [src/metrics.py](src/metrics.py) [src/metricsed.py](src/metrics3d.py).
-- [2D Inference](src/test.py), [General 3D Inference](src/test3d.py), and [3D nnU-Net Inference](src/test3dnnunet.py).
-- [Our version of SAMed](src/samed/), the most imporatant change is using `masks` instead of `low_res_logits` in the [training loop](src/main.py).
-- [Cosine learning rate scheduler](src/scheduler.py).
-- [CRF wrapper class for models](src/crf_model.py).
-- [Adaptive sampler to downsample only background images](src/adaptive_sampler.py).
-- [Wandb integration with uploading predicted segmentations during training](src/utils.py).
-- Notebooks for [interpretability](notebooks/interpretability.ipynb) (and its [code](notebooks/notebook_utils.py)), [image normalization visualization](notebooks/normalize.ipynb), [augmentation visualization](notebooks/augmentations.ipynb), and [data analysis](notebooks/data_analysis.ipynb) alongside notebooks to generate all figures presented in our paper (and more) can be found in the [notebooks](notebooks) folder.
-- [Framework for Ensemble models](src/EnsembleModel.py) (results were not clear improvement so left out of paper).
+- Notebook showing how we were able to fix the data (with and without the provided transformation matrix) and are able to work with nifti files: [notebooks/heart_transform](notebooks/heart_transform.ipynb), this is incorporated in [src/slice_seghtor.py](src/slice_segthor.py). (Wouter / Liang)
+- Implementation of by us chosen metrics: [src/metrics.py](src/metrics.py) [src/metrics3d.py](src/metrics3d.py). (Jasper)
+- [2D Inference](src/test.py), [General 3D Inference](src/test3d.py), and [3D nnU-Net Inference](src/test3dnnunet.py). (Jasper / Wouter)
+- [Our version of SAMed](src/samed/), the most imporatant change is using `masks` instead of `low_res_logits` in the [training loop](src/main.py). (Wouter)
+- [Cosine learning rate scheduler](src/scheduler.py). (Wouter)
+- [CRF wrapper class for models](src/crf_model.py). (Sacha)
+- [Adaptive sampler to downsample only background images](src/adaptive_sampler.py). (Sacha)
+- [Wandb integration with uploading predicted segmentations during training](src/utils.py). (Wouter)
+- Notebooks for [interpretability](notebooks/interpretability.ipynb) (and its [code](notebooks/notebook_utils.py)), [image normalization visualization](notebooks/normalize.ipynb), [augmentation visualization](notebooks/augmentations.ipynb), and [data analysis](notebooks/data_analysis.ipynb) alongside notebooks to generate all figures presented in our paper (and more) can be found in the [notebooks](notebooks) folder. (Sacha / Liang / Sacha / Jesse / Wouter)
+- [Framework for Ensemble models](src/EnsembleModel.py) (results were not clear improvement so left out of paper). (Liang)
+- Training and evaluating SAM2U-Net. (Liang)
+- Training and evaluating nnU-Net. (Jesse)
+- Training and evaluating (+hyperparameter search) ENet. (Jesse)
 
 ## Acknowledgements
 This was part of a project for the course AI for Medical Imaging (2024) at the University of Amsterdam. Some base code was provided: https://github.com/HKervadec/ai4mi_project. 
