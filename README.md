@@ -229,7 +229,7 @@ options:
 - [CRF wrapper class for models](src/crf_model.py). (Sacha)
 - [Adaptive sampler to downsample only background images](src/adaptive_sampler.py). (Sacha)
 - [Wandb integration with uploading predicted segmentations during training](src/utils.py). (Wouter)
-- Notebooks for [interpretability](notebooks/interpretability.ipynb) (and its [code](notebooks/notebook_utils.py)), [image normalization visualization](notebooks/normalize.ipynb), [augmentation visualization](notebooks/augmentations.ipynb), and [data analysis](notebooks/data_analysis.ipynb) alongside notebooks to generate all figures presented in our paper (and more) can be found in the [notebooks](notebooks) folder. (Sacha / Liang / Sacha / Jesse / Wouter)
+- Notebooks for [interpretability](notebooks/interpretability.ipynb) (and its [code](notebooks/notebook_utils.py)), [image normalization visualization](notebooks/normalize.ipynb), [augmentation visualization](notebooks/augmentations.ipynb), and [data analysis](notebooks/data_analysis.ipynb) alongside notebooks to generate all figures presented in our paper (and more) can be found in the [notebooks](notebooks) folder. (Sacha / Liang / Jasper / Jesse / Wouter)
 - [Framework for Ensemble models](src/EnsembleModel.py) (results were not clear improvement so left out of paper). (Liang)
 - Training and evaluating SAM2U-Net. (Liang)
 - Training and evaluating nnU-Net. (Jesse)
