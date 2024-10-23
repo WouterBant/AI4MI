@@ -105,7 +105,7 @@ options:
 
 Training nnU-Net was easily done by following instructions from their [README](src/nnUNet/readme.md).
 
-> To train nnU-Net for the Segthor dataset first follow the instructions in the nnU-net [README](src/nnUNet/readme.md) up until the creation of the dataset. Then run [src/nnUNet/custom_scripts/nnunet_format_ordinary.py](src/nnUNet/custom_scripts/nnunet_format_ordinary.py) using the directory of the created dataset directory as an argument. This ensures the mask values from the Segthor dataset which range from 0-255 are cast to the class values ranging from 0-4. Then continue the instructions in the nnU-net [README](src/nnUNet/readme.md) to train the different configurations.
+> To train nnU-Net for the Segthor dataset first follow the instructions in the nnU-net [README](src/nnUNet/readme.md) up until the creation of the dataset. Then run [src/nnUNet/custom_scripts/nnunet_format_ordinary.py](src/nnUNet/custom_scripts/nnunet_format_ordinary.py) using the directory of the labels of the created dataset as an argument. This ensures the mask values from the Segthor dataset which range from 0-255 are cast to the class values ranging from 0-4. Then continue the instructions in the nnU-net [README](src/nnUNet/readme.md) to train the different configurations.
 
 Evaluation on 2D metrics with:
 
