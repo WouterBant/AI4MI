@@ -222,8 +222,7 @@ options:
 </details>
 
 
-## Notes on training and evaluating nnU-Net
-To train nnU-Net first follow the instructions in the nnU-net [README](src/nnUNet/readme.md) up until the creation of the dataset. Then run [src/nnUNet/custom_scripts/nnunet_format_ordinary.py](src/nnUNet/custom_scripts/nnunet_format_ordinary.py) using the directory of the created dataset directory as an argument. This ensures the mask values ranging from 0-255 are cast to the class values ranging from 0-4. Then continue the instructions in the nnU-net [README](src/nnUNet/readme.md) to train the different configurations.
+
 
 
 
